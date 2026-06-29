@@ -110,7 +110,4 @@ Tekan **`Ctrl + C`** di terminal.
 
 ## 📞 Kontak
 
-Jika ada kendala, hubungi tim atau buka issue di repository.
-
-Selamat mencoba! 😄
-```
+Jika ada kendala, hubungi tim atau buka issue di repository. Selamat mencoba! 😄
