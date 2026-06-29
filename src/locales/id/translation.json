@@ -1,0 +1,43 @@
+{
+  "app": {
+    "name": "Toti Cakery",
+    "tagline": "Sistem Pemesanan & Manajemen Stok Kue"
+  },
+  "nav": {
+    "catalog": "Katalog",
+    "orders": "Pesanan",
+    "dashboard": "Dashboard",
+    "products": "Produk",
+    "inventory": "Inventori",
+    "reports": "Laporan",
+    "logout": "Keluar"
+  },
+  "auth": {
+    "login": "Masuk",
+    "logout": "Keluar",
+    "buyer_login": "Masuk Pembeli",
+    "seller_login": "Masuk Penjual",
+    "phone": "Nomor WhatsApp",
+    "email": "Email",
+    "password": "Kata Sandi",
+    "send_otp": "Kirim OTP",
+    "verify_otp": "Verifikasi OTP"
+  },
+  "common": {
+    "save": "Simpan",
+    "cancel": "Batal",
+    "delete": "Hapus",
+    "edit": "Ubah",
+    "add": "Tambah",
+    "search": "Cari",
+    "loading": "Memuat...",
+    "error": "Terjadi kesalahan",
+    "success": "Berhasil",
+    "back": "Kembali",
+    "next": "Lanjut",
+    "close": "Tutup"
+  },
+  "whatsapp": {
+    "chat": "Chat via WhatsApp"
+  }
+}

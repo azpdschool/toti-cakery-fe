@@ -1,0 +1,43 @@
+{
+  "app": {
+    "name": "Toti Cakery",
+    "tagline": "Cake Order & Stock Management System"
+  },
+  "nav": {
+    "catalog": "Catalog",
+    "orders": "Orders",
+    "dashboard": "Dashboard",
+    "products": "Products",
+    "inventory": "Inventory",
+    "reports": "Reports",
+    "logout": "Logout"
+  },
+  "auth": {
+    "login": "Login",
+    "logout": "Logout",
+    "buyer_login": "Buyer Login",
+    "seller_login": "Seller Login",
+    "phone": "WhatsApp Number",
+    "email": "Email",
+    "password": "Password",
+    "send_otp": "Send OTP",
+    "verify_otp": "Verify OTP"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "add": "Add",
+    "search": "Search",
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "success": "Success",
+    "back": "Back",
+    "next": "Next",
+    "close": "Close"
+  },
+  "whatsapp": {
+    "chat": "Chat via WhatsApp"
+  }
+}
