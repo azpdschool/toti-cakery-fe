@@ -1,13 +1,24 @@
-import { createContext, useEffect, useState, type ReactNode } from 'react'
-import type { AuthState, User } from '@/types'
+// src/components/common/AuthProvider.tsx
+import { createContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import type { AuthState, SellerRole, User, UserRole } from '@/types'
 import { TOKEN_KEY, USER_KEY } from '@/constants'
 
 export interface AuthContextType extends AuthState {
   login: (token: string, user: User) => void
   logout: () => void
+  hasRole: (roles: UserRole | UserRole[]) => boolean
+  hasSellerRole: (roles: SellerRole | SellerRole[]) => boolean
+  isSeller: boolean
+  isOwner: boolean
+  isAdmin: boolean
+  isStaff: boolean
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null)
+
+function isSellerRole(role?: string): role is SellerRole {
+  return role === 'owner' || role === 'admin' || role === 'staff'
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [auth, setAuth] = useState<AuthState>({
@@ -58,9 +69,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
   }
 
-  return (
-    <AuthContext.Provider value={{ ...auth, login, logout }}>
-      {children}
-    </AuthContext.Provider>
-  )
+  const hasRole = (roles: UserRole | UserRole[]) => {
+    if (!auth.user) return false
+
+    const allowedRoles = Array.isArray(roles) ? roles : [roles]
+    return allowedRoles.includes(auth.user.role)
+  }
+
+  const hasSellerRole = (roles: SellerRole | SellerRole[]) => {
+    if (!auth.user || !isSellerRole(auth.user.role)) return false
+
+    const allowedRoles = Array.isArray(roles) ? roles : [roles]
+    return allowedRoles.includes(auth.user.role)
+  }
+
+  const value = useMemo<AuthContextType>(() => {
+    const role = auth.user?.role
+
+    return {
+      ...auth,
+      login,
+      logout,
+      hasRole,
+      hasSellerRole,
+      isSeller: isSellerRole(role),
+      isOwner: role === 'owner',
+      isAdmin: role === 'admin',
+      isStaff: role === 'staff',
+    }
+  }, [auth])
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

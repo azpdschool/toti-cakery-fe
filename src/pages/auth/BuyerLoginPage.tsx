@@ -1,831 +1,701 @@
 // src/pages/auth/BuyerLoginPage.tsx
-
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
+import type React from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useTranslation } from 'react-i18next'
 import {
+  AlertCircle,
+  CheckCircle,
   Eye,
   EyeOff,
-  ChevronLeft,
-  CheckCircle,
-  AlertCircle,
   Loader2,
-  Shield,
-  MessageCircle,
-  Mail,
-  User,
   Lock,
+  Mail,
   Phone,
+  User,
+  MessageCircle,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
-// Hapus ROUTES karena tidak digunakan
-import { getBuyerByEmail, getBuyerByPhone, addBuyer } from '@/services/buyerService'
+import { ROUTES } from '@/constants'
+import {
+  loginBuyer,
+  loginBuyerPhone,
+  loginBuyerOtp,
+  mapBuyerAuthResponseToUser,
+  registerBuyer,
+  sendBuyerOtp,
+  verifyBuyerOtp,
+} from '@/api/auth'
 
-type AuthMode = 'login' | 'register' | 'otp-verify'
+type Mode =
+  | 'login-email'
+  | 'login-phone-password'
+  | 'login-phone-otp'
+  | 'login-phone-otp-verify'
+  | 'register'
+  | 'register-otp'
 
-interface LoginFormData {
-  identifier: string
-  password: string
-  rememberMe: boolean
-}
+function parseApiError(error: unknown, fallback: string): string {
+  if (error && typeof error === 'object' && 'response' in error) {
+    const err = error as any
+    const detail = err.response?.data?.detail
 
-interface RegisterFormData {
-  name: string
-  phone: string
-  email: string
-  password: string
-  confirmPassword: string
-  agreeTerms: boolean
-}
+    if (typeof detail === 'string') return detail
 
-interface OtpFormData {
-  code: string
+    if (Array.isArray(detail)) {
+      return detail.map((item) => item?.msg).filter(Boolean).join(', ')
+    }
+
+    if (err.response?.status === 401) return 'Data login tidak valid'
+    if (err.response?.status === 404) return 'Akun buyer tidak ditemukan'
+    if (err.response?.status === 400) return 'Data tidak valid atau OTP salah'
+  }
+
+  return fallback
 }
 
 export default function BuyerLoginPage() {
-  const { t } = useTranslation()
-  const { login } = useAuth()
   const navigate = useNavigate()
+  const { login } = useAuth()
 
-  const [mode, setMode] = useState<AuthMode>('login')
-  const [isLoading, setIsLoading] = useState(false)
+  const [mode, setMode] = useState<Mode>('login-email')
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [showPassword, setShowPassword] = useState(false)
 
-  const [loginData, setLoginData] = useState<LoginFormData>({
-    identifier: '',
-    password: '',
-    rememberMe: false,
-  })
-  const [showLoginPassword, setShowLoginPassword] = useState(false)
+  // Login email
+  const [loginEmail, setLoginEmail] = useState('')
+  const [loginPassword, setLoginPassword] = useState('')
 
-  const [registerData, setRegisterData] = useState<RegisterFormData>({
-    name: '',
-    phone: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    agreeTerms: false,
-  })
-  const [showRegisterPassword, setShowRegisterPassword] = useState(false)
-  const [showRegisterConfirmPassword, setShowRegisterConfirmPassword] = useState(false)
+  // Login phone + password
+  const [phonePasswordNumber, setPhonePasswordNumber] = useState('')
+  const [phonePasswordPassword, setPhonePasswordPassword] = useState('')
 
-  const [otpData, setOtpData] = useState<OtpFormData>({ code: '' })
-  const [otpTimer, setOtpTimer] = useState(60)
-  const [canResend, setCanResend] = useState(false)
+  // Login phone + OTP
   const [otpPhone, setOtpPhone] = useState('')
-  const [otpName, setOtpName] = useState('')
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null) // Perbaiki tipe
-  const [otpFlow, setOtpFlow] = useState<'login' | 'register'>('register')
+  const [otpLoginId, setOtpLoginId] = useState('')
+  const [otpLoginCode, setOtpLoginCode] = useState('')
 
-  const DUMMY_OTP = '7777'
+  // Register
+  const [name, setName] = useState('')
+  const [registerEmail, setRegisterEmail] = useState('')
+  const [registerPhone, setRegisterPhone] = useState('')
+  const [registerPassword, setRegisterPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [registerOtpId, setRegisterOtpId] = useState('')
+  const [registerOtpCode, setRegisterOtpCode] = useState('')
 
-  useEffect(() => {
+  const resetMessage = () => {
     setError(null)
     setSuccess(null)
-  }, [mode])
+  }
 
-  useEffect(() => {
-    if (mode === 'otp-verify' && otpTimer > 0) {
-      timerRef.current = setTimeout(() => {
-        setOtpTimer((prev) => prev - 1)
-      }, 1000)
-    } else if (otpTimer === 0) {
-      setCanResend(true)
-    }
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current)
-    }
-  }, [mode, otpTimer])
+  const goHome = () => {
+    setTimeout(() => {
+      navigate(ROUTES.HOME, { replace: true })
+    }, 500)
+  }
 
-  // ============================================================
-  // HANDLERS - LOGIN
-  // ============================================================
-
-  const handleLoginSubmit = async (e: React.FormEvent) => {
+  const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError(null)
-    setSuccess(null)
+    resetMessage()
 
-    if (!loginData.identifier.trim()) {
-      setError('Email wajib diisi')
-      return
-    }
-    if (!loginData.password) {
-      setError('Password wajib diisi')
+    if (!loginEmail.trim() || !loginPassword.trim()) {
+      setError('Email dan password wajib diisi')
       return
     }
 
-    setIsLoading(true)
+    setLoading(true)
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      const response = await loginBuyer({
+        email: loginEmail.trim(),
+        password: loginPassword,
+      })
 
-      const user = await getBuyerByEmail(loginData.identifier)
-      if (!user || user.password !== loginData.password) {
-        setError('Email atau password salah')
-        setIsLoading(false)
-        return
-      }
-
-      const authUser = {
-        id: user.id,
-        name: user.name,
-        role: 'buyer' as const,
-        phone: user.phone,
-        email: user.email,
-      }
-      login('mock-token-123', authUser)
-      setSuccess('Login berhasil!')
-      setTimeout(() => navigate('/'), 500)
+      login(response.access_token, mapBuyerAuthResponseToUser(response))
+      setSuccess('Login berhasil')
+      goHome()
     } catch (err) {
-      setError('Login gagal. Periksa kembali email dan password Anda.')
+      setError(parseApiError(err, 'Gagal login dengan email'))
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
-  const handleLoginWithOtp = async () => {
-    setError(null)
-    setSuccess(null)
+  const handlePhonePasswordLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    resetMessage()
 
-    const identifier = loginData.identifier.trim()
-    if (!identifier) {
-      setError('Masukkan nomor WhatsApp untuk menerima OTP')
+    if (!phonePasswordNumber.trim() || !phonePasswordPassword.trim()) {
+      setError('Nomor HP dan password wajib diisi')
       return
     }
 
-    const isPhone = /^[0-9+\-\s()]{8,15}$/.test(identifier.replace(/\s/g, ''))
-    if (!isPhone) {
-      setError('Masukkan nomor WhatsApp yang valid')
-      return
-    }
-
-    setIsLoading(true)
+    setLoading(true)
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      const response = await loginBuyerPhone({
+        phone_number: phonePasswordNumber.trim(),
+        password: phonePasswordPassword,
+      })
 
-      const user = await getBuyerByPhone(identifier)
-      if (!user) {
-        setError('Nomor WhatsApp tidak terdaftar. Silakan daftar terlebih dahulu.')
-        setIsLoading(false)
-        return
-      }
-
-      setOtpPhone(identifier)
-      setOtpName('')
-      setOtpFlow('login')
-      setOtpData({ code: '' })
-      setOtpTimer(60)
-      setCanResend(false)
-      setMode('otp-verify')
-      setSuccess(`Kode OTP telah dikirim ke WhatsApp ${identifier} (dummy: ${DUMMY_OTP})`)
+      login(response.access_token, mapBuyerAuthResponseToUser(response))
+      setSuccess('Login berhasil')
+      goHome()
     } catch (err) {
-      setError('Gagal mengirim OTP. Coba lagi nanti.')
+      setError(parseApiError(err, 'Gagal login dengan nomor HP'))
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
-  // ============================================================
-  // HANDLERS - REGISTER
-  // ============================================================
-
-  const handleRegisterSubmit = async (e: React.FormEvent) => {
+  const handleSendLoginOtp = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError(null)
-    setSuccess(null)
+    resetMessage()
 
-    if (!registerData.name.trim()) {
-      setError('Nama lengkap wajib diisi')
+    if (!otpPhone.trim()) {
+      setError('Nomor HP wajib diisi')
       return
     }
-    const phoneClean = registerData.phone.replace(/\s/g, '')
-    if (!phoneClean || phoneClean.length < 8) {
-      setError('Nomor WhatsApp wajib diisi dengan benar')
+
+    setLoading(true)
+
+    try {
+      const response = await sendBuyerOtp({
+        target: otpPhone.trim(),
+        channel: 'whatsapp',
+        purpose: 'login',
+      })
+
+      setOtpLoginId(response.otp_id)
+      setSuccess('OTP login terkirim. Untuk development gunakan kode 7777.')
+      setMode('login-phone-otp-verify')
+    } catch (err) {
+      setError(parseApiError(err, 'Gagal mengirim OTP login'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleVerifyLoginOtp = async (e: React.FormEvent) => {
+    e.preventDefault()
+    resetMessage()
+
+    if (!otpLoginId) {
+      setError('OTP ID tidak ditemukan. Kirim ulang OTP.')
+      setMode('login-phone-otp')
       return
     }
-    if (registerData.password.length < 6) {
+
+    if (!otpLoginCode.trim()) {
+      setError('Kode OTP wajib diisi')
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      const verified = await verifyBuyerOtp({
+        otp_id: otpLoginId,
+        code: otpLoginCode.trim(),
+      })
+
+      const response = await loginBuyerOtp({
+        phone: otpPhone.trim(),
+        verify_token: verified.verify_token,
+      })
+
+      login(response.access_token, mapBuyerAuthResponseToUser(response))
+      setSuccess('Login OTP berhasil')
+      goHome()
+    } catch (err) {
+      setError(parseApiError(err, 'Gagal login menggunakan OTP'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSendRegisterOtp = async (e: React.FormEvent) => {
+    e.preventDefault()
+    resetMessage()
+
+    if (!name.trim() || !registerEmail.trim() || !registerPhone.trim()) {
+      setError('Nama, email, dan nomor HP wajib diisi')
+      return
+    }
+
+    if (registerPassword.length < 6) {
       setError('Password minimal 6 karakter')
       return
     }
-    if (registerData.password !== registerData.confirmPassword) {
-      setError('Password dan konfirmasi password tidak cocok')
-      return
-    }
-    if (!registerData.agreeTerms) {
-      setError('Anda harus menyetujui Syarat & Ketentuan')
+
+    if (registerPassword !== confirmPassword) {
+      setError('Password dan konfirmasi tidak cocok')
       return
     }
 
-    // Cek email
-    const existing = await getBuyerByEmail(registerData.email)
-    if (existing) {
-      setError('Email sudah terdaftar. Silakan login.')
-      return
-    }
-
-    setIsLoading(true)
+    setLoading(true)
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      const response = await sendBuyerOtp({
+        target: registerEmail.trim(),
+        channel: 'email',
+        purpose: 'register',
+      })
 
-      setOtpPhone(phoneClean)
-      setOtpName(registerData.name)
-      setOtpFlow('register')
-      setOtpData({ code: '' })
-      setOtpTimer(60)
-      setCanResend(false)
-      setMode('otp-verify')
-      setSuccess(`Kode OTP telah dikirim ke WhatsApp ${phoneClean} (dummy: ${DUMMY_OTP})`)
+      setRegisterOtpId(response.otp_id)
+      setSuccess('OTP registrasi terkirim. Untuk development gunakan kode 7777.')
+      setMode('register-otp')
     } catch (err) {
-      setError('Gagal mendaftar. Coba lagi nanti.')
+      setError(parseApiError(err, 'Gagal mengirim OTP register'))
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
-  // ============================================================
-  // HANDLERS - OTP VERIFICATION
-  // ============================================================
-
-  const handleOtpVerify = async (e: React.FormEvent) => {
+  const handleVerifyAndRegister = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError(null)
-    setSuccess(null)
+    resetMessage()
 
-    const code = otpData.code.trim()
-    if (!code || code.length < 4) {
-      setError('Masukkan kode OTP yang valid (minimal 4 digit)')
+    if (!registerOtpId) {
+      setError('OTP ID tidak ditemukan. Kirim ulang OTP.')
+      setMode('register')
       return
     }
 
-    setIsLoading(true)
+    if (!registerOtpCode.trim()) {
+      setError('Kode OTP wajib diisi')
+      return
+    }
+
+    setLoading(true)
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      const verified = await verifyBuyerOtp({
+        otp_id: registerOtpId,
+        code: registerOtpCode.trim(),
+      })
 
-      if (code !== DUMMY_OTP) {
-        setError('Kode OTP salah. Gunakan 7777 untuk dummy.')
-        setIsLoading(false)
-        return
-      }
+      const response = await registerBuyer({
+        name: name.trim(),
+        email: registerEmail.trim(),
+        phone: registerPhone.trim(),
+        password: registerPassword,
+        verify_token: verified.verify_token,
+      })
 
-      if (otpFlow === 'login') {
-        const user = await getBuyerByPhone(otpPhone)
-        if (!user) {
-          setError('User tidak ditemukan')
-          setIsLoading(false)
-          return
-        }
-        const authUser = {
-          id: user.id,
-          name: user.name,
-          role: 'buyer' as const,
-          phone: user.phone,
-          email: user.email,
-        }
-        login('mock-token-123', authUser)
-        setSuccess('Login berhasil!')
-        setTimeout(() => navigate('/'), 500)
-      } else {
-        const newUser = await addBuyer({
-          name: otpName || 'User',
-          email: registerData.email,
-          phone: otpPhone,
-          password: registerData.password,
-        })
-        const authUser = {
-          id: newUser.id,
-          name: newUser.name,
-          role: 'buyer' as const,
-          phone: newUser.phone,
-          email: newUser.email,
-        }
-        login('mock-token-123', authUser)
-        setSuccess('Akun berhasil dibuat!')
-        setTimeout(() => navigate('/'), 500)
-      }
+      login(response.access_token, mapBuyerAuthResponseToUser(response))
+      setSuccess('Register berhasil')
+      goHome()
     } catch (err) {
-      setError('Kode OTP tidak valid atau sudah kadaluwarsa')
+      setError(parseApiError(err, 'Gagal register buyer'))
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
-  const handleResendOtp = async () => {
-    setError(null)
-    setSuccess(null)
-    setIsLoading(true)
-
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      setOtpTimer(60)
-      setCanResend(false)
-      setSuccess(`Kode OTP baru telah dikirim (dummy: ${DUMMY_OTP})`)
-    } catch (err) {
-      setError('Gagal mengirim ulang OTP')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleBackToLogin = () => {
-    setMode('login')
-    setError(null)
-    setSuccess(null)
-  }
-
-  const handleBackToRegister = () => {
-    setMode('register')
-    setError(null)
-    setSuccess(null)
-  }
-
-  // ============================================================
-  // OTP VERIFICATION VIEW
-  // ============================================================
-
-  if (mode === 'otp-verify') {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-[#fdf6f0] to-[#f4ebdf] flex items-center justify-center px-4 py-8">
-        <div className="w-full max-w-md">
-          <button
-            type="button"
-            onClick={otpFlow === 'register' ? handleBackToRegister : handleBackToLogin}
-            className="mb-6 flex items-center gap-1 text-sm font-medium text-[#6f5448] hover:text-[#4b2417] transition"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            {otpFlow === 'register' ? 'Kembali ke Daftar' : 'Kembali ke Masuk'}
-          </button>
-
-          <div className="rounded-2xl bg-white/90 backdrop-blur-sm p-8 shadow-xl border border-[#ead8ca]">
-            <div className="text-center">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[#f4ebdf]">
-                <Shield className="h-8 w-8 text-[#d85b30]" />
-              </div>
-              <h2 className="text-2xl font-black text-[#4b2417]">Verifikasi OTP</h2>
-              <p className="mt-2 text-sm text-[#6f5448]">
-                Kami telah mengirimkan kode OTP ke WhatsApp
-                <br />
-                <span className="font-semibold text-[#4b2417]">{otpPhone}</span>
-              </p>
-              <p className="mt-1 text-xs text-[#8b7166]">
-                Gunakan kode dummy: <span className="font-mono font-bold text-[#d85b30]">7777</span>
-              </p>
-              {otpName && (
-                <p className="mt-1 text-xs text-[#8b7166]">
-                  Untuk akun: <span className="font-medium">{otpName}</span>
-                </p>
-              )}
-            </div>
-
-            <form onSubmit={handleOtpVerify} className="mt-6 space-y-5">
-              <div>
-                <label htmlFor="otp-code" className="block text-sm font-semibold text-[#4b2417]">
-                  Kode OTP
-                </label>
-                <input
-                  id="otp-code"
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={6}
-                  value={otpData.code}
-                  onChange={(e) => setOtpData({ code: e.target.value.replace(/\D/g, '') })}
-                  placeholder="Masukkan kode 4-6 digit"
-                  className="mt-1.5 w-full rounded-xl border border-[#d0bfaf] bg-white/70 px-4 py-3 text-center text-xl font-bold text-[#4b2417] outline-none transition placeholder:text-sm placeholder:font-normal placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
-                  autoFocus
-                />
-              </div>
-
-              {error && (
-                <div className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                  {error}
-                </div>
-              )}
-
-              {success && (
-                <div className="flex items-center gap-2 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-600">
-                  <CheckCircle className="h-4 w-4 shrink-0" />
-                  {success}
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white transition hover:bg-[#c04e28] disabled:opacity-60"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Memverifikasi...
-                  </>
-                ) : (
-                  'Verifikasi OTP'
-                )}
-              </button>
-
-              <div className="text-center">
-                {canResend ? (
-                  <button
-                    type="button"
-                    onClick={handleResendOtp}
-                    className="text-sm font-medium text-[#d85b30] hover:text-[#c04e28] transition"
-                  >
-                    Kirim ulang OTP
-                  </button>
-                ) : (
-                  <span className="text-sm text-[#8b7166]">
-                    Kirim ulang dalam {otpTimer}s
-                  </span>
-                )}
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // ============================================================
-  // LOGIN VIEW
-  // ============================================================
-
-  if (mode === 'login') {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-[#fdf6f0] to-[#f4ebdf] flex items-center justify-center px-4 py-8">
-        <div className="w-full max-w-md">
-          <div className="mb-8 text-center">
-            <img
-              src="src/assets/logo.png"
-              alt="Toti Cakery"
-              className="h-12 w-auto object-contain mx-auto"
-            />
-            <p className="mt-1 text-sm text-[#6f5448]">Selamat datang kembali! 👋</p>
-          </div>
-
-          <div className="rounded-2xl bg-white/90 backdrop-blur-sm p-8 shadow-xl border border-[#ead8ca]">
-            <h1 className="text-2xl font-black text-[#4b2417]">Masuk ke Akun</h1>
-            <p className="mt-1 text-sm text-[#6f5448]">
-              Masuk untuk melanjutkan pengalaman belanja
-            </p>
-
-            <form onSubmit={handleLoginSubmit} className="mt-6 space-y-4">
-              <div>
-                <label htmlFor="login-identifier" className="block text-sm font-semibold text-[#4b2417]">
-                  Email
-                </label>
-                <div className="relative mt-1.5">
-                  <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8b7166]">
-                    <Mail className="h-4 w-4" />
-                  </div>
-                  <input
-                    id="login-identifier"
-                    type="email"
-                    value={loginData.identifier}
-                    onChange={(e) =>
-                      setLoginData((prev) => ({ ...prev, identifier: e.target.value }))
-                    }
-                    placeholder="email@domain.com"
-                    className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-4 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="login-password" className="block text-sm font-semibold text-[#4b2417]">
-                  Password
-                </label>
-                <div className="relative mt-1.5">
-                  <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8b7166]">
-                    <Lock className="h-4 w-4" />
-                  </div>
-                  <input
-                    id="login-password"
-                    type={showLoginPassword ? 'text' : 'password'}
-                    value={loginData.password}
-                    onChange={(e) =>
-                      setLoginData((prev) => ({ ...prev, password: e.target.value }))
-                    }
-                    placeholder="Masukkan password"
-                    className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-12 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowLoginPassword((prev) => !prev)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166] hover:text-[#4b2417]"
-                  >
-                    {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-                <p className="mt-2 text-xs text-[#8b7166]">
-                  Gunakan akun dummy: <span className="font-mono">john@example.com / buyer123</span>
-                </p>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 text-sm text-[#6f5448]">
-                  <input
-                    type="checkbox"
-                    checked={loginData.rememberMe}
-                    onChange={(e) =>
-                      setLoginData((prev) => ({ ...prev, rememberMe: e.target.checked }))
-                    }
-                    className="h-4 w-4 rounded border-[#d0bfaf] text-[#d85b30] focus:ring-[#e9b49d]"
-                  />
-                  Ingat saya
-                </label>
-                <Link
-                  to="/auth/buyer/forgot-password"
-                  className="text-sm font-medium text-[#d85b30] hover:text-[#c04e28] transition"
-                >
-                  Lupa password?
-                </Link>
-              </div>
-
-              {error && (
-                <div className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                  {error}
-                </div>
-              )}
-
-              {success && (
-                <div className="flex items-center gap-2 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-600">
-                  <CheckCircle className="h-4 w-4 shrink-0" />
-                  {success}
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white transition hover:bg-[#c04e28] disabled:opacity-60"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Memproses...
-                  </>
-                ) : (
-                  'Masuk'
-                )}
-              </button>
-
-              <div className="relative my-4">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-[#ead8ca]" />
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="bg-white/90 px-4 text-[#8b7166]">atau</span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleLoginWithOtp}
-                disabled={isLoading}
-                className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border-2 border-[#25D366] bg-white text-sm font-bold text-[#25D366] transition hover:bg-[#25D366]/5 disabled:opacity-60"
-              >
-                <MessageCircle className="h-5 w-5" />
-                Masuk dengan WhatsApp (OTP)
-              </button>
-
-              <div className="text-center text-sm text-[#6f5448]">
-                Belum punya akun?{' '}
-                <button
-                  type="button"
-                  onClick={() => setMode('register')}
-                  className="font-bold text-[#d85b30] hover:text-[#c04e28] transition"
-                >
-                  Daftar Sekarang
-                </button>
-              </div>
-            </form>
-          </div>
-
-          <div className="mt-6 text-center text-xs text-[#8b7166]">
-            <p>Verifikasi akan dikirim melalui WhatsApp</p>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // ============================================================
-  // REGISTER VIEW
-  // ============================================================
+  const isLoginMode =
+    mode === 'login-email' ||
+    mode === 'login-phone-password' ||
+    mode === 'login-phone-otp' ||
+    mode === 'login-phone-otp-verify'
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#fdf6f0] to-[#f4ebdf] flex items-center justify-center px-4 py-8">
-      <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          <img
-            src="src/assets/logo.png"
-            alt="Toti Cakery"
-            className="h-12 w-auto object-contain mx-auto"
-          />
-          <p className="mt-1 text-sm text-[#6f5448]">Buat akun untuk mulai belanja! 🎂</p>
+    <div className="flex min-h-screen items-center justify-center bg-[#fff7f0] px-4 py-10">
+      <div className="w-full max-w-md rounded-2xl border border-[#ead8ca] bg-white p-8 shadow-sm">
+        <h1 className="text-2xl font-black text-[#4b2417]">
+          {isLoginMode ? 'Login Buyer' : 'Register Buyer'}
+        </h1>
+
+        <p className="mt-1 text-sm text-[#6f5448]">
+          {mode === 'login-email' && 'Masuk menggunakan email dan password'}
+          {mode === 'login-phone-password' && 'Masuk menggunakan nomor HP dan password'}
+          {mode === 'login-phone-otp' && 'Masuk menggunakan kode OTP WhatsApp'}
+          {mode === 'login-phone-otp-verify' && 'Masukkan kode OTP yang dikirim'}
+          {mode === 'register' && 'Buat akun buyer baru'}
+          {mode === 'register-otp' && 'Verifikasi kode OTP registrasi'}
+        </p>
+
+        {/* Login/Register tab */}
+        <div className="mt-5 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              resetMessage()
+              setMode('login-email')
+            }}
+            className={`rounded-xl px-4 py-2 text-sm font-bold ${
+              isLoginMode
+                ? 'bg-[#d85b30] text-white'
+                : 'bg-[#f5eadf] text-[#4b2417]'
+            }`}
+          >
+            Login
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              resetMessage()
+              setMode('register')
+            }}
+            className={`rounded-xl px-4 py-2 text-sm font-bold ${
+              mode === 'register' || mode === 'register-otp'
+                ? 'bg-[#d85b30] text-white'
+                : 'bg-[#f5eadf] text-[#4b2417]'
+            }`}
+          >
+            Register
+          </button>
         </div>
 
-        <div className="rounded-2xl bg-white/90 backdrop-blur-sm p-8 shadow-xl border border-[#ead8ca]">
-          <h1 className="text-2xl font-black text-[#4b2417]">Daftar Akun</h1>
-          <p className="mt-1 text-sm text-[#6f5448]">
-            Buat akun untuk menjelajahi produk & memesan
-          </p>
+        {/* Login method tab */}
+        {isLoginMode && (
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                resetMessage()
+                setMode('login-email')
+              }}
+              className={`rounded-lg px-2 py-2 text-xs font-bold ${
+                mode === 'login-email'
+                  ? 'bg-[#fff1e9] text-[#d85b30]'
+                  : 'bg-gray-50 text-[#6f5448]'
+              }`}
+            >
+              Email
+            </button>
 
-          <form onSubmit={handleRegisterSubmit} className="mt-6 space-y-4">
-            <div>
-              <label htmlFor="register-name" className="block text-sm font-semibold text-[#4b2417]">
-                Nama Lengkap <span className="text-red-500">*</span>
-              </label>
-              <div className="relative mt-1.5">
-                <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8b7166]">
-                  <User className="h-4 w-4" />
-                </div>
-                <input
-                  id="register-name"
-                  type="text"
-                  value={registerData.name}
-                  onChange={(e) =>
-                    setRegisterData((prev) => ({ ...prev, name: e.target.value }))
-                  }
-                  placeholder="Masukkan nama lengkap Anda"
-                  className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-4 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
-                />
-              </div>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                resetMessage()
+                setMode('login-phone-password')
+              }}
+              className={`rounded-lg px-2 py-2 text-xs font-bold ${
+                mode === 'login-phone-password'
+                  ? 'bg-[#fff1e9] text-[#d85b30]'
+                  : 'bg-gray-50 text-[#6f5448]'
+              }`}
+            >
+              No HP
+            </button>
 
-            <div>
-              <label htmlFor="register-email" className="block text-sm font-semibold text-[#4b2417]">
-                Email <span className="text-red-500">*</span>
-              </label>
-              <div className="relative mt-1.5">
-                <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8b7166]">
-                  <Mail className="h-4 w-4" />
-                </div>
-                <input
-                  id="register-email"
-                  type="email"
-                  value={registerData.email}
-                  onChange={(e) =>
-                    setRegisterData((prev) => ({ ...prev, email: e.target.value }))
-                  }
-                  placeholder="email@domain.com"
-                  className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-4 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
-                />
-              </div>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                resetMessage()
+                setMode('login-phone-otp')
+              }}
+              className={`rounded-lg px-2 py-2 text-xs font-bold ${
+                mode === 'login-phone-otp' || mode === 'login-phone-otp-verify'
+                  ? 'bg-[#fff1e9] text-[#d85b30]'
+                  : 'bg-gray-50 text-[#6f5448]'
+              }`}
+            >
+              OTP
+            </button>
+          </div>
+        )}
 
-            <div>
-              <label htmlFor="register-phone" className="block text-sm font-semibold text-[#4b2417]">
-                Nomor WhatsApp <span className="text-red-500">*</span>
-              </label>
-              <div className="relative mt-1.5">
-                <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8b7166]">
-                  <Phone className="h-4 w-4" />
-                </div>
-                <input
-                  id="register-phone"
-                  type="tel"
-                  value={registerData.phone}
-                  onChange={(e) =>
-                    setRegisterData((prev) => ({ ...prev, phone: e.target.value }))
-                  }
-                  placeholder="81234567890"
-                  className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-4 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
-                />
-              </div>
-              <p className="mt-1 text-xs text-[#8b7166]">
-                Masukkan nomor WhatsApp aktif untuk verifikasi OTP
-              </p>
-            </div>
+        {error && (
+          <div className="mt-4 flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            {error}
+          </div>
+        )}
 
-            <div>
-              <label htmlFor="register-password" className="block text-sm font-semibold text-[#4b2417]">
-                Password <span className="text-red-500">*</span>
-              </label>
-              <div className="relative mt-1.5">
-                <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8b7166]">
-                  <Lock className="h-4 w-4" />
-                </div>
-                <input
-                  id="register-password"
-                  type={showRegisterPassword ? 'text' : 'password'}
-                  value={registerData.password}
-                  onChange={(e) =>
-                    setRegisterData((prev) => ({ ...prev, password: e.target.value }))
-                  }
-                  placeholder="Minimal 6 karakter"
-                  className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-12 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowRegisterPassword((prev) => !prev)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166] hover:text-[#4b2417]"
-                >
-                  {showRegisterPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
+        {success && (
+          <div className="mt-4 flex items-center gap-2 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-600">
+            <CheckCircle className="h-4 w-4 shrink-0" />
+            {success}
+          </div>
+        )}
 
-            <div>
-              <label htmlFor="register-confirm-password" className="block text-sm font-semibold text-[#4b2417]">
-                Konfirmasi Password <span className="text-red-500">*</span>
-              </label>
-              <div className="relative mt-1.5">
-                <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8b7166]">
-                  <Lock className="h-4 w-4" />
-                </div>
-                <input
-                  id="register-confirm-password"
-                  type={showRegisterConfirmPassword ? 'text' : 'password'}
-                  value={registerData.confirmPassword}
-                  onChange={(e) =>
-                    setRegisterData((prev) => ({ ...prev, confirmPassword: e.target.value }))
-                  }
-                  placeholder="Konfirmasi password Anda"
-                  className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-12 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowRegisterConfirmPassword((prev) => !prev)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166] hover:text-[#4b2417]"
-                >
-                  {showRegisterConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
+        {mode === 'login-email' && (
+          <form onSubmit={handleEmailLogin} className="mt-6 space-y-4">
+            <IconInput
+              icon="mail"
+              type="email"
+              value={loginEmail}
+              onChange={setLoginEmail}
+              placeholder="email@domain.com"
+            />
 
-            <div className="flex items-start gap-2 pt-1">
-              <input
-                id="register-terms"
-                type="checkbox"
-                checked={registerData.agreeTerms}
-                onChange={(e) =>
-                  setRegisterData((prev) => ({ ...prev, agreeTerms: e.target.checked }))
-                }
-                className="mt-1 h-4 w-4 shrink-0 rounded border-[#d0bfaf] text-[#d85b30] focus:ring-[#e9b49d]"
-              />
-              <label htmlFor="register-terms" className="text-sm text-[#6f5448]">
-                Saya setuju dengan{' '}
-                <Link to="/syarat-ketentuan" className="font-medium text-[#d85b30] hover:text-[#c04e28] transition">
-                  Syarat & Ketentuan
-                </Link>
-              </label>
-            </div>
+            <PasswordInput
+              value={loginPassword}
+              onChange={setLoginPassword}
+              showPassword={showPassword}
+              setShowPassword={setShowPassword}
+            />
 
-            {error && (
-              <div className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                {error}
-              </div>
-            )}
+            <SubmitButton loading={loading} label="Login" />
+            <ForgotPasswordLink />
+          </form>
+        )}
 
-            {success && (
-              <div className="flex items-center gap-2 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-600">
-                <CheckCircle className="h-4 w-4 shrink-0" />
-                {success}
-              </div>
-            )}
+        {mode === 'login-phone-password' && (
+          <form onSubmit={handlePhonePasswordLogin} className="mt-6 space-y-4">
+            <IconInput
+              icon="phone"
+              type="tel"
+              value={phonePasswordNumber}
+              onChange={setPhonePasswordNumber}
+              placeholder="contoh: 082112341234"
+            />
+
+            <PasswordInput
+              value={phonePasswordPassword}
+              onChange={setPhonePasswordPassword}
+              showPassword={showPassword}
+              setShowPassword={setShowPassword}
+            />
+
+            <SubmitButton loading={loading} label="Login dengan No HP" />
+            <ForgotPasswordLink />
+          </form>
+        )}
+
+        {mode === 'login-phone-otp' && (
+          <form onSubmit={handleSendLoginOtp} className="mt-6 space-y-4">
+            <IconInput
+              icon="phone"
+              type="tel"
+              value={otpPhone}
+              onChange={setOtpPhone}
+              placeholder="contoh: 082112341234"
+            />
 
             <button
               type="submit"
-              disabled={isLoading}
-              className="flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white transition hover:bg-[#c04e28] disabled:opacity-60"
+              disabled={loading}
+              className="flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white disabled:opacity-60"
             >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Mengirim OTP...
-                </>
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                'Daftar'
+                <>
+                  <MessageCircle className="mr-2 h-4 w-4" />
+                  Kirim OTP
+                </>
               )}
             </button>
-
-            <div className="text-center text-sm text-[#6f5448]">
-              Sudah punya akun?{' '}
-              <button
-                type="button"
-                onClick={() => setMode('login')}
-                className="font-bold text-[#d85b30] hover:text-[#c04e28] transition"
-              >
-                Masuk
-              </button>
-            </div>
           </form>
-        </div>
+        )}
 
-        <div className="mt-6 text-center text-xs text-[#8b7166]">
-          <p>Dengan mendaftar, Anda menyetujui kebijakan privasi kami</p>
-          <p className="mt-1">Kode OTP akan dikirim melalui WhatsApp untuk verifikasi</p>
-        </div>
+        {mode === 'login-phone-otp-verify' && (
+          <form onSubmit={handleVerifyLoginOtp} className="mt-6 space-y-4">
+            <input
+              type="text"
+              inputMode="numeric"
+              value={otpLoginCode}
+              onChange={(e) => setOtpLoginCode(e.target.value.replace(/\D/g, ''))}
+              placeholder="Kode OTP, contoh 7777"
+              className="w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-center text-xl font-bold outline-none focus:border-[#d85b30]"
+            />
+
+            <p className="text-xs text-[#8b7166]">
+              OTP dikirim ke {otpPhone}. Untuk development gunakan{' '}
+              <span className="font-mono font-bold">7777</span>.
+            </p>
+
+            <SubmitButton loading={loading} label="Verifikasi & Login" />
+
+            <button
+              type="button"
+              onClick={() => {
+                setOtpLoginId('')
+                setOtpLoginCode('')
+                setMode('login-phone-otp')
+              }}
+              className="w-full text-sm font-semibold text-[#d85b30]"
+            >
+              Kirim ulang OTP
+            </button>
+          </form>
+        )}
+
+        {mode === 'register' && (
+          <form onSubmit={handleSendRegisterOtp} className="mt-6 space-y-4">
+            <IconInput
+              icon="user"
+              type="text"
+              value={name}
+              onChange={setName}
+              placeholder="Nama lengkap"
+            />
+
+            <IconInput
+              icon="mail"
+              type="email"
+              value={registerEmail}
+              onChange={setRegisterEmail}
+              placeholder="Email"
+            />
+
+            <IconInput
+              icon="phone"
+              type="tel"
+              value={registerPhone}
+              onChange={setRegisterPhone}
+              placeholder="Nomor HP / WhatsApp"
+            />
+
+            <input
+              type="password"
+              value={registerPassword}
+              onChange={(e) => setRegisterPassword(e.target.value)}
+              placeholder="Password"
+              className="w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-sm outline-none focus:border-[#d85b30]"
+            />
+
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Konfirmasi password"
+              className="w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-sm outline-none focus:border-[#d85b30]"
+            />
+
+            <SubmitButton loading={loading} label="Kirim OTP Register" />
+          </form>
+        )}
+
+        {mode === 'register-otp' && (
+          <form onSubmit={handleVerifyAndRegister} className="mt-6 space-y-4">
+            <input
+              type="text"
+              inputMode="numeric"
+              value={registerOtpCode}
+              onChange={(e) => setRegisterOtpCode(e.target.value.replace(/\D/g, ''))}
+              placeholder="Kode OTP, contoh 7777"
+              className="w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-center text-xl font-bold outline-none focus:border-[#d85b30]"
+            />
+
+            <p className="text-xs text-[#8b7166]">
+              OTP registrasi dikirim ke {registerEmail}. Untuk development
+              gunakan <span className="font-mono font-bold">7777</span>.
+            </p>
+
+            <SubmitButton loading={loading} label="Verifikasi & Daftar" />
+
+            <button
+              type="button"
+              onClick={() => setMode('register')}
+              className="w-full text-sm font-semibold text-[#d85b30]"
+            >
+              Kembali
+            </button>
+          </form>
+        )}
       </div>
+    </div>
+  )
+}
+
+function SubmitButton({
+  loading,
+  label,
+}: {
+  loading: boolean
+  label: string
+}) {
+  return (
+    <button
+      type="submit"
+      disabled={loading}
+      className="flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white disabled:opacity-60"
+    >
+      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : label}
+    </button>
+  )
+}
+
+function ForgotPasswordLink() {
+  return (
+    <div className="text-center">
+      <Link
+        to="/auth/buyer/forgot-password"
+        className="text-sm font-semibold text-[#d85b30]"
+      >
+        Lupa password?
+      </Link>
+    </div>
+  )
+}
+
+function PasswordInput({
+  value,
+  onChange,
+  showPassword,
+  setShowPassword,
+}: {
+  value: string
+  onChange: (value: string) => void
+  showPassword: boolean
+  setShowPassword: (value: boolean | ((prev: boolean) => boolean)) => void
+}) {
+  return (
+    <div>
+      <label className="text-sm font-semibold text-[#4b2417]">
+        Password
+      </label>
+
+      <div className="relative mt-1.5">
+        <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b7166]" />
+
+        <input
+          type={showPassword ? 'text' : 'password'}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="Password"
+          className="w-full rounded-xl border border-[#d0bfaf] py-3 pl-11 pr-12 text-sm outline-none focus:border-[#d85b30]"
+        />
+
+        <button
+          type="button"
+          onClick={() => setShowPassword((prev) => !prev)}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166]"
+        >
+          {showPassword ? (
+            <EyeOff className="h-4 w-4" />
+          ) : (
+            <Eye className="h-4 w-4" />
+          )}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function IconInput({
+  icon,
+  type,
+  value,
+  onChange,
+  placeholder,
+}: {
+  icon: 'user' | 'mail' | 'phone'
+  type: string
+  value: string
+  onChange: (value: string) => void
+  placeholder: string
+}) {
+  const Icon = icon === 'user' ? User : icon === 'mail' ? Mail : Phone
+
+  return (
+    <div className="relative">
+      <Icon className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b7166]" />
+
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full rounded-xl border border-[#d0bfaf] py-3 pl-11 pr-4 text-sm outline-none focus:border-[#d85b30]"
+      />
     </div>
   )
 }

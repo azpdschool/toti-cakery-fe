@@ -1,267 +1,413 @@
 // src/services/buyerOrderService.ts
+import { apiClient } from '@/api/client'
 
-export type OrderStatus = 'pending' | 'processed' | 'shipped' | 'completed' | 'cancelled';
-export type DeliveryMethod = 'pickup' | 'delivery_toko' | 'delivery_third_party';
-export type PaymentMethod = 'dp' | 'lunas';
-export type PaymentStatus = 'unpaid' | 'paid' | 'partial';
+export type OrderStatus =
+  | 'pending'
+  | 'processed'
+  | 'shipped'
+  | 'completed'
+  | 'cancelled'
 
-export interface OrderItem {
-  id: string;
-  productId: string;
-  productName: string;
-  variantName: string;
-  quantity: number;
-  price: number;
-  subtotal: number;
+export type PaymentStatus = 'unpaid' | 'partial' | 'paid'
+export type DeliveryMethod = 'pickup' | 'delivery_toko' | 'delivery_third_party'
+
+export interface BuyerOrderItem {
+  id: string
+  productId?: string
+  productName: string
+  variantName: string
+  quantity: number
+  price: number
+  subtotal: number
 }
 
 export interface BuyerOrder {
-  id: string;
-  orderNumber: string;
-  items: OrderItem[];
-  total: number;
-  subtotal: number;
-  deliveryFee: number; // selalu 0 untuk sekarang (dihitung via WA)
-  serviceFee: number; // 5000
-  date: string;
-  time: string;
-  deliveryMethod: DeliveryMethod;
-  paymentMethod: PaymentMethod;
-  paymentStatus: PaymentStatus;
-  status: OrderStatus;
-  address?: string;
-  recipientName?: string;
-  recipientPhone?: string;
-  notes?: string;
-  estimatedDate?: string;
-  completedDate?: string;
+  id: string
+  orderNumber: string
+  date: string
+  time: string
+  status: OrderStatus
+
+  deliveryMethod: DeliveryMethod
+  address?: string | null
+  recipientName?: string | null
+  recipientPhone?: string | null
+
+  paymentMethod: string
+  paymentStatus: PaymentStatus
+
+  items: BuyerOrderItem[]
+
+  subtotal: number
+  serviceFee: number
+  total: number
+
+  notes?: string | null
+  estimatedDate?: string | null
+  completedDate?: string | null
 }
 
-export interface OrderStats {
-  totalOrders: number;
-  completed: number;
-  processed: number;
-  pending: number;
+/**
+ * Endpoint ini perlu disesuaikan dengan BE order route kamu.
+ *
+ * Kemungkinan endpoint yang umum:
+ * - GET /orders/buyer
+ * - GET /orders/my
+ * - GET /orders/customer
+ * - GET /orders/
+ *
+ * Untuk sekarang aku pakai /orders/buyer.
+ */
+const BUYER_ORDERS_ENDPOINT = '/orders/buyer'
+
+type ApiMaybeDecimal = number | string | null | undefined
+
+interface ApiOrderItem {
+  id?: number | string
+  product_id?: number | string
+  productId?: number | string
+
+  product_name?: string
+  productName?: string
+  nama_produk?: string
+
+  variant_name?: string | null
+  variantName?: string | null
+
+  quantity?: number
+  qty?: number
+  jumlah?: number
+
+  price?: ApiMaybeDecimal
+  harga?: ApiMaybeDecimal
+  unit_price?: ApiMaybeDecimal
+
+  subtotal?: ApiMaybeDecimal
 }
 
-// ============================================================
-// DUMMY DATA
-// ============================================================
+interface ApiOrder {
+  id?: number | string
 
-let dummyOrders: BuyerOrder[] = [
-  {
-    id: '1',
-    orderNumber: '#ORD-051',
-    items: [
-      {
-        id: 'i1',
-        productId: 'p1',
-        productName: 'Red Velvet Cupcake',
-        variantName: 'Standar',
-        quantity: 2,
-        price: 35000,
-        subtotal: 70000,
-      },
-      {
-        id: 'i2',
-        productId: 'p2',
-        productName: 'Chocolate Tart',
-        variantName: 'Standar',
-        quantity: 1,
-        price: 45000,
-        subtotal: 45000,
-      },
-    ],
-    total: 120000, // subtotal 115000 + serviceFee 5000
-    subtotal: 115000,
-    deliveryFee: 0,
-    serviceFee: 5000,
-    date: '19 Jan 2026',
-    time: '10:30 WIB',
-    deliveryMethod: 'pickup',
-    paymentMethod: 'lunas',
-    paymentStatus: 'paid',
-    status: 'completed',
-    address: 'Toti Cakery Batam',
-    recipientName: 'Jake Sim',
-    recipientPhone: '0812-1234-5678',
-    notes: 'Tolong dibungkus rapi',
-    estimatedDate: '19 Jan 2026',
-    completedDate: '19 Jan 2026',
-  },
-  {
-    id: '2',
-    orderNumber: '#ORD-050',
-    items: [
-      {
-        id: 'i3',
-        productId: 'p3',
-        productName: 'Vanilla Cookies',
-        variantName: 'Standar',
-        quantity: 1,
-        price: 85000,
-        subtotal: 85000,
-      },
-    ],
-    total: 90000, // subtotal 85000 + serviceFee 5000
-    subtotal: 85000,
-    deliveryFee: 0,
-    serviceFee: 5000,
-    date: 'Jan 2026',
-    time: '09:15 WIB',
-    deliveryMethod: 'delivery_toko',
-    paymentMethod: 'dp',
-    paymentStatus: 'partial',
-    status: 'processed',
-    address: 'Jl. Kue Manis No. 25, Bandung',
-    recipientName: 'Jake Sim',
-    recipientPhone: '0812-1234-5678',
-    notes: '',
-    estimatedDate: '19 Jan 2026 14:00 WIB',
-  },
-  {
-    id: '3',
-    orderNumber: '#ORD-049',
-    items: [
-      {
-        id: 'i4',
-        productId: 'p4',
-        productName: 'Matcha Cupcake',
-        variantName: 'Standar',
-        quantity: 1,
-        price: 40000,
-        subtotal: 40000,
-      },
-      {
-        id: 'i5',
-        productId: 'p5',
-        productName: 'Box Kemasan',
-        variantName: 'Standar',
-        quantity: 1,
-        price: 160000,
-        subtotal: 160000,
-      },
-    ],
-    total: 205000, // subtotal 200000 + serviceFee 5000
-    subtotal: 200000,
-    deliveryFee: 0,
-    serviceFee: 5000,
-    date: '19 Jan 2026',
-    time: '08:00 WIB',
-    deliveryMethod: 'pickup',
-    paymentMethod: 'dp',
-    paymentStatus: 'unpaid',
-    status: 'pending',
-    address: 'Toti Cakery Batam',
-    recipientName: 'Jake Sim',
-    recipientPhone: '0812-1234-5678',
-    notes: '',
-    estimatedDate: '19 Jan 2026 12:00 WIB',
-  },
-  {
-    id: '4',
-    orderNumber: '#ORD-048',
-    items: [
-      {
-        id: 'i6',
-        productId: 'p6',
-        productName: 'Chocolate Tart',
-        variantName: 'Standar',
-        quantity: 1,
-        price: 150000,
-        subtotal: 150000,
-      },
-    ],
-    total: 155000, // subtotal 150000 + serviceFee 5000
-    subtotal: 150000,
-    deliveryFee: 0,
-    serviceFee: 5000,
-    date: '18 Jan 2026',
-    time: '14:20 WIB',
-    deliveryMethod: 'delivery_third_party',
-    paymentMethod: 'lunas',
-    paymentStatus: 'paid',
-    status: 'cancelled',
-    address: 'Jl. Kue Manis No. 25, Bandung',
-    recipientName: 'Jake Sim',
-    recipientPhone: '0812-1234-5678',
-    notes: 'Dibatalkan karena salah alamat',
-    estimatedDate: '19 Jan 2026 14:20 WIB',
-  },
-];
+  order_number?: string
+  orderNumber?: string
+  invoice_number?: string
+  invoiceNumber?: string
+  kode_order?: string
 
-// ============================================================
-// FUNGSI SERVICE
-// ============================================================
+  status?: string
+  order_status?: string
 
-const delay = (ms = 300) => new Promise((resolve) => setTimeout(resolve, ms));
+  delivery_method?: string
+  deliveryMethod?: string
+  metode_pengiriman?: string
+
+  address?: string | null
+  alamat?: string | null
+
+  recipient_name?: string | null
+  recipientName?: string | null
+  nama_penerima?: string | null
+
+  recipient_phone?: string | null
+  recipientPhone?: string | null
+  telepon_penerima?: string | null
+
+  payment_method?: string
+  paymentMethod?: string
+  metode_pembayaran?: string
+
+  payment_status?: string
+  paymentStatus?: string
+  status_pembayaran?: string
+
+  items?: ApiOrderItem[]
+  order_items?: ApiOrderItem[]
+
+  subtotal?: ApiMaybeDecimal
+  service_fee?: ApiMaybeDecimal
+  serviceFee?: ApiMaybeDecimal
+  biaya_layanan?: ApiMaybeDecimal
+  total?: ApiMaybeDecimal
+  total_amount?: ApiMaybeDecimal
+  grand_total?: ApiMaybeDecimal
+
+  notes?: string | null
+  catatan?: string | null
+
+  estimated_date?: string | null
+  estimatedDate?: string | null
+  completed_date?: string | null
+  completedDate?: string | null
+
+  created_at?: string | null
+  createdAt?: string | null
+  tanggal_order?: string | null
+}
+
+function toNumber(value: ApiMaybeDecimal): number {
+  if (value === null || value === undefined || value === '') return 0
+
+  const parsed = typeof value === 'string' ? Number(value) : value
+
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function toDateTimeParts(value?: string | null): { date: string; time: string } {
+  if (!value) {
+    return {
+      date: '-',
+      time: '-',
+    }
+  }
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return {
+      date: value,
+      time: '-',
+    }
+  }
+
+  return {
+    date: date.toLocaleDateString('id-ID', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    }),
+    time: date.toLocaleTimeString('id-ID', {
+      hour: '2-digit',
+      minute: '2-digit',
+    }),
+  }
+}
+
+function normalizeStatus(status?: string): OrderStatus {
+  const value = String(status || '').toLowerCase()
+
+  if (
+    value === 'pending' ||
+    value === 'menunggu' ||
+    value === 'waiting' ||
+    value === 'new'
+  ) {
+    return 'pending'
+  }
+
+  if (
+    value === 'processed' ||
+    value === 'processing' ||
+    value === 'diproses' ||
+    value === 'baking' ||
+    value === 'paid'
+  ) {
+    return 'processed'
+  }
+
+  if (
+    value === 'shipped' ||
+    value === 'delivery' ||
+    value === 'delivered_by_courier' ||
+    value === 'dikirim'
+  ) {
+    return 'shipped'
+  }
+
+  if (
+    value === 'completed' ||
+    value === 'done' ||
+    value === 'delivered' ||
+    value === 'selesai'
+  ) {
+    return 'completed'
+  }
+
+  if (
+    value === 'cancelled' ||
+    value === 'canceled' ||
+    value === 'dibatalkan'
+  ) {
+    return 'cancelled'
+  }
+
+  return 'pending'
+}
+
+function normalizePaymentStatus(status?: string): PaymentStatus {
+  const value = String(status || '').toLowerCase()
+
+  if (value === 'paid' || value === 'lunas' || value === 'success') return 'paid'
+  if (value === 'partial' || value === 'dp') return 'partial'
+
+  return 'unpaid'
+}
+
+function normalizeDeliveryMethod(method?: string): DeliveryMethod {
+  const value = String(method || '').toLowerCase()
+
+  if (value === 'delivery_toko' || value === 'delivery toko') {
+    return 'delivery_toko'
+  }
+
+  if (
+    value === 'delivery_third_party' ||
+    value === 'third_party' ||
+    value === 'gojek' ||
+    value === 'grab'
+  ) {
+    return 'delivery_third_party'
+  }
+
+  return 'pickup'
+}
+
+function mapApiOrderItem(item: ApiOrderItem, index: number): BuyerOrderItem {
+  const quantity = Number(item.quantity ?? item.qty ?? item.jumlah ?? 1)
+  const price = toNumber(item.price ?? item.harga ?? item.unit_price)
+  const subtotal = toNumber(item.subtotal) || price * quantity
+
+  return {
+    id: String(item.id ?? index + 1),
+    productId:
+      item.product_id !== undefined || item.productId !== undefined
+        ? String(item.product_id ?? item.productId)
+        : undefined,
+    productName:
+      item.product_name ??
+      item.productName ??
+      item.nama_produk ??
+      'Produk',
+    variantName:
+      item.variant_name ??
+      item.variantName ??
+      'Default',
+    quantity,
+    price,
+    subtotal,
+  }
+}
+
+function mapApiOrder(order: ApiOrder): BuyerOrder {
+  const createdAt =
+    order.created_at ??
+    order.createdAt ??
+    order.tanggal_order ??
+    null
+
+  const { date, time } = toDateTimeParts(createdAt)
+
+  const rawItems = order.items ?? order.order_items ?? []
+  const items = rawItems.map(mapApiOrderItem)
+
+  const subtotal =
+    toNumber(order.subtotal) ||
+    items.reduce((sum, item) => sum + item.subtotal, 0)
+
+  const serviceFee = toNumber(
+    order.service_fee ??
+      order.serviceFee ??
+      order.biaya_layanan,
+  )
+
+  const total =
+    toNumber(order.total ?? order.total_amount ?? order.grand_total) ||
+    subtotal + serviceFee
+
+  return {
+    id: String(order.id ?? ''),
+    orderNumber:
+      order.order_number ??
+      order.orderNumber ??
+      order.invoice_number ??
+      order.invoiceNumber ??
+      order.kode_order ??
+      `ORDER-${order.id ?? '-'}`,
+    date,
+    time,
+    status: normalizeStatus(order.status ?? order.order_status),
+
+    deliveryMethod: normalizeDeliveryMethod(
+      order.delivery_method ??
+        order.deliveryMethod ??
+        order.metode_pengiriman,
+    ),
+    address: order.address ?? order.alamat ?? null,
+    recipientName:
+      order.recipient_name ??
+      order.recipientName ??
+      order.nama_penerima ??
+      null,
+    recipientPhone:
+      order.recipient_phone ??
+      order.recipientPhone ??
+      order.telepon_penerima ??
+      null,
+
+    paymentMethod:
+      order.payment_method ??
+      order.paymentMethod ??
+      order.metode_pembayaran ??
+      '-',
+    paymentStatus: normalizePaymentStatus(
+      order.payment_status ??
+        order.paymentStatus ??
+        order.status_pembayaran,
+    ),
+
+    items,
+    subtotal,
+    serviceFee,
+    total,
+
+    notes: order.notes ?? order.catatan ?? null,
+    estimatedDate: order.estimated_date ?? order.estimatedDate ?? null,
+    completedDate: order.completed_date ?? order.completedDate ?? null,
+  }
+}
+
+function unwrapOrderList(data: unknown): ApiOrder[] {
+  if (Array.isArray(data)) return data as ApiOrder[]
+
+  if (data && typeof data === 'object') {
+    const obj = data as any
+
+    if (Array.isArray(obj.orders)) return obj.orders
+    if (Array.isArray(obj.data)) return obj.data
+    if (Array.isArray(obj.items)) return obj.items
+    if (Array.isArray(obj.results)) return obj.results
+  }
+
+  return []
+}
 
 export async function getBuyerOrders(): Promise<BuyerOrder[]> {
-  await delay();
-  return dummyOrders;
-}
+  try {
+    const response = await apiClient.get(BUYER_ORDERS_ENDPOINT)
+    const rawOrders = unwrapOrderList(response.data)
 
-export async function getBuyerOrderById(id: string): Promise<BuyerOrder | undefined> {
-  await delay();
-  return dummyOrders.find((o) => o.id === id);
-}
+    return rawOrders.map(mapApiOrder)
+  } catch (error: any) {
+    /**
+     * Kalau buyer belum pernah order, beberapa BE mengembalikan 404.
+     * Untuk UI buyer, itu lebih baik dianggap list kosong.
+     */
+    if (error?.response?.status === 404) {
+      return []
+    }
 
-export async function getOrderStats(): Promise<OrderStats> {
-  await delay();
-  const total = dummyOrders.length;
-  const completed = dummyOrders.filter((o) => o.status === 'completed').length;
-  const processed = dummyOrders.filter((o) => o.status === 'processed' || o.status === 'shipped').length;
-  const pending = dummyOrders.filter((o) => o.status === 'pending').length;
-  return { totalOrders: total, completed, processed, pending };
-}
-
-export async function createOrder(
-  data: Omit<BuyerOrder, 'id' | 'orderNumber' | 'date' | 'time' | 'status' | 'paymentStatus'>
-): Promise<BuyerOrder> {
-  await delay(800);
-  const now = new Date();
-  const dateStr = now.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-  const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-  const orderNumber = `#ORD-${String(Math.floor(Math.random() * 900) + 100)}`;
-
-  // Gunakan total yang sudah dihitung di frontend (sudah 100% atau 50%)
-  const total = data.total;
-  const subtotal = data.subtotal || data.items.reduce((sum, item) => sum + item.subtotal, 0);
-
-  const newOrder: BuyerOrder = {
-    id: `order-${Date.now()}`,
-    orderNumber,
-    ...data,
-    subtotal,
-    total, // pakai total yang dikirim (sudah dihitung di frontend)
-    deliveryFee: data.deliveryFee || 0,
-    serviceFee: data.serviceFee || 0,
-    date: dateStr,
-    time: timeStr,
-    status: 'pending',
-    paymentStatus: data.paymentMethod === 'lunas' ? 'unpaid' : 'partial',
-  };
-
-  dummyOrders.unshift(newOrder);
-  return newOrder;
-}
-export async function updateOrderPayment(orderId: string, paymentStatus: PaymentStatus): Promise<BuyerOrder> {
-  await delay(500);
-  const order = dummyOrders.find((o) => o.id === orderId);
-  if (!order) throw new Error('Order not found');
-  order.paymentStatus = paymentStatus;
-  if (paymentStatus === 'paid') {
-    order.status = 'processed';
+    throw error
   }
-  return order;
 }
 
-// Fungsi untuk simulasi pembayaran
-export async function simulatePayment(orderId: string): Promise<{ success: boolean; message: string }> {
-  await delay(1500);
-  const order = dummyOrders.find((o) => o.id === orderId);
-  if (!order) return { success: false, message: 'Order tidak ditemukan' };
-  order.paymentStatus = 'paid';
-  order.status = 'processed';
-  return { success: true, message: 'Pembayaran berhasil!' };
+export async function getBuyerOrderById(id: string): Promise<BuyerOrder | null> {
+  try {
+    const response = await apiClient.get(`${BUYER_ORDERS_ENDPOINT}/${id}`)
+    return mapApiOrder(response.data)
+  } catch (error: any) {
+    if (error?.response?.status === 404) {
+      return null
+    }
+
+    throw error
+  }
 }

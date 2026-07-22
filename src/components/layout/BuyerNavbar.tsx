@@ -1,10 +1,11 @@
 // src/components/layout/BuyerNavbar.tsx
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   ChevronDown,
+  ClipboardList,
   Home,
   Menu,
   Search,
@@ -13,9 +14,10 @@ import {
   User,
   X,
 } from 'lucide-react'
+
 import { useCart } from '@/context/CartContext'
 import { useAuth } from '@/hooks/useAuth'
-import { ROUTES, LANG_KEY } from '@/constants'
+import { LANG_KEY, ROUTES } from '@/constants'
 
 const languages = [
   {
@@ -62,28 +64,31 @@ export function BuyerNavbar() {
 
   const getInitials = (name: string) => {
     if (!name) return 'U'
-    const parts = name.split(' ')
+
+    const parts = name.trim().split(' ').filter(Boolean)
+
+    if (parts.length === 0) return 'U'
     if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
-    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
+
+    return (
+      parts[0].charAt(0) + parts[parts.length - 1].charAt(0)
+    ).toUpperCase()
   }
 
   return (
     <header className="sticky top-0 z-40 border-b border-[#ead8ca] bg-[#f4ebdf]/95 backdrop-blur">
-      <div className="mx-auto flex h-[76px] max-w-[1440px] items-center gap-4 px-4 md:px-8 lg:grid lg:grid-cols-[minmax(0,1fr)_420px_minmax(0,1fr)] lg:gap-6 lg:pl-12 lg:pr-12 xl:gap-7">
-        {/* KIRI: Logo + Menu */}
-        <div className="flex min-w-0 items-center gap-6 justify-self-start xl:gap-7">
-          <Link
-            to={ROUTES.HOME}
-            className="ml-6 flex shrink-0 items-center"
-          >
+      <div className="mx-auto flex h-[76px] max-w-[1440px] items-center gap-4 px-4 md:px-8 lg:pl-12 lg:pr-12 xl:gap-7">
+        {/* KIRI: Logo + Beranda */}
+        <div className="flex min-w-0 shrink-0 items-center gap-6 xl:gap-7">
+          <Link to={ROUTES.HOME} className="ml-6 flex shrink-0 items-center">
             <img
-              src="src/assets/logo.png"
+              src="/src/assets/logo.png"
               alt="Toti Cakery"
               className="h-12 w-auto object-contain"
             />
           </Link>
 
-          <nav className="hidden items-center gap-6 xl:gap-7 md:flex">
+          <nav className="hidden items-center gap-6 whitespace-nowrap xl:gap-7 md:flex">
             <NavLink to={ROUTES.HOME} className={navLinkClass}>
               <Home className="h-4 w-4" />
               <span>Beranda</span>
@@ -96,10 +101,9 @@ export function BuyerNavbar() {
           </nav>
         </div>
 
-        {/* TENGAH: Search Bar lebih pendek */}
-        <div className="hidden lg:block lg:justify-self-center lg:-translate-x-4">
-
-          <div className="relative w-[420px]">
+        {/* TENGAH: Search Bar */}
+        <div className="hidden min-w-0 flex-1 justify-center lg:flex">
+          <div className="relative w-full max-w-[420px]">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6f5448]" />
             <input
               type="text"
@@ -109,20 +113,30 @@ export function BuyerNavbar() {
           </div>
         </div>
 
-        {/* KANAN: Cart + Language + Profile */}
-        <div className="flex min-w-0 shrink-0 items-center gap-4 md:gap-6 lg:justify-self-start xl:gap-7">
+        {/* Keranjang, Pesanan Saya */}
+        <nav className="hidden shrink-0 items-center gap-6 whitespace-nowrap xl:gap-7 md:flex">
           <NavLink to={ROUTES.CART} className={navLinkClass}>
             <div className="relative">
               <ShoppingCart className="h-4 w-4" />
+
               {totalItems > 0 && (
                 <span className="absolute -right-2.5 -top-2.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#d85b30] px-1 text-[9px] font-bold leading-none text-white">
                   {totalItems}
                 </span>
               )}
             </div>
+
             <span>Keranjang</span>
           </NavLink>
 
+          <NavLink to={ROUTES.ORDERS} className={navLinkClass}>
+            <ClipboardList className="h-4 w-4" />
+            <span>Pesanan Saya</span>
+          </NavLink>
+        </nav>
+
+        {/* KANAN: Language + Profile */}
+        <div className="flex min-w-0 shrink-0 items-center gap-4 md:gap-6 xl:gap-7">
           <div className="relative hidden md:block">
             <button
               type="button"
@@ -167,6 +181,7 @@ export function BuyerNavbar() {
                   {getInitials(user.name || '')}
                 </div>
               )}
+
               <span className="max-w-[150px] truncate text-sm">
                 {user.name?.split(' ')[0] || 'Profil'}
               </span>
@@ -233,11 +248,24 @@ export function BuyerNavbar() {
             >
               <div className="relative">
                 <ShoppingCart className="h-4 w-4" />
-                <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#d85b30] px-1 text-[9px] font-bold text-white">
-                  {totalItems}
-                </span>
+
+                {totalItems > 0 && (
+                  <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#d85b30] px-1 text-[9px] font-bold text-white">
+                    {totalItems}
+                  </span>
+                )}
               </div>
+
               <span>Keranjang</span>
+            </Link>
+
+            <Link
+              to={ROUTES.ORDERS}
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-[#3f1f16]"
+            >
+              <ClipboardList className="h-4 w-4" />
+              Pesanan Saya
             </Link>
 
             {user ? (
@@ -257,6 +285,7 @@ export function BuyerNavbar() {
                     {getInitials(user.name || '')}
                   </div>
                 )}
+
                 {user.name || 'Profil'}
               </Link>
             ) : (

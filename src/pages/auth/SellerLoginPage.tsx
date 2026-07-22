@@ -1,130 +1,180 @@
 // src/pages/auth/SellerLoginPage.tsx
+import { useState } from 'react'
+import type React from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import {
+  Eye,
+  EyeOff,
+  Loader2,
+  AlertCircle,
+  CheckCircle,
+  Lock,
+  User,
+} from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
+import { ROUTES } from '@/constants'
+import { loginSeller, mapSellerLoginResponseToUser } from '@/api/auth'
 
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle, Lock, User } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
-import { ROUTES } from '@/constants';
-import { authenticateUser } from '@/services/sellerSettingsService';
+function parseAuthError(error: unknown): string {
+  if (error && typeof error === 'object' && 'response' in error) {
+    const err = error as any
+    const detail = err.response?.data?.detail
+
+    if (typeof detail === 'string') return detail
+
+    if (Array.isArray(detail)) {
+      return detail
+        .map((item) => item?.msg)
+        .filter(Boolean)
+        .join(', ')
+    }
+
+    if (err.response?.status === 401) {
+      return 'Username atau password salah'
+    }
+
+    if (err.response?.status === 422) {
+      return 'Akun tidak aktif atau data login tidak valid'
+    }
+  }
+
+  return 'Terjadi kesalahan. Silakan coba lagi.'
+}
 
 export default function SellerLoginPage() {
-  const { login } = useAuth();
-  const navigate = useNavigate();
+  const { login } = useAuth()
+  const navigate = useNavigate()
 
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [username, setUsername] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setSuccess(null);
+    e.preventDefault()
+
+    setError(null)
+    setSuccess(null)
 
     if (!username.trim() || !password.trim()) {
-      setError('Username dan password wajib diisi');
-      return;
+      setError('Username dan password wajib diisi')
+      return
     }
 
-    setIsLoading(true);
+    setIsLoading(true)
 
     try {
-      const user = await authenticateUser(username, password);
-      if (!user) {
-        setError('Username atau password salah');
-        setIsLoading(false);
-        return;
-      }
+      const response = await loginSeller({
+        username: username.trim(),
+        password,
+      })
 
-      const authUser = {
-        id: user.id,
-        name: user.name,
-        role: user.role,
-        phone: user.phone,
-        email: user.email,
-      };
-      login('dummy-token-123', authUser);
-      setSuccess('Login berhasil!');
+      const authUser = mapSellerLoginResponseToUser(response)
+
+      login(response.access_token, authUser)
+
+      setSuccess('Login berhasil! Mengalihkan ke dashboard...')
+
       setTimeout(() => {
-        navigate(ROUTES.SELLER_DASHBOARD);
-      }, 500);
+        navigate(ROUTES.SELLER_DASHBOARD, { replace: true })
+      }, 500)
     } catch (err) {
-      setError('Terjadi kesalahan. Silakan coba lagi.');
+      setError(parseAuthError(err))
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#fdf6f0] to-[#f4ebdf] flex items-center justify-center px-4 py-8">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#fdf6f0] to-[#f4ebdf] px-4 py-8">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <img
-            src="src/assets/logo.png"
+            src="/src/assets/logo.png"
             alt="Toti Cakery"
-            className="h-12 w-auto object-contain mx-auto"
+            className="mx-auto h-12 w-auto object-contain"
           />
-          <p className="mt-1 text-sm text-[#6f5448]">Login untuk mengelola toko</p>
+          <p className="mt-1 text-sm text-[#6f5448]">
+            Login untuk mengelola toko
+          </p>
         </div>
 
-        <div className="rounded-2xl bg-white/90 backdrop-blur-sm p-8 shadow-xl border border-[#ead8ca]">
-          <h1 className="text-2xl font-black text-[#4b2417]">Login Penjual</h1>
+        <div className="rounded-2xl border border-[#ead8ca] bg-white/90 p-8 shadow-xl backdrop-blur-sm">
+          <h1 className="text-2xl font-black text-[#4b2417]">
+            Login Penjual
+          </h1>
           <p className="mt-1 text-sm text-[#6f5448]">
             Masuk ke dashboard manajemen Toti Cakery
           </p>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             <div>
-              <label htmlFor="username" className="block text-sm font-semibold text-[#4b2417]">
-                Username atau Email
+              <label
+                htmlFor="username"
+                className="block text-sm font-semibold text-[#4b2417]"
+              >
+                Username
               </label>
+
               <div className="relative mt-1.5">
                 <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8b7166]">
                   <User className="h-4 w-4" />
                 </div>
+
                 <input
                   id="username"
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="jake / ayu / dani"
+                  placeholder="Masukkan username"
+                  autoComplete="username"
                   className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-4 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
                 />
               </div>
+
+              <p className="mt-2 text-xs text-[#8b7166]">
+                Gunakan username seller yang terdaftar.
+              </p>
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-[#4b2417]">
+              <label
+                htmlFor="password"
+                className="block text-sm font-semibold text-[#4b2417]"
+              >
                 Password
               </label>
+
               <div className="relative mt-1.5">
                 <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8b7166]">
                   <Lock className="h-4 w-4" />
                 </div>
+
                 <input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Ketik password Anda"
+                  autoComplete="current-password"
                   className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-12 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
                 />
+
                 <button
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166] hover:text-[#4b2417]"
+                  aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                 </button>
               </div>
-              <p className="mt-2 text-xs text-[#8b7166]">
-                Gunakan akun dummy: <br />
-                <span className="font-mono">jake / owner123</span> (Owner),{' '}
-                <span className="font-mono">ayu / admin123</span> (Admin),{' '}
-                <span className="font-mono">dani / staff123</span> (Staff)
-              </p>
             </div>
 
             {error && (
@@ -158,15 +208,18 @@ export default function SellerLoginPage() {
 
             <div className="text-center text-sm text-[#6f5448]">
               <Link
-                to="/auth/seller/forgot-password"
-                className="font-medium text-[#d85b30] hover:text-[#c04e28] transition"
+                to={ROUTES.AUTH_SELLER_FORGOT_PASSWORD}
+                className="font-medium text-[#d85b30] transition hover:text-[#c04e28]"
               >
                 Lupa password?
               </Link>
             </div>
 
             <div className="text-center text-sm text-[#6f5448]">
-              <Link to={ROUTES.HOME} className="font-medium text-[#6f5448] hover:text-[#4b2417] transition">
+              <Link
+                to={ROUTES.HOME}
+                className="font-medium text-[#6f5448] transition hover:text-[#4b2417]"
+              >
                 Kembali ke Beranda
               </Link>
             </div>
@@ -178,5 +231,5 @@ export default function SellerLoginPage() {
         </div>
       </div>
     </div>
-  );
+  )
 }

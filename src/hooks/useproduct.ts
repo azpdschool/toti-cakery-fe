@@ -1,6 +1,6 @@
 // src/hooks/useProduct.ts
 import { useState, useEffect, useCallback } from 'react';
-import { getProductById, ProductOut } from '@/api/product';
+import { getProductById, type ProductOut } from '@/api/product';
 
 interface UseProductResult {
   product: ProductOut | null;
@@ -11,10 +11,10 @@ interface UseProductResult {
 
 export function useProduct(id: number | null): UseProductResult {
   const [product, setProduct] = useState<ProductOut | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(Boolean(id));
   const [error, setError] = useState<string | null>(null);
 
-  const fetchProduct = useCallback(async () => {
+  const fetchProduct = useCallback(async (): Promise<void> => {
     if (!id) {
       setProduct(null);
       setLoading(false);
@@ -23,18 +23,19 @@ export function useProduct(id: number | null): UseProductResult {
 
     setLoading(true);
     setError(null);
+
     try {
       const data = await getProductById(id);
       setProduct(data);
-    } catch (err: any) {
-      setError(err.message || 'Gagal memuat produk');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Gagal memuat produk');
     } finally {
       setLoading(false);
     }
   }, [id]);
 
   useEffect(() => {
-    fetchProduct();
+    void fetchProduct();
   }, [fetchProduct]);
 
   return { product, loading, error, refetch: fetchProduct };

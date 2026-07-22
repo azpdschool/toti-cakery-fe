@@ -1,36 +1,61 @@
 // src/services/sellerInventoryService.ts
 
+import {
+  getStockItems,
+  getStockItemById,
+  createStockItem,
+  updateStockItem,
+  deleteStockItem,
+  type StockOut,
+  type StockCreate,
+  type StockUpdate,
+  type StockCategoryApi,
+  type StockUnitApi,
+} from '@/api/stock';
+
 // ============================================================
-// TYPES
+// TYPES FE
 // ============================================================
 
 export type InventoryCategory = 'Bahan' | 'Kemasan';
-export type InventoryUnit =
-  | 'gr'
-  | 'kg'
-  | 'ml'
-  | 'ltr'
-  | 'sdm'
-  | 'sdt'
-  | 'cup'
-  | 'butir'
-  | 'siung'
-  | 'lbr'
-  | 'ikat'
-  | 'batang'
-  | 'pinch'
-  | 'dash'
-  | 'pcs';
+
+export type InventoryUnit = 'gram' | 'kg' | 'ml' | 'liter' | 'pcs';
 
 export interface InventoryItem {
+  /**
+   * Ini wajib string dari StockItem.id backend.
+   * Dipakai recipe sebagai stock_item_id.
+   */
   id: string;
   name: string;
+
+  /**
+   * Backend stock_items belum punya kolom brand/supplier di model StockItem.
+   * Jadi sementara isi '-'.
+   */
   brand: string;
+
   category: InventoryCategory;
   unit: InventoryUnit;
-  stock: number; // stok tersedia
-  minStock: number; // alert jika di bawah ini
-  pricePerUnit: number; // harga beli per satuan
+
+  /**
+   * stok_tersedia dari backend
+   */
+  stock: number;
+
+  /**
+   * Backend belum punya minimum stock.
+   * FE pakai nilai turunan supaya status Aman/Menipis tetap bisa jalan.
+   */
+  minStock: number;
+
+  /**
+   * harga_per_satuan dari backend.
+   * Ini yang dipakai BE untuk hitung HPP:
+   * jumlah_dibutuhkan x harga_per_satuan
+   */
+  pricePerUnit: number;
+
   createdAt: string;
   updatedAt: string;
 }
@@ -42,202 +67,200 @@ export interface InventoryStats {
   emptyStock: number;
 }
 
-// ============================================================
-// DUMMY DATA
-// ============================================================
-
-const dummyInventory: InventoryItem[] = [
-  {
-    id: '1',
-    name: 'Tepung Terigu',
-    brand: 'Cakra Kembar',
-    category: 'Bahan',
-    unit: 'kg',
-    stock: 20,
-    minStock: 5,
-    pricePerUnit: 12000,
-    createdAt: '2026-01-01',
-    updatedAt: '2026-05-20',
-  },
-  {
-    id: '2',
-    name: 'Tepung Kanji',
-    brand: 'Rose Brand',
-    category: 'Bahan',
-    unit: 'kg',
-    stock: 1,
-    minStock: 3,
-    pricePerUnit: 13000,
-    createdAt: '2026-01-01',
-    updatedAt: '2026-05-18',
-  },
-  {
-    id: '3',
-    name: 'Mentega',
-    brand: 'Blueband',
-    category: 'Bahan',
-    unit: 'kg',
-    stock: 0,
-    minStock: 2,
-    pricePerUnit: 14000,
-    createdAt: '2026-01-01',
-    updatedAt: '2026-05-15',
-  },
-  {
-    id: '4',
-    name: 'Mentega (kemasan 200gr)',
-    brand: 'Blueband',
-    category: 'Bahan',
-    unit: 'gr',
-    stock: 0,
-    minStock: 1000,
-    pricePerUnit: 28000,
-    createdAt: '2026-01-01',
-    updatedAt: '2026-05-10',
-  },
-  {
-    id: '5',
-    name: 'Telur Ayam Organik',
-    brand: 'Telur',
-    category: 'Bahan',
-    unit: 'butir',
-    stock: 0,
-    minStock: 30,
-    pricePerUnit: 38000,
-    createdAt: '2026-01-01',
-    updatedAt: '2026-05-08',
-  },
-  {
-    id: '6',
-    name: 'Cokelat Bubuk',
-    brand: 'Van Houtten',
-    category: 'Bahan',
-    unit: 'kg',
-    stock: 1,
-    minStock: 2,
-    pricePerUnit: 39000,
-    createdAt: '2026-01-01',
-    updatedAt: '2026-05-12',
-  },
-  {
-    id: '7',
-    name: 'Susu Full Cream',
-    brand: 'Ultra Milk',
-    category: 'Bahan',
-    unit: 'ltr',
-    stock: 2,
-    minStock: 5,
-    pricePerUnit: 41000,
-    createdAt: '2026-01-01',
-    updatedAt: '2026-05-14',
-  },
-  {
-    id: '8',
-    name: 'Kemasan (S)',
-    brand: 'Batam Printing',
-    category: 'Kemasan',
-    unit: 'pcs',
-    stock: 20,
-    minStock: 25,
-    pricePerUnit: 40000,
-    createdAt: '2026-01-01',
-    updatedAt: '2026-05-16',
-  },
-  {
-    id: '9',
-    name: 'Kemasan (M)',
-    brand: 'Batam Printing',
-    category: 'Kemasan',
-    unit: 'pcs',
-    stock: 50,
-    minStock: 30,
-    pricePerUnit: 42000,
-    createdAt: '2026-01-01',
-    updatedAt: '2026-05-17',
-  },
-  {
-    id: '10',
-    name: 'Kemasan (L)',
-    brand: 'Batam Printing',
-    category: 'Kemasan',
-    unit: 'pcs',
-    stock: 50,
-    minStock: 30,
-    pricePerUnit: 43000,
-    createdAt: '2026-01-01',
-    updatedAt: '2026-05-17',
-  },
-];
+export interface InventoryOption {
+  /**
+   * Ini harus stock_items.id dari backend.
+   */
+  id: string;
+  name: string;
+  brand: string;
+  unit: string;
+  stock: number;
+}
 
 // ============================================================
-// FUNGSI SERVICE
+// MAPPERS
 // ============================================================
 
-const delay = (ms = 300) => new Promise((resolve) => setTimeout(resolve, ms));
+function parseNumber(value: string | number | null | undefined): number {
+  if (value === null || value === undefined || value === '') return 0;
+
+  const parsed = Number(value);
+
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function mapApiCategoryToFe(category: StockCategoryApi): InventoryCategory {
+  return category === 'kemasan' ? 'Kemasan' : 'Bahan';
+}
+
+function mapFeCategoryToApi(category: InventoryCategory): StockCategoryApi {
+  return category === 'Kemasan' ? 'kemasan' : 'bahan_baku';
+}
+
+function mapApiUnitToFe(unit: StockUnitApi): InventoryUnit {
+  return unit;
+}
+
+function mapFeUnitToApi(unit: InventoryUnit): StockUnitApi {
+  return unit;
+}
+
+function getDefaultMinStock(unit: InventoryUnit): number {
+  switch (unit) {
+    case 'kg':
+      return 1;
+    case 'gram':
+      return 500;
+    case 'liter':
+      return 1;
+    case 'ml':
+      return 500;
+    case 'pcs':
+      return 10;
+    default:
+      return 1;
+  }
+}
+
+function mapStockOutToInventoryItem(item: StockOut): InventoryItem {
+  const unit = mapApiUnitToFe(item.satuan);
+  const stock = parseNumber(item.stok_tersedia);
+
+  return {
+    id: String(item.id),
+    name: item.nama_item,
+    brand: '-',
+    category: mapApiCategoryToFe(item.kategori),
+    unit,
+    stock,
+    minStock: getDefaultMinStock(unit),
+    pricePerUnit: parseNumber(item.harga_per_satuan),
+    createdAt: item.created_at ?? '',
+    updatedAt: item.updated_at ?? item.created_at ?? '',
+  };
+}
+
+function toStockCreatePayload(
+  data: Omit<InventoryItem, 'id' | 'createdAt' | 'updatedAt'>
+): StockCreate {
+  return {
+    nama_item: data.name.trim(),
+    satuan: mapFeUnitToApi(data.unit),
+    kategori: mapFeCategoryToApi(data.category),
+    harga_per_satuan: data.pricePerUnit,
+    stok_tersedia: data.stock,
+  };
+}
+
+function toStockUpdatePayload(
+  data: Partial<Omit<InventoryItem, 'id' | 'createdAt' | 'updatedAt'>>
+): StockUpdate {
+  const payload: StockUpdate = {};
+
+  if (data.name !== undefined) payload.nama_item = data.name.trim();
+  if (data.unit !== undefined) payload.satuan = mapFeUnitToApi(data.unit);
+  if (data.category !== undefined) payload.kategori = mapFeCategoryToApi(data.category);
+  if (data.pricePerUnit !== undefined) payload.harga_per_satuan = data.pricePerUnit;
+  if (data.stock !== undefined) payload.stok_tersedia = data.stock;
+
+  return payload;
+}
+
+// ============================================================
+// SERVICE FUNCTIONS
+// ============================================================
 
 export async function getInventoryItems(): Promise<InventoryItem[]> {
-  await delay();
-  return dummyInventory;
+  const stockItems = await getStockItems();
+
+  return stockItems.map(mapStockOutToInventoryItem);
+}
+
+export async function getInventoryItemById(itemId: string): Promise<InventoryItem> {
+  const stockItem = await getStockItemById(Number(itemId));
+
+  return mapStockOutToInventoryItem(stockItem);
 }
 
 export async function getInventoryStats(): Promise<InventoryStats> {
-  await delay();
-  const items = dummyInventory;
+  const items = await getInventoryItems();
+
   const totalItems = items.length;
-  const safeStock = items.filter((i) => i.stock > i.minStock).length;
-  const lowStock = items.filter((i) => i.stock <= i.minStock && i.stock > 0).length;
-  const emptyStock = items.filter((i) => i.stock === 0).length;
-  return { totalItems, safeStock, lowStock, emptyStock };
+  const safeStock = items.filter((item) => item.stock > item.minStock).length;
+  const lowStock = items.filter(
+    (item) => item.stock <= item.minStock && item.stock > 0
+  ).length;
+  const emptyStock = items.filter((item) => item.stock === 0).length;
+
+  return {
+    totalItems,
+    safeStock,
+    lowStock,
+    emptyStock,
+  };
 }
 
 export async function addInventoryItem(
   data: Omit<InventoryItem, 'id' | 'createdAt' | 'updatedAt'>
 ): Promise<InventoryItem> {
-  await delay(500);
-  const newItem: InventoryItem = {
-    id: `inv-${Date.now()}`,
-    ...data,
-    createdAt: new Date().toISOString().split('T')[0],
-    updatedAt: new Date().toISOString().split('T')[0],
-  };
-  dummyInventory.unshift(newItem);
-  return newItem;
+  const created = await createStockItem(toStockCreatePayload(data));
+
+  return mapStockOutToInventoryItem(created);
 }
 
-export async function updateStock(itemId: string, newStock: number): Promise<InventoryItem> {
-  await delay(300);
-  const item = dummyInventory.find((i) => i.id === itemId);
-  if (!item) throw new Error('Item not found');
-  item.stock = newStock;
-  item.updatedAt = new Date().toISOString().split('T')[0];
-  return item;
+export async function updateInventoryItem(
+  itemId: string,
+  data: Partial<Omit<InventoryItem, 'id' | 'createdAt' | 'updatedAt'>>
+): Promise<InventoryItem> {
+  const updated = await updateStockItem(Number(itemId), toStockUpdatePayload(data));
+
+  return mapStockOutToInventoryItem(updated);
 }
 
-// Fungsi untuk mengurangi stok berdasarkan resep (dipanggil saat order confirmed)
-export async function deductStock(
-  ingredients: { inventoryId: string; quantity: number }[]
-): Promise<void> {
-  await delay(500);
-  for (const ing of ingredients) {
-    const item = dummyInventory.find((i) => i.id === ing.inventoryId);
-    if (item) {
-      const newStock = Math.max(0, item.stock - ing.quantity);
-      item.stock = newStock;
-      item.updatedAt = new Date().toISOString().split('T')[0];
-    }
-  }
+export async function updateStock(
+  itemId: string,
+  newStock: number
+): Promise<InventoryItem> {
+  const updated = await updateStockItem(Number(itemId), {
+    stok_tersedia: newStock,
+  });
+
+  return mapStockOutToInventoryItem(updated);
 }
 
-// Fungsi untuk mendapatkan daftar bahan (untuk dropdown di produk)
-export async function getInventoryOptions(): Promise<
-  { id: string; name: string; brand: string; unit: string; stock: number }[]
-> {
-  await delay();
-  return dummyInventory.map((item) => ({
-    id: item.id,
-    name: item.name,
-    brand: item.brand,
-    unit: item.unit,
-    stock: item.stock,
+export async function deleteInventoryItem(itemId: string): Promise<boolean> {
+  return deleteStockItem(Number(itemId));
+}
+
+/**
+ * Untuk dropdown bahan di Product Recipe.
+ *
+ * PENTING:
+ * id harus benar-benar stock_items.id dari backend.
+ * Kalau id dummy/index, backend akan error:
+ * "Ingredient not found — bahan baku tidak terdaftar di inventory."
+ */
+export async function getInventoryOptions(): Promise<InventoryOption[]> {
+  const stockItems = await getStockItems('bahan_baku');
+
+  return stockItems.map((item) => ({
+    id: String(item.id),
+    name: item.nama_item,
+    brand: '-',
+    unit: item.satuan,
+    stock: parseNumber(item.stok_tersedia),
   }));
+}
+
+/**
+ * Sementara tidak dipakai langsung untuk update DB.
+ * Pengurangan stok saat order sebaiknya dilakukan backend saat order confirmed.
+ */
+export async function deductStock(
+  _ingredients: { inventoryId: string; quantity: number }[]
+): Promise<void> {
+  console.warn(
+    'deductStock() tidak dijalankan di FE. Pengurangan stok sebaiknya dilakukan backend saat order confirmed.'
+  );
 }

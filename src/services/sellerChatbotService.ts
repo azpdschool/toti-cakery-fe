@@ -1,38 +1,63 @@
 // src/services/sellerChatbotService.ts
+import {
+  createFaq,
+  editFaq,
+  getAllFaqs,
+  getFaqById,
+  removeFaq,
+  type FaqOut,
+} from '@/api/faq'
 
-export type FaqStatus = 'active' | 'inactive';
+export type FaqStatus = 'active' | 'inactive'
 
 export interface Faq {
-  id: string;
-  question: string;
-  answer: string;
-  category: string;
-  status: FaqStatus;
-  order: number; // auto-generated, tidak perlu diinput user
+  id: string
+  question: string
+  answer: string
+  category: string
+  status: FaqStatus
+  order: number
   updatedBy: {
-    name: string;
-    role: string;
-  };
-  updatedAt: string;
-  createdAt: string;
+    name: string
+    role: string
+  }
+  updatedAt: string
+  createdAt: string
 }
 
 export interface FaqStats {
-  total: number;
-  active: number;
-  inactive: number;
-  activePercentage: number;
-  inactivePercentage: number;
-  usedInChatbot: number;
+  total: number
+  active: number
+  inactive: number
+  activePercentage: number
+  inactivePercentage: number
+  usedInChatbot: number
 }
 
-export type FaqCategory = 'Umum' | 'Pesanan' | 'Pengiriman' | 'Pembayaran' | 'Produk' | 'Lainnya';
+export type FaqCategory =
+  | 'Umum'
+  | 'Pesanan'
+  | 'Pengiriman'
+  | 'Pembayaran'
+  | 'Produk'
+  | 'Lainnya'
 
-// ============================================================
-// DUMMY DATA
-// ============================================================
+const categoryOptions: FaqCategory[] = [
+  'Umum',
+  'Pesanan',
+  'Pengiriman',
+  'Pembayaran',
+  'Produk',
+  'Lainnya',
+]
 
-const formatDate = (date: Date) => {
+function formatDateString(value?: string | null) {
+  if (!value) return '-'
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) return '-'
+
   return (
     date.toLocaleDateString('id-ID', {
       day: 'numeric',
@@ -40,145 +65,56 @@ const formatDate = (date: Date) => {
       year: 'numeric',
     }) +
     ' · ' +
-    date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
-  );
-};
+    date.toLocaleTimeString('id-ID', {
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  )
+}
 
-// Order sudah diatur berurutan (1, 2, 3, ...)
-const dummyFaqs: Faq[] = [
-  {
-    id: '1',
-    question: 'Apakah Toti Cakery menerima pesanan custom?',
-    answer:
-      'Ya, kami menerima pesanan custom untuk ulang tahun, wedding, hampers, dan acara lainnya.',
-    category: 'Pesanan',
-    status: 'inactive',
-    order: 1,
-    updatedBy: { name: 'Jake', role: 'Owner' },
-    updatedAt: formatDate(new Date(2026, 4, 24, 10, 55)),
-    createdAt: '2026-01-10',
-  },
-  {
-    id: '2',
-    question: 'Berapa lama proses pembuatan kue?',
-    answer: 'Estimasi produksi 1–3 hari tergantung jenis dan jumlah pesanan.',
-    category: 'Pesanan',
-    status: 'active',
-    order: 2,
-    updatedBy: { name: 'Jake', role: 'Owner' },
-    updatedAt: formatDate(new Date(2026, 4, 21, 10, 55)),
-    createdAt: '2026-01-12',
-  },
-  {
-    id: '3',
-    question: 'Apakah bisa request desain sendiri?',
-    answer: 'Bisa. Anda dapat mengirim referensi desain melalui WhatsApp atau Instagram.',
-    category: 'Produk',
-    status: 'active',
-    order: 3,
-    updatedBy: { name: 'Jake', role: 'Owner' },
-    updatedAt: formatDate(new Date(2026, 4, 20, 11, 10)),
-    createdAt: '2026-01-15',
-  },
-  {
-    id: '4',
-    question: 'Minimal order di Toti Cakery berapa?',
-    answer: 'Minimal order custom cake mulai dari Rp150.000.',
-    category: 'Pesanan',
-    status: 'active',
-    order: 4,
-    updatedBy: { name: 'Jake', role: 'Owner' },
-    updatedAt: formatDate(new Date(2026, 4, 20, 19, 20)),
-    createdAt: '2026-01-18',
-  },
-  {
-    id: '5',
-    question: 'Metode pembayaran apa saja yang tersedia?',
-    answer: 'Kami menerima QRIS, VA, serta pembayaran secara langsung di Toko.',
-    category: 'Pembayaran',
-    status: 'active',
-    order: 5,
-    updatedBy: { name: 'Jake', role: 'Owner' },
-    updatedAt: formatDate(new Date(2026, 4, 20, 13, 40)),
-    createdAt: '2026-01-20',
-  },
-  {
-    id: '6',
-    question: 'Apakah tersedia layanan delivery?',
-    answer: 'Ya, kami menggunakan pihak ketiga untuk pengantaran kue.',
-    category: 'Pengiriman',
-    status: 'active',
-    order: 6,
-    updatedBy: { name: 'Jake', role: 'Owner' },
-    updatedAt: formatDate(new Date(2026, 4, 20, 13, 40)),
-    createdAt: '2026-01-22',
-  },
-  {
-    id: '7',
-    question: 'Apakah kue bisa same day order?',
-    answer: 'Same day order hanya tersedia untuk produk ready stock tertentu.',
-    category: 'Pesanan',
-    status: 'active',
-    order: 7,
-    updatedBy: { name: 'Jake', role: 'Owner' },
-    updatedAt: formatDate(new Date(2026, 4, 20, 13, 40)),
-    createdAt: '2026-01-25',
-  },
-  {
-    id: '8',
-    question: 'Jam operasional Toti Cakery kapan?',
-    answer: 'Kami buka setiap hari pukul 08.00–20.00 WIB.',
+function mapFaqOutToFaq(item: FaqOut, index: number): Faq {
+  return {
+    id: String(item.id),
+    question: item.pertanyaan,
+    answer: item.jawaban,
+
+    // Backend FAQ kamu belum punya field category.
+    // Jadi sementara semua dibuat "Umum".
     category: 'Umum',
-    status: 'active',
-    order: 8,
-    updatedBy: { name: 'Jake', role: 'Owner' },
-    updatedAt: formatDate(new Date(2026, 4, 20, 13, 40)),
-    createdAt: '2026-01-28',
-  },
-  {
-    id: '9',
-    question: 'Apakah bahan yang digunakan halal?',
-    answer: 'Ya, seluruh bahan yang digunakan halal dan berkualitas premium.',
-    category: 'Umum',
-    status: 'active',
-    order: 9,
-    updatedBy: { name: 'Jake', role: 'Owner' },
-    updatedAt: formatDate(new Date(2026, 4, 20, 13, 40)),
-    createdAt: '2026-02-01',
-  },
-  {
-    id: '10',
-    question: 'Apakah bisa request tulisan di kue?',
-    answer: 'Bisa, Anda dapat menambahkan tulisan sesuai keinginan.',
-    category: 'Produk',
-    status: 'active',
-    order: 10,
-    updatedBy: { name: 'Jake', role: 'Owner' },
-    updatedAt: formatDate(new Date(2026, 4, 20, 13, 40)),
-    createdAt: '2026-02-05',
-  },
-];
 
-const categoryOptions: FaqCategory[] = ['Umum', 'Pesanan', 'Pengiriman', 'Pembayaran', 'Produk', 'Lainnya'];
+    status: item.is_active ? 'active' : 'inactive',
 
-// ============================================================
-// SERVICE FUNCTIONS
-// ============================================================
+    // Backend belum punya field order.
+    // Jadi order pakai urutan dari hasil API.
+    order: index + 1,
 
-const delay = (ms = 300) => new Promise((resolve) => setTimeout(resolve, ms));
+    updatedBy: {
+      name: item.created_by_username || 'Unknown',
+      role: 'Admin/Owner',
+    },
+
+    updatedAt: formatDateString(item.updated_at || item.created_at),
+    createdAt: formatDateString(item.created_at),
+  }
+}
 
 export async function getChatbotFaqs(): Promise<Faq[]> {
-  await delay();
-  return dummyFaqs;
+  // Untuk halaman manage, ambil semua FAQ: aktif + nonaktif.
+  const data = await getAllFaqs(false)
+
+  return data.map(mapFaqOutToFaq)
 }
 
 export async function getChatbotStats(): Promise<FaqStats> {
-  await delay();
-  const total = dummyFaqs.length;
-  const active = dummyFaqs.filter((f) => f.status === 'active').length;
-  const inactive = dummyFaqs.filter((f) => f.status === 'inactive').length;
-  const activePercentage = total > 0 ? Math.round((active / total) * 100) : 0;
-  const inactivePercentage = total > 0 ? Math.round((inactive / total) * 100) : 0;
+  const faqs = await getAllFaqs(false)
+
+  const total = faqs.length
+  const active = faqs.filter((f) => f.is_active).length
+  const inactive = faqs.filter((f) => !f.is_active).length
+
+  const activePercentage = total > 0 ? Math.round((active / total) * 100) : 0
+  const inactivePercentage = total > 0 ? Math.round((inactive / total) * 100) : 0
+
   return {
     total,
     active,
@@ -186,72 +122,50 @@ export async function getChatbotStats(): Promise<FaqStats> {
     activePercentage,
     inactivePercentage,
     usedInChatbot: active,
-  };
+  }
 }
 
 export async function getFaqCategories(): Promise<FaqCategory[]> {
-  await delay();
-  return categoryOptions;
+  return categoryOptions
 }
 
-// ============================================================
-// AUTO-GENERATE ORDER: ambil order tertinggi + 1
-// ============================================================
-
 export async function addFaq(
-  data: Omit<Faq, 'id' | 'createdAt' | 'updatedAt' | 'updatedBy' | 'order'>
+  data: Omit<Faq, 'id' | 'createdAt' | 'updatedAt' | 'updatedBy' | 'order'>,
 ): Promise<Faq> {
-  await delay(500);
-  const now = new Date();
+  const created = await createFaq({
+    pertanyaan: data.question,
+    jawaban: data.answer,
+    is_active: data.status === 'active',
+  })
 
-  // Cari order tertinggi dari semua FAQ (termasuk yang nonaktif)
-  const maxOrder = dummyFaqs.reduce((max, f) => Math.max(max, f.order), 0);
-  const nextOrder = maxOrder + 1;
-
-  const newFaq: Faq = {
-    id: `faq-${Date.now()}`,
-    ...data,
-    order: nextOrder,
-    updatedBy: { name: 'Jake', role: 'Owner' }, // nanti dari auth
-    updatedAt: formatDate(now),
-    createdAt: now.toISOString().split('T')[0],
-  };
-  dummyFaqs.unshift(newFaq);
-  return newFaq;
+  return mapFaqOutToFaq(created, 0)
 }
 
 export async function updateFaq(
   id: string,
-  data: Partial<Omit<Faq, 'id' | 'createdAt' | 'updatedAt' | 'updatedBy' | 'order'>>
+  data: Partial<
+    Omit<Faq, 'id' | 'createdAt' | 'updatedAt' | 'updatedBy' | 'order'>
+  >,
 ): Promise<Faq> {
-  await delay(500);
-  const index = dummyFaqs.findIndex((f) => f.id === id);
-  if (index === -1) throw new Error('FAQ tidak ditemukan');
-  const updated = {
-    ...dummyFaqs[index],
-    ...data,
-    // order TIDAK diubah saat edit
-    updatedBy: { name: 'Jake', role: 'Owner' },
-    updatedAt: formatDate(new Date()),
-  };
-  dummyFaqs[index] = updated;
-  return updated;
+  const updated = await editFaq(Number(id), {
+    pertanyaan: data.question,
+    jawaban: data.answer,
+    is_active: data.status ? data.status === 'active' : undefined,
+  })
+
+  return mapFaqOutToFaq(updated, 0)
 }
 
 export async function deleteFaq(id: string): Promise<void> {
-  await delay(500);
-  const index = dummyFaqs.findIndex((f) => f.id === id);
-  if (index !== -1) dummyFaqs.splice(index, 1);
-  // order tidak di-reorder, jadi ada gap (sesuai keinginan: "nomor urut tetap, yang nonaktif dilewati")
+  await removeFaq(Number(id))
 }
 
 export async function toggleFaqStatus(id: string): Promise<Faq> {
-  await delay(300);
-  const faq = dummyFaqs.find((f) => f.id === id);
-  if (!faq) throw new Error('FAQ tidak ditemukan');
-  faq.status = faq.status === 'active' ? 'inactive' : 'active';
-  faq.updatedBy = { name: 'Jake', role: 'Owner' };
-  faq.updatedAt = formatDate(new Date());
-  // order tetap, tidak berubah
-  return faq;
+  const current = await getFaqById(Number(id))
+
+  const updated = await editFaq(Number(id), {
+    is_active: !current.is_active,
+  })
+
+  return mapFaqOutToFaq(updated, 0)
 }

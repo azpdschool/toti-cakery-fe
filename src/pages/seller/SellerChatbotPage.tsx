@@ -219,7 +219,8 @@ export default function SellerChatbotPage() {
   const userRole = user?.role as UserRole;
 
   const canManageChatbot = hasPermission(userRole, 'manage_chatbot_faq');
-  const canDelete = hasPermission(userRole, 'delete_data');
+  const canDelete = canManageChatbot;
+
 
   const [faqs, setFaqs] = useState<Faq[]>([]);
   const [stats, setStats] = useState<{
@@ -241,27 +242,32 @@ export default function SellerChatbotPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingFaq, setEditingFaq] = useState<Faq | null>(null);
 
-  useEffect(() => {
-    async function loadData() {
-      setLoading(true);
-      try {
-        const [faqsData, statsData, categoriesData] = await Promise.all([
-          getChatbotFaqs(),
-          getChatbotStats(),
-          getFaqCategories(),
-        ]);
-        const sorted = [...faqsData].sort((a, b) => a.order - b.order);
-        setFaqs(sorted);
-        setStats(statsData);
-        setCategories(['Semua Kategori', ...categoriesData]);
-      } catch (error) {
-        console.error('Gagal memuat data FAQ:', error);
-      } finally {
-        setLoading(false);
-      }
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [faqsData, statsData, categoriesData] = await Promise.all([
+        getChatbotFaqs(),
+        getChatbotStats(),
+        getFaqCategories(),
+      ]);
+
+      const sorted = [...faqsData].sort((a, b) => a.order - b.order);
+
+      setFaqs(sorted);
+      setStats(statsData);
+      setCategories(['Semua Kategori', ...categoriesData]);
+    } catch (error) {
+      console.error('Gagal memuat data FAQ:', error);
+      alert('Gagal memuat data FAQ dari backend.');
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
     loadData();
   }, []);
+
 
   const filteredFaqs = useMemo(() => {
     let result = faqs;
@@ -289,47 +295,49 @@ export default function SellerChatbotPage() {
 
   const handlePageChange = (page: number) => setCurrentPage(page);
 
-  const handleAdd = async (data: any) => {
+    const handleAdd = async (data: any) => {
     try {
-      const newFaq = await addFaq(data);
-      const sorted = [...faqs, newFaq].sort((a, b) => a.order - b.order);
-      setFaqs(sorted);
+      await addFaq(data);
+      await loadData();
       alert('FAQ berhasil ditambahkan!');
     } catch (error) {
+      console.error('Gagal menambahkan FAQ:', error);
       alert('Gagal menambahkan FAQ.');
     }
   };
 
   const handleEdit = async (data: any) => {
     if (!editingFaq) return;
+
     try {
-      const updated = await updateFaq(editingFaq.id, data);
-      const sorted = faqs.map((f) => (f.id === updated.id ? updated : f)).sort((a, b) => a.order - b.order);
-      setFaqs(sorted);
+      await updateFaq(editingFaq.id, data);
+      await loadData();
       alert('FAQ berhasil diperbarui!');
     } catch (error) {
+      console.error('Gagal memperbarui FAQ:', error);
       alert('Gagal memperbarui FAQ.');
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Yakin ingin menghapus FAQ ini?')) return;
+
     try {
       await deleteFaq(id);
-      const remaining = faqs.filter((f) => f.id !== id);
-      setFaqs(remaining);
+      await loadData();
       alert('FAQ berhasil dihapus.');
     } catch (error) {
+      console.error('Gagal menghapus FAQ:', error);
       alert('Gagal menghapus FAQ.');
     }
   };
 
   const handleToggleStatus = async (id: string) => {
     try {
-      const updated = await toggleFaqStatus(id);
-      const sorted = faqs.map((f) => (f.id === updated.id ? updated : f)).sort((a, b) => a.order - b.order);
-      setFaqs(sorted);
+      await toggleFaqStatus(id);
+      await loadData();
     } catch (error) {
+      console.error('Gagal mengubah status FAQ:', error);
       alert('Gagal mengubah status FAQ.');
     }
   };
@@ -338,6 +346,7 @@ export default function SellerChatbotPage() {
     setEditingFaq(faq);
     setShowModal(true);
   };
+
 
   const openAddModal = () => {
     setEditingFaq(null);
