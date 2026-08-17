@@ -97,7 +97,7 @@ export function BuyerFooter() {
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 transition hover:opacity-80"
               >
-                <img src="src/assets/instagram.png" alt="Instagram" className="h-7 w-7" />
+                <img src={instagramIcon} alt="Instagram" className="h-7 w-7" />
                 <span className="text-xs text-[#6f5448] hover:text-[#d85b30]">
                   @toti.cakery
                 </span>
@@ -110,7 +110,7 @@ export function BuyerFooter() {
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 transition hover:opacity-80"
               >
-                <img src="src/assets/whatsapp.png" alt="WhatsApp" className="h-7 w-7" />
+                <img src={whatsappIcon} alt="WhatsApp" className="h-7 w-7" />
                 <span className="text-xs text-[#6f5448] hover:text-[#d85b30]">
                   +62 812-3456-7890
                 </span>

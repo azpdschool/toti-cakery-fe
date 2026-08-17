@@ -1,6 +1,5 @@
 // src/services/sellerFinanceService.ts
 
-import { formatRupiah } from './productService';
 import { getInvoices, type Invoice } from './sellerOrderService';
 
 // ============================================================

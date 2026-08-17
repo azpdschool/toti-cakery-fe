@@ -411,3 +411,64 @@ export async function getBuyerOrderById(id: string): Promise<BuyerOrder | null> 
     throw error
   }
 }
+
+// ============================================================
+// CHECKOUT / CREATE ORDER
+// ============================================================
+
+export type PaymentMethod = 'lunas' | 'dp'
+
+export interface CreateOrderItemPayload {
+  id?: string
+  productId?: string
+  productName: string
+  variantName: string
+  quantity: number
+  price: number
+  subtotal: number
+}
+
+export interface CreateOrderPayload {
+  items: CreateOrderItemPayload[]
+  subtotal: number
+  serviceFee: number
+  deliveryFee?: number
+  total: number
+  deliveryMethod: DeliveryMethod
+  paymentMethod: PaymentMethod
+  address?: string
+  recipientName?: string
+  recipientPhone?: string
+  notes?: string
+}
+
+/**
+ * Endpoint ini juga perlu disesuaikan dengan BE order route kamu,
+ * biasanya POST /orders atau POST /orders/buyer.
+ */
+const CREATE_ORDER_ENDPOINT = '/orders'
+
+export async function createOrder(payload: CreateOrderPayload): Promise<BuyerOrder> {
+  const response = await apiClient.post(CREATE_ORDER_ENDPOINT, payload)
+  return mapApiOrder(response.data)
+}
+
+export interface SimulatePaymentResult {
+  success: boolean
+  message: string
+}
+
+/**
+ * Simulasi pembayaran di FE (dipakai buat step "Saya Sudah Bayar" di CheckoutPage).
+ * Kalau nanti BE udah punya endpoint pembayaran asli, ganti isi fungsi ini
+ * supaya betulan hit BE, misalnya: await apiClient.post(`/orders/${orderId}/pay`)
+ */
+export async function simulatePayment(orderId: string): Promise<SimulatePaymentResult> {
+  await new Promise((resolve) => setTimeout(resolve, 1200))
+
+  if (!orderId) {
+    return { success: false, message: 'ID pesanan tidak ditemukan.' }
+  }
+
+  return { success: true, message: 'Pembayaran berhasil disimulasikan.' }
+}

@@ -8,8 +8,6 @@ import {
   Edit,
   Trash2,
   Search,
-  CheckCircle,
-  XCircle,
   Eye,
   EyeOff,
   Plus,
@@ -29,7 +27,6 @@ import {
   type UserStatus,
 } from '@/services/sellerSettingsService';
 import { useAuth } from '@/hooks/useAuth';
-import { hasPermission } from '@/services/rbacService';
 
 // ============================================================
 // KOMPONEN TAB NAVIGATION
