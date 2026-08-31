@@ -7,14 +7,8 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# Yang tidak perlu ikut (node_modules, dist, .git, .env) sudah disaring
-# .dockerignore.
 COPY . .
 
-# Vite membaca env saat build, bukan saat runtime.
-# Default "/api" -> request lewat origin yang sama dan diteruskan nginx ke
-# backend, jadi alamat backend tidak ikut tertanam di bundle JS.
-# Isi dengan URL absolut hanya kalau FE dideploy terpisah dari backend.
 ARG VITE_API_BASE_URL=/api
 ARG VITE_WHATSAPP_NUMBER=
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
