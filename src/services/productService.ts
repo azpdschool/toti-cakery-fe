@@ -207,6 +207,7 @@ export function mapProductOutToProduct(product: ProductOut): Product {
     rasa: null,
     ukuranAtauIsi: null,
     parentCategory: product.parent_category ?? product.kategori ?? null,
+    minimumOrder: product.minimum_order ?? 1,
 
     optionGroups: [],
     variants: [makeDefaultVariant(product)],
@@ -249,6 +250,7 @@ export function mapProductOutToSimpleProduct(product: ProductOut): SimpleProduct
     rasa: mapped.rasa,
     ukuranAtauIsi: mapped.ukuranAtauIsi,
     parentCategory: mapped.parentCategory,
+    minimumOrder: mapped.minimumOrder ?? 1,
 
     /**
      * Backend product belum punya stok numerik produk.
@@ -415,6 +417,7 @@ export async function getCategories(): Promise<CategorySummary[]> {
 export async function getProductReviews(
   _limit?: number
 ): Promise<(ProductReview & { productId: string; productName: string })[]> {
+  void _limit;
   // Backend review produk belum tersedia.
   return [];
 }
@@ -481,10 +484,10 @@ export async function deleteProduct(id: number): Promise<void> {
  * yang sudah menjadi URL final untuk browser.
  */
 export async function uploadProductImage(
-  id: number,
+  productId: number,
   file: File
 ): Promise<SimpleProduct> {
-  const updated = await uploadProductImageApi(id, file);
+  const updated = await uploadProductImageApi(productId, file);
 
   return mapProductOutToSimpleProduct(updated);
 }

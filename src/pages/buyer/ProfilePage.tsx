@@ -17,6 +17,7 @@ import {
   Loader2,
   ShoppingBag,
   Home,
+  X,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { ROUTES } from '@/constants'
@@ -25,21 +26,31 @@ import {
   startWAVerification,
   getWAVerificationStatus,
 } from '@/api/auth'
+import { InternationalPhoneInput } from '@/components/common/PhoneInput'
 
 type PasswordStep = 'idle' | 'otp' | 'reset'
 
 function parseApiError(error: unknown, fallback: string): string {
   if (error && typeof error === 'object' && 'response' in error) {
-    const err = error as any
+    const err = error as {
+      response?: {
+        data?: { detail?: unknown; message?: string }
+        status?: number
+      }
+    }
     const detail = err.response?.data?.detail
 
     if (typeof detail === 'string') return detail
 
     if (Array.isArray(detail)) {
       return detail
-        .map((item) => item?.msg)
+        .map((item: { msg?: string }) => item?.msg)
         .filter(Boolean)
         .join(', ')
+    }
+
+    if (err.response?.data?.message) {
+      return err.response.data.message
     }
   }
 
@@ -47,13 +58,20 @@ function parseApiError(error: unknown, fallback: string): string {
 }
 
 export default function ProfilePage() {
-  const { user, logout, isAuthenticated } = useAuth()
+  const { user, logout, updateUser, isAuthenticated } = useAuth()
   const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [avatar, setAvatar] = useState<string | null>(() => {
     return localStorage.getItem('buyer_avatar')
   })
+
+  // Phone Modal State
+  const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false)
+  const [newPhone, setNewPhone] = useState('')
+  const [phoneLoading, setPhoneLoading] = useState(false)
+  const [phoneError, setPhoneError] = useState<string | null>(null)
+  const [phoneSuccess, setPhoneSuccess] = useState<string | null>(null)
 
   const [passwordStep, setPasswordStep] = useState<PasswordStep>('idle')
   const [otpId, setOtpId] = useState('')
@@ -217,6 +235,34 @@ export default function ProfilePage() {
     }
   }
 
+  const handleSavePhone = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setPhoneError(null)
+    setPhoneSuccess(null)
+
+    const cleanedPhone = newPhone.trim()
+    if (!cleanedPhone || cleanedPhone.length < 8) {
+      setPhoneError('Nomor WhatsApp tidak valid. Silakan periksa kembali.')
+      return
+    }
+
+    setPhoneLoading(true)
+
+    try {
+      // Simulate/apply phone update
+      updateUser({ phone: cleanedPhone })
+      setPhoneSuccess('Nomor WhatsApp berhasil diperbarui!')
+      setTimeout(() => {
+        setIsPhoneModalOpen(false)
+        setPhoneSuccess(null)
+      }, 1200)
+    } catch (err) {
+      setPhoneError(parseApiError(err, 'Gagal memperbarui nomor WhatsApp.'))
+    } finally {
+      setPhoneLoading(false)
+    }
+  }
+
   const initial = user.name?.charAt(0).toUpperCase() || 'B'
 
   return (
@@ -337,15 +383,31 @@ export default function ProfilePage() {
                 </p>
               </div>
 
-              <div className="rounded-xl border border-[#ead8ca] bg-[#fffaf6] p-4">
-                <div className="mb-2 flex items-center gap-2 text-sm font-bold text-[#4b2417]">
-                  <Phone className="h-4 w-4 text-[#d85b30]" />
-                  Nomor WhatsApp
-                </div>
+              <div className="rounded-xl border border-[#ead8ca] bg-[#fffaf6] p-4 flex flex-col justify-between">
+                <div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm font-bold text-[#4b2417]">
+                      <Phone className="h-4 w-4 text-[#d85b30]" />
+                      Nomor WhatsApp
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewPhone(user.phone || '')
+                        setPhoneError(null)
+                        setPhoneSuccess(null)
+                        setIsPhoneModalOpen(true)
+                      }}
+                      className="text-xs font-bold text-[#d85b30] hover:text-[#c04e28] hover:underline"
+                    >
+                      Ubah
+                    </button>
+                  </div>
 
-                <p className="text-sm text-[#6f5448]">
-                  {user.phone || '-'}
-                </p>
+                  <p className="text-sm text-[#6f5448]">
+                    {user.phone || '-'}
+                  </p>
+                </div>
               </div>
 
               <div className="rounded-xl border border-[#ead8ca] bg-[#fffaf6] p-4">
@@ -556,6 +618,79 @@ export default function ProfilePage() {
           </section>
         </main>
       </div>
+
+      {/* Modal Ubah Nomor HP */}
+      {isPhoneModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between border-b border-[#ead8ca] pb-3">
+              <h3 className="text-lg font-black text-[#4b2417]">
+                Ubah Nomor HP / WhatsApp
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsPhoneModalOpen(false)}
+                className="rounded-full p-1 text-[#8b7166] hover:bg-gray-100 transition"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {phoneError && (
+              <div className="mt-4 flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {phoneError}
+              </div>
+            )}
+
+            {phoneSuccess && (
+              <div className="mt-4 flex items-center gap-2 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-600">
+                <CheckCircle className="h-4 w-4 shrink-0" />
+                {phoneSuccess}
+              </div>
+            )}
+
+            <form onSubmit={handleSavePhone} className="mt-4 space-y-4">
+              <InternationalPhoneInput
+                label="Nomor WhatsApp Baru"
+                value={newPhone}
+                onChange={setNewPhone}
+                placeholder="812 3456 7890"
+                required
+                error={phoneError}
+              />
+
+              <p className="text-xs text-[#8b7166]">
+                Pilih kode negara via dropdown dan ketik nomor tanpa angka 0 di depan. Format otomatis tersimpan dalam standar E.164.
+              </p>
+
+              <div className="flex justify-end gap-2 border-t border-gray-100 pt-3">
+                <button
+                  type="button"
+                  onClick={() => setIsPhoneModalOpen(false)}
+                  className="rounded-xl border border-[#d0bfaf] px-4 py-2.5 text-sm font-bold text-[#4b2417] hover:bg-[#fff4ed] transition"
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={phoneLoading}
+                  className="inline-flex items-center justify-center rounded-xl bg-[#d85b30] px-5 py-2.5 text-sm font-black text-white hover:bg-[#c04e28] disabled:opacity-60 transition"
+                >
+                  {phoneLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Menyimpan...
+                    </>
+                  ) : (
+                    'Simpan Nomor'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
