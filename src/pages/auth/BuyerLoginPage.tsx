@@ -1,5 +1,5 @@
 // src/pages/auth/BuyerLoginPage.tsx
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type React from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
@@ -7,6 +7,7 @@ import {
   CheckCircle,
   Eye,
   EyeOff,
+  ExternalLink,
   Loader2,
   Lock,
   Mail,
@@ -22,17 +23,18 @@ import {
   loginBuyerOtp,
   mapBuyerAuthResponseToUser,
   registerBuyer,
-  sendBuyerOtp,
-  verifyBuyerOtp,
+  startWAVerification,
+  getWAVerificationStatus,
 } from '@/api/auth'
 
 type Mode =
   | 'login-email'
   | 'login-phone-password'
   | 'login-phone-otp'
-  | 'login-phone-otp-verify'
   | 'register'
-  | 'register-otp'
+  | 'wa-verification-pending'
+
+type PendingAction = 'register' | 'login-otp'
 
 function parseApiError(error: unknown, fallback: string): string {
   if (error && typeof error === 'object' && 'response' in error) {
@@ -45,9 +47,15 @@ function parseApiError(error: unknown, fallback: string): string {
       return detail.map((item) => item?.msg).filter(Boolean).join(', ')
     }
 
-    if (err.response?.status === 401) return 'Data login tidak valid'
+    if (err.response?.status === 401) return 'Kredensial login tidak valid'
     if (err.response?.status === 404) return 'Akun buyer tidak ditemukan'
-    if (err.response?.status === 400) return 'Data tidak valid atau OTP salah'
+    if (err.response?.status === 409) return 'Nomor HP atau email sudah terdaftar'
+    if (err.response?.status === 429) return 'Terlalu banyak percobaan verifikasi'
+    if (err.response?.status === 400) return 'Data request tidak valid'
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message
   }
 
   return fallback
@@ -73,8 +81,6 @@ export default function BuyerLoginPage() {
 
   // Login phone + OTP
   const [otpPhone, setOtpPhone] = useState('')
-  const [otpLoginId, setOtpLoginId] = useState('')
-  const [otpLoginCode, setOtpLoginCode] = useState('')
 
   // Register
   const [name, setName] = useState('')
@@ -82,8 +88,33 @@ export default function BuyerLoginPage() {
   const [registerPhone, setRegisterPhone] = useState('')
   const [registerPassword, setRegisterPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [registerOtpId, setRegisterOtpId] = useState('')
-  const [registerOtpCode, setRegisterOtpCode] = useState('')
+
+  // WA Real Verification State
+  const [waNonce, setWaNonce] = useState<string | null>(null)
+  const [waDeeplink, setWaDeeplink] = useState<string>('')
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null)
+  const [, setIsPolling] = useState(false)
+
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const pollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  const stopPolling = () => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current)
+      pollIntervalRef.current = null
+    }
+    if (pollTimeoutRef.current) {
+      clearTimeout(pollTimeoutRef.current)
+      pollTimeoutRef.current = null
+    }
+    setIsPolling(false)
+  }
+
+  useEffect(() => {
+    return () => {
+      stopPolling()
+    }
+  }, [])
 
   const resetMessage = () => {
     setError(null)
@@ -95,6 +126,82 @@ export default function BuyerLoginPage() {
       navigate(ROUTES.HOME, { replace: true })
     }, 500)
   }
+
+  // Polling logic for REAL WA verification mode
+  const startStatusPolling = (
+    nonce: string,
+    action: PendingAction,
+    registrationData?: {
+      name: string
+      email: string
+      phone: string
+      password: string
+    },
+    loginPhone?: string,
+  ) => {
+    stopPolling()
+    setIsPolling(true)
+
+    // Timeout after 5 minutes (300,000 ms)
+    pollTimeoutRef.current = setTimeout(() => {
+      stopPolling()
+      setError('Sesi verifikasi WhatsApp telah kedaluwarsa. Silakan coba lagi.')
+      setMode(action === 'register' ? 'register' : 'login-phone-otp')
+    }, 300000)
+
+    pollIntervalRef.current = setInterval(async () => {
+      try {
+        const res = await getWAVerificationStatus(nonce)
+
+        if (res.status === 'verified' && res.verify_token) {
+          stopPolling()
+          setLoading(true)
+
+          if (action === 'register' && registrationData) {
+            try {
+              const response = await registerBuyer({
+                name: registrationData.name,
+                email: registrationData.email,
+                phone: registrationData.phone,
+                password: registrationData.password,
+                verify_token: res.verify_token,
+              })
+              login(response.access_token, mapBuyerAuthResponseToUser(response))
+              setSuccess('Verifikasi berhasil! Akun telah terdaftar.')
+              goHome()
+            } catch (err) {
+              setError(parseApiError(err, 'Gagal menyelesaikan pendaftaran akun'))
+              setMode('register')
+            } finally {
+              setLoading(false)
+            }
+          } else if (action === 'login-otp' && loginPhone) {
+            try {
+              const response = await loginBuyerOtp({
+                phone: loginPhone,
+                verify_token: res.verify_token,
+              })
+              login(response.access_token, mapBuyerAuthResponseToUser(response))
+              setSuccess('Verifikasi berhasil! Login sukses.')
+              goHome()
+            } catch (err) {
+              setError(parseApiError(err, 'Gagal login menggunakan OTP'))
+              setMode('login-phone-otp')
+            } finally {
+              setLoading(false)
+            }
+          }
+        }
+      } catch (err) {
+        // Continue polling unless explicit hard error occurs
+        console.error('Polling WA verification error:', err)
+      }
+    }, 3000)
+  }
+
+  // ------------------------------------------------------------
+  // HANDLERS
+  // ------------------------------------------------------------
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -150,11 +257,12 @@ export default function BuyerLoginPage() {
     }
   }
 
-  const handleSendLoginOtp = async (e: React.FormEvent) => {
+  const handleStartLoginOtp = async (e: React.FormEvent) => {
     e.preventDefault()
     resetMessage()
 
-    if (!otpPhone.trim()) {
+    const targetPhone = otpPhone.trim()
+    if (!targetPhone) {
       setError('Nomor HP wajib diisi')
       return
     }
@@ -162,65 +270,45 @@ export default function BuyerLoginPage() {
     setLoading(true)
 
     try {
-      const response = await sendBuyerOtp({
-        target: otpPhone.trim(),
-        channel: 'whatsapp',
-        purpose: 'login',
+      const startRes = await startWAVerification({
+        phone_number: targetPhone,
       })
 
-      setOtpLoginId(response.otp_id)
-      setSuccess('OTP login terkirim. Untuk development gunakan kode 7777.')
-      setMode('login-phone-otp-verify')
+      // MOCK MODE Handling: backend returned verify_token directly
+      if (startRes.mock_mode && startRes.verify_token) {
+        const response = await loginBuyerOtp({
+          phone: targetPhone,
+          verify_token: startRes.verify_token,
+        })
+        login(response.access_token, mapBuyerAuthResponseToUser(response))
+        setSuccess('Login OTP berhasil')
+        goHome()
+        return
+      }
+
+      // REAL MODE Handling: setup deep link and start status polling
+      setWaNonce(startRes.nonce)
+      setWaDeeplink(startRes.deeplink)
+      setPendingAction('login-otp')
+      setMode('wa-verification-pending')
+
+      startStatusPolling(startRes.nonce, 'login-otp', undefined, targetPhone)
     } catch (err) {
-      setError(parseApiError(err, 'Gagal mengirim OTP login'))
+      setError(parseApiError(err, 'Gagal memulai verifikasi WhatsApp'))
     } finally {
       setLoading(false)
     }
   }
 
-  const handleVerifyLoginOtp = async (e: React.FormEvent) => {
+  const handleStartRegister = async (e: React.FormEvent) => {
     e.preventDefault()
     resetMessage()
 
-    if (!otpLoginId) {
-      setError('OTP ID tidak ditemukan. Kirim ulang OTP.')
-      setMode('login-phone-otp')
-      return
-    }
+    const regName = name.trim()
+    const regEmail = registerEmail.trim()
+    const regPhone = registerPhone.trim()
 
-    if (!otpLoginCode.trim()) {
-      setError('Kode OTP wajib diisi')
-      return
-    }
-
-    setLoading(true)
-
-    try {
-      const verified = await verifyBuyerOtp({
-        otp_id: otpLoginId,
-        code: otpLoginCode.trim(),
-      })
-
-      const response = await loginBuyerOtp({
-        phone: otpPhone.trim(),
-        verify_token: verified.verify_token,
-      })
-
-      login(response.access_token, mapBuyerAuthResponseToUser(response))
-      setSuccess('Login OTP berhasil')
-      goHome()
-    } catch (err) {
-      setError(parseApiError(err, 'Gagal login menggunakan OTP'))
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleSendRegisterOtp = async (e: React.FormEvent) => {
-    e.preventDefault()
-    resetMessage()
-
-    if (!name.trim() || !registerEmail.trim() || !registerPhone.trim()) {
+    if (!regName || !regEmail || !regPhone) {
       setError('Nama, email, dan nomor HP wajib diisi')
       return
     }
@@ -231,65 +319,48 @@ export default function BuyerLoginPage() {
     }
 
     if (registerPassword !== confirmPassword) {
-      setError('Password dan konfirmasi tidak cocok')
+      setError('Password dan konfirmasi password tidak cocok')
       return
     }
 
     setLoading(true)
 
     try {
-      const response = await sendBuyerOtp({
-        target: registerEmail.trim(),
-        channel: 'email',
-        purpose: 'register',
+      const startRes = await startWAVerification({
+        phone_number: regPhone,
       })
 
-      setRegisterOtpId(response.otp_id)
-      setSuccess('OTP registrasi terkirim. Untuk development gunakan kode 7777.')
-      setMode('register-otp')
-    } catch (err) {
-      setError(parseApiError(err, 'Gagal mengirim OTP register'))
-    } finally {
-      setLoading(false)
-    }
-  }
+      // MOCK MODE Handling: backend auto-verified and returned verify_token directly
+      if (startRes.mock_mode && startRes.verify_token) {
+        const response = await registerBuyer({
+          name: regName,
+          email: regEmail,
+          phone: regPhone,
+          password: registerPassword,
+          verify_token: startRes.verify_token,
+        })
+        login(response.access_token, mapBuyerAuthResponseToUser(response))
+        setSuccess('Registrasi berhasil!')
+        goHome()
+        return
+      }
 
-  const handleVerifyAndRegister = async (e: React.FormEvent) => {
-    e.preventDefault()
-    resetMessage()
-
-    if (!registerOtpId) {
-      setError('OTP ID tidak ditemukan. Kirim ulang OTP.')
-      setMode('register')
-      return
-    }
-
-    if (!registerOtpCode.trim()) {
-      setError('Kode OTP wajib diisi')
-      return
-    }
-
-    setLoading(true)
-
-    try {
-      const verified = await verifyBuyerOtp({
-        otp_id: registerOtpId,
-        code: registerOtpCode.trim(),
-      })
-
-      const response = await registerBuyer({
-        name: name.trim(),
-        email: registerEmail.trim(),
-        phone: registerPhone.trim(),
+      // REAL MODE Handling: setup deep link and start status polling
+      const regData = {
+        name: regName,
+        email: regEmail,
+        phone: regPhone,
         password: registerPassword,
-        verify_token: verified.verify_token,
-      })
+      }
 
-      login(response.access_token, mapBuyerAuthResponseToUser(response))
-      setSuccess('Register berhasil')
-      goHome()
+      setWaNonce(startRes.nonce)
+      setWaDeeplink(startRes.deeplink)
+      setPendingAction('register')
+      setMode('wa-verification-pending')
+
+      startStatusPolling(startRes.nonce, 'register', regData)
     } catch (err) {
-      setError(parseApiError(err, 'Gagal register buyer'))
+      setError(parseApiError(err, 'Gagal memulai verifikasi WhatsApp'))
     } finally {
       setLoading(false)
     }
@@ -298,57 +369,64 @@ export default function BuyerLoginPage() {
   const isLoginMode =
     mode === 'login-email' ||
     mode === 'login-phone-password' ||
-    mode === 'login-phone-otp' ||
-    mode === 'login-phone-otp-verify'
+    mode === 'login-phone-otp'
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#fff7f0] px-4 py-10">
       <div className="w-full max-w-md rounded-2xl border border-[#ead8ca] bg-white p-8 shadow-sm">
         <h1 className="text-2xl font-black text-[#4b2417]">
-          {isLoginMode ? 'Login Buyer' : 'Register Buyer'}
+          {mode === 'wa-verification-pending'
+            ? 'Verifikasi WhatsApp'
+            : isLoginMode
+            ? 'Login Buyer'
+            : 'Register Buyer'}
         </h1>
 
         <p className="mt-1 text-sm text-[#6f5448]">
           {mode === 'login-email' && 'Masuk menggunakan email dan password'}
           {mode === 'login-phone-password' && 'Masuk menggunakan nomor HP dan password'}
-          {mode === 'login-phone-otp' && 'Masuk menggunakan kode OTP WhatsApp'}
-          {mode === 'login-phone-otp-verify' && 'Masukkan kode OTP yang dikirim'}
+          {mode === 'login-phone-otp' && 'Masuk via verifikasi WhatsApp'}
           {mode === 'register' && 'Buat akun buyer baru'}
-          {mode === 'register-otp' && 'Verifikasi kode OTP registrasi'}
+          {mode === 'wa-verification-pending' &&
+            'Buka WhatsApp untuk mengonfirmasi nomor telepon Anda'}
         </p>
 
-        {/* Login/Register tab */}
-        <div className="mt-5 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              resetMessage()
-              setMode('login-email')
-            }}
-            className={`rounded-xl px-4 py-2 text-sm font-bold ${
-              isLoginMode
-                ? 'bg-[#d85b30] text-white'
-                : 'bg-[#f5eadf] text-[#4b2417]'
-            }`}
-          >
-            Login
-          </button>
+        {/* Login/Register tab (hidden in WA pending mode) */}
+        {mode !== 'wa-verification-pending' && (
+          <div className="mt-5 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                stopPolling()
+                resetMessage()
+                setMode('login-email')
+              }}
+              className={`rounded-xl px-4 py-2 text-sm font-bold ${
+                isLoginMode
+                  ? 'bg-[#d85b30] text-white'
+                  : 'bg-[#f5eadf] text-[#4b2417]'
+              }`}
+            >
+              Login
+            </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              resetMessage()
-              setMode('register')
-            }}
-            className={`rounded-xl px-4 py-2 text-sm font-bold ${
-              mode === 'register' || mode === 'register-otp'
-                ? 'bg-[#d85b30] text-white'
-                : 'bg-[#f5eadf] text-[#4b2417]'
-            }`}
-          >
-            Register
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => {
+                stopPolling()
+                resetMessage()
+                setMode('register')
+              }}
+              className={`rounded-xl px-4 py-2 text-sm font-bold ${
+                mode === 'register'
+                  ? 'bg-[#d85b30] text-white'
+                  : 'bg-[#f5eadf] text-[#4b2417]'
+              }`}
+            >
+              Register
+            </button>
+          </div>
+        )}
 
         {/* Login method tab */}
         {isLoginMode && (
@@ -390,12 +468,12 @@ export default function BuyerLoginPage() {
                 setMode('login-phone-otp')
               }}
               className={`rounded-lg px-2 py-2 text-xs font-bold ${
-                mode === 'login-phone-otp' || mode === 'login-phone-otp-verify'
+                mode === 'login-phone-otp'
                   ? 'bg-[#fff1e9] text-[#d85b30]'
                   : 'bg-gray-50 text-[#6f5448]'
               }`}
             >
-              OTP
+              WhatsApp
             </button>
           </div>
         )}
@@ -414,6 +492,7 @@ export default function BuyerLoginPage() {
           </div>
         )}
 
+        {/* Mode: Email Login */}
         {mode === 'login-email' && (
           <form onSubmit={handleEmailLogin} className="mt-6 space-y-4">
             <IconInput
@@ -436,6 +515,7 @@ export default function BuyerLoginPage() {
           </form>
         )}
 
+        {/* Mode: Phone + Password Login */}
         {mode === 'login-phone-password' && (
           <form onSubmit={handlePhonePasswordLogin} className="mt-6 space-y-4">
             <IconInput
@@ -458,8 +538,9 @@ export default function BuyerLoginPage() {
           </form>
         )}
 
+        {/* Mode: Phone + WhatsApp OTP Start */}
         {mode === 'login-phone-otp' && (
-          <form onSubmit={handleSendLoginOtp} className="mt-6 space-y-4">
+          <form onSubmit={handleStartLoginOtp} className="mt-6 space-y-4">
             <IconInput
               icon="phone"
               type="tel"
@@ -471,54 +552,23 @@ export default function BuyerLoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white disabled:opacity-60"
+              className="flex h-12 w-full items-center justify-center rounded-xl bg-[#25D366] text-sm font-black text-white hover:bg-[#20bd5a] disabled:opacity-60"
             >
               {loading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <>
                   <MessageCircle className="mr-2 h-4 w-4" />
-                  Kirim OTP
+                  Verifikasi WhatsApp & Login
                 </>
               )}
             </button>
           </form>
         )}
 
-        {mode === 'login-phone-otp-verify' && (
-          <form onSubmit={handleVerifyLoginOtp} className="mt-6 space-y-4">
-            <input
-              type="text"
-              inputMode="numeric"
-              value={otpLoginCode}
-              onChange={(e) => setOtpLoginCode(e.target.value.replace(/\D/g, ''))}
-              placeholder="Kode OTP, contoh 7777"
-              className="w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-center text-xl font-bold outline-none focus:border-[#d85b30]"
-            />
-
-            <p className="text-xs text-[#8b7166]">
-              OTP dikirim ke {otpPhone}. Untuk development gunakan{' '}
-              <span className="font-mono font-bold">7777</span>.
-            </p>
-
-            <SubmitButton loading={loading} label="Verifikasi & Login" />
-
-            <button
-              type="button"
-              onClick={() => {
-                setOtpLoginId('')
-                setOtpLoginCode('')
-                setMode('login-phone-otp')
-              }}
-              className="w-full text-sm font-semibold text-[#d85b30]"
-            >
-              Kirim ulang OTP
-            </button>
-          </form>
-        )}
-
+        {/* Mode: Registration Form */}
         {mode === 'register' && (
-          <form onSubmit={handleSendRegisterOtp} className="mt-6 space-y-4">
+          <form onSubmit={handleStartRegister} className="mt-6 space-y-4">
             <IconInput
               icon="user"
               type="text"
@@ -559,36 +609,67 @@ export default function BuyerLoginPage() {
               className="w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-sm outline-none focus:border-[#d85b30]"
             />
 
-            <SubmitButton loading={loading} label="Kirim OTP Register" />
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white hover:bg-[#c04e28] disabled:opacity-60"
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                'Daftar Akun'
+              )}
+            </button>
           </form>
         )}
 
-        {mode === 'register-otp' && (
-          <form onSubmit={handleVerifyAndRegister} className="mt-6 space-y-4">
-            <input
-              type="text"
-              inputMode="numeric"
-              value={registerOtpCode}
-              onChange={(e) => setRegisterOtpCode(e.target.value.replace(/\D/g, ''))}
-              placeholder="Kode OTP, contoh 7777"
-              className="w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-center text-xl font-bold outline-none focus:border-[#d85b30]"
-            />
+        {/* Mode: WA Real Verification Pending UI */}
+        {mode === 'wa-verification-pending' && (
+          <div className="mt-6 text-center space-y-5">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#e8f9ee]">
+              <MessageCircle className="h-8 w-8 text-[#25D366]" />
+            </div>
 
-            <p className="text-xs text-[#8b7166]">
-              OTP registrasi dikirim ke {registerEmail}. Untuk development
-              gunakan <span className="font-mono font-bold">7777</span>.
-            </p>
+            <div className="space-y-2">
+              <p className="text-sm text-[#6f5448]">
+                Silakan klik tombol di bawah untuk membuka WhatsApp dan mengirim pesan konfirmasi verifikasi.
+              </p>
+              {waNonce && (
+                <p className="text-xs text-gray-500 font-mono">
+                  Kode Verifikasi (Nonce): <span className="font-bold">{waNonce}</span>
+                </p>
+              )}
+            </div>
 
-            <SubmitButton loading={loading} label="Verifikasi & Daftar" />
+            {waDeeplink && (
+              <a
+                href={waDeeplink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex h-12 w-full items-center justify-center rounded-xl bg-[#25D366] text-sm font-bold text-white shadow hover:bg-[#20bd5a]"
+              >
+                <MessageCircle className="mr-2 h-5 w-5" />
+                Buka WhatsApp Sekarang
+                <ExternalLink className="ml-2 h-4 w-4" />
+              </a>
+            )}
+
+            <div className="flex items-center justify-center gap-2 rounded-xl bg-[#fff7f0] border border-[#ead8ca] py-3 text-xs text-[#8b7166]">
+              <Loader2 className="h-4 w-4 animate-spin text-[#d85b30]" />
+              <span>Menunggu konfirmasi dari WhatsApp...</span>
+            </div>
 
             <button
               type="button"
-              onClick={() => setMode('register')}
-              className="w-full text-sm font-semibold text-[#d85b30]"
+              onClick={() => {
+                stopPolling()
+                setMode(pendingAction === 'register' ? 'register' : 'login-phone-otp')
+              }}
+              className="w-full text-sm font-semibold text-[#d85b30] hover:underline"
             >
-              Kembali
+              Batal / Kembali
             </button>
-          </form>
+          </div>
         )}
       </div>
     </div>
@@ -606,7 +687,7 @@ function SubmitButton({
     <button
       type="submit"
       disabled={loading}
-      className="flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white disabled:opacity-60"
+      className="flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white hover:bg-[#c04e28] disabled:opacity-60"
     >
       {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : label}
     </button>

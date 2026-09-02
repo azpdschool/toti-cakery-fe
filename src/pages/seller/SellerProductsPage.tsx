@@ -34,6 +34,12 @@ import {
   type ArchivedProduct,
 } from '@/services/productService';
 import {
+  getProductPricing,
+  getProductPriceHistory,
+  type PricingResponse,
+  type PriceHistoryOut,
+} from '@/api/product';
+import {
   getProductRecipes,
   addRecipeIngredient,
   updateRecipeIngredient,
@@ -72,6 +78,7 @@ interface AddProductFormPayload {
   category: string;
   description: string;
   price: number;
+  minimumOrder: number;
   status: 'active' | 'inactive';
   ingredients: AddProductIngredient[];
   imageFile: File | null;
@@ -86,6 +93,7 @@ interface EditProductPayload {
   name: string;
   description: string;
   price: number;
+  minimumOrder: number;
   ingredients: EditProductIngredient[];
   deletedRecipeIds: number[];
   imageFile: File | null;
@@ -181,6 +189,7 @@ function AddProductModal({ isOpen, onClose, categories, onSave }: AddProductModa
     category: categories[0] || '',
     description: '',
     price: '',
+    minimumOrder: 1,
     status: 'active' as 'active' | 'inactive',
   });
 
@@ -314,6 +323,7 @@ function AddProductModal({ isOpen, onClose, categories, onSave }: AddProductModa
       category: categories[0] || '',
       description: '',
       price: '',
+      minimumOrder: 1,
       status: 'active',
     });
     setIngredients([]);
@@ -338,6 +348,10 @@ function AddProductModal({ isOpen, onClose, categories, onSave }: AddProductModa
 
     if (!rawPrice || !Number.isFinite(priceNum) || priceNum <= 0) {
       errors.push('Harga jual harus lebih dari 0');
+    }
+
+    if (!formData.minimumOrder || formData.minimumOrder < 1) {
+      errors.push('Minimum order harus minimal 1 pcs');
     }
 
     const usedIngredients = ingredients.filter(
@@ -377,6 +391,7 @@ function AddProductModal({ isOpen, onClose, categories, onSave }: AddProductModa
         category: formData.category,
         description: formData.description.trim(),
         price: priceNum,
+        minimumOrder: formData.minimumOrder || 1,
         status: formData.status,
         ingredients: ingredients.filter(
           (ingredient) => ingredient.inventoryId && ingredient.quantity > 0
@@ -458,7 +473,7 @@ function AddProductModal({ isOpen, onClose, categories, onSave }: AddProductModa
               />
             </div>
 
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div className="mt-4 grid gap-4 sm:grid-cols-3">
               <div>
                 <label className="block text-sm font-semibold text-[#4b2417]">
                   Harga Jual <span className="text-red-500">*</span>
@@ -472,6 +487,24 @@ function AddProductModal({ isOpen, onClose, categories, onSave }: AddProductModa
                     const formatted = raw ? `Rp ${Number(raw).toLocaleString('id-ID')}` : '';
                     setFormData({ ...formData, price: formatted });
                   }}
+                  className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-[#4b2417]">
+                  Minimum Order (pcs) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={formData.minimumOrder}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      minimumOrder: Math.max(1, parseInt(e.target.value, 10) || 1),
+                    })
+                  }
                   className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
                 />
               </div>
@@ -740,6 +773,7 @@ function EditProductModal({ isOpen, onClose, product, onSave }: EditProductModal
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [priceInput, setPriceInput] = useState('');
+  const [minimumOrder, setMinimumOrder] = useState(1);
 
   const [ingredients, setIngredients] = useState<EditProductIngredient[]>([]);
   const [deletedRecipeIds, setDeletedRecipeIds] = useState<number[]>([]);
@@ -757,6 +791,7 @@ function EditProductModal({ isOpen, onClose, product, onSave }: EditProductModal
         setName(product.name);
         setDescription(product.description || '');
         setPriceInput(product.price ? `Rp ${product.price.toLocaleString('id-ID')}` : '');
+        setMinimumOrder((product as any).minimum_order || (product as any).minimumOrder || 1);
 
         setImagePreview(product.image || null);
         setImageFile(null);
@@ -930,6 +965,7 @@ function EditProductModal({ isOpen, onClose, product, onSave }: EditProductModal
         name: name.trim(),
         description: description.trim(),
         price: rawPrice,
+        minimumOrder: minimumOrder || 1,
         ingredients: ingredients.filter(
           (ingredient) => ingredient.inventoryId && ingredient.quantity > 0
         ),
@@ -1020,38 +1056,58 @@ function EditProductModal({ isOpen, onClose, product, onSave }: EditProductModal
                 </p>
               </div>
 
-              <div className="mt-4">
-                <label className="block text-sm font-semibold text-[#4b2417]">
-                  Harga Jual <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="Rp 40.000"
-                  value={priceInput}
-                  onChange={(e) => {
-                    const raw = e.target.value.replace(/\D/g, '');
-                    const formatted = raw ? `Rp ${Number(raw).toLocaleString('id-ID')}` : '';
-                    setPriceInput(formatted);
-                  }}
-                  className={`mt-1 w-full rounded-lg border px-4 py-2 text-sm outline-none ${
-                    isBelowHpp
-                      ? 'border-red-400 focus:border-red-500'
-                      : 'border-[#d0bfaf] focus:border-[#d85b30]'
-                  }`}
-                />
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-semibold text-[#4b2417]">
+                    Harga Jual <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Rp 40.000"
+                    value={priceInput}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, '');
+                      const formatted = raw ? `Rp ${Number(raw).toLocaleString('id-ID')}` : '';
+                      setPriceInput(formatted);
+                    }}
+                    className={`mt-1 w-full rounded-lg border px-4 py-2 text-sm outline-none ${
+                      isBelowHpp
+                        ? 'border-red-400 focus:border-red-500'
+                        : 'border-[#d0bfaf] focus:border-[#d85b30]'
+                    }`}
+                  />
 
-                {isBelowHpp && (
-                  <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-red-600">
-                    <AlertTriangle className="h-3 w-3 shrink-0" />
-                    Harga di bawah HPP ({formatRupiah(hpp)}) — produk ini rugi kalau terjual.
-                  </p>
-                )}
+                  {isBelowHpp && (
+                    <p className="mt-1 flex items-center gap-1 text-xs font-semibold text-red-600">
+                      <AlertTriangle className="h-3 w-3 shrink-0" />
+                      Harga di bawah HPP ({formatRupiah(hpp)}) — produk ini rugi kalau terjual.
+                    </p>
+                  )}
 
-                {!isBelowHpp && currentMarginPercent !== null && (
-                  <p className="mt-1 text-xs text-green-700">
-                    Margin saat ini {currentMarginPercent.toFixed(1)}%.
+                  {!isBelowHpp && currentMarginPercent !== null && (
+                    <p className="mt-1 text-xs text-green-700">
+                      Margin saat ini {currentMarginPercent.toFixed(1)}%.
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-[#4b2417]">
+                    Minimum Order (pcs) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={minimumOrder}
+                    onChange={(e) =>
+                      setMinimumOrder(Math.max(1, parseInt(e.target.value, 10) || 1))
+                    }
+                    className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
+                  />
+                  <p className="mt-1 text-xs text-[#8b7166]">
+                    Jumlah minimal unit per pemesanan.
                   </p>
-                )}
+                </div>
               </div>
             </section>
 
@@ -1219,6 +1275,183 @@ function EditProductModal({ isOpen, onClose, product, onSave }: EditProductModal
 }
 
 // ============================================================
+// VIEW PRODUCT MODAL
+// ============================================================
+
+interface ViewProductModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  product: ProductWithStatus | ArchivedProduct | null;
+}
+
+function ViewProductModal({ isOpen, onClose, product }: ViewProductModalProps) {
+  const [pricing, setPricing] = useState<PricingResponse | null>(null);
+  const [priceHistory, setPriceHistory] = useState<PriceHistoryOut[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    async function loadData() {
+      if (!isOpen || !product) return;
+      setLoading(true);
+      try {
+        const [pricingData, historyData] = await Promise.all([
+          getProductPricing(product.backendId),
+          getProductPriceHistory(product.backendId),
+        ]);
+        setPricing(pricingData);
+        setPriceHistory(historyData);
+      } catch (err) {
+        console.error('Gagal load detail pricing/history:', err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    void loadData();
+  }, [isOpen, product]);
+
+  if (!isOpen || !product) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl space-y-6">
+        <div className="flex items-start justify-between border-b pb-4">
+          <div className="flex items-center gap-4">
+            {product.image ? (
+              <img src={product.image} alt={product.name} className="h-16 w-16 rounded-lg object-cover" />
+            ) : (
+              <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-gray-100">
+                <Package className="h-8 w-8 text-gray-400" />
+              </div>
+            )}
+            <div>
+              <h2 className="text-xl font-bold text-[#4b2417]">{product.name}</h2>
+              <p className="text-xs text-[#6f5448]">Kategori: {product.category || '-'}</p>
+              <div className="mt-1 flex gap-2">
+                <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${product.isAvailable ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                  {product.isAvailable ? '✔ Stok Bahan Tersedia' : '✖ Stok Bahan Habis'}
+                </span>
+                <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${product.status === 'active' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+                  {product.status === 'active' ? 'Katalog Aktif' : 'Diarsipkan'}
+                </span>
+              </div>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-full p-1 hover:bg-gray-100">
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+
+        {/* Pricing Summary */}
+        <div className="grid gap-4 sm:grid-cols-3 rounded-lg bg-gray-50 p-4">
+          <div>
+            <span className="text-xs text-[#6f5448]">Harga Jual</span>
+            <p className="text-lg font-bold text-[#4b2417]">{formatRupiah(product.price)}</p>
+          </div>
+          <div>
+            <span className="text-xs text-[#6f5448]">HPP (Modal Bahan)</span>
+            <p className="text-lg font-bold text-[#4b2417]">{formatRupiah(product.hppTotal)}</p>
+          </div>
+          <div>
+            <span className="text-xs text-[#6f5448]">Margin Keuntungan</span>
+            <p className={`text-lg font-bold ${pricing?.warning_below_hpp ? 'text-red-600' : 'text-green-600'}`}>
+              {pricing?.margin_persen !== null && pricing?.margin_persen !== undefined
+                ? `${pricing.margin_persen.toFixed(1)}%`
+                : '-'}
+            </p>
+          </div>
+        </div>
+
+        {pricing?.warning_below_hpp && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs font-semibold text-red-700">
+            ⚠️ Peringatan Owner: Harga jual ({formatRupiah(product.price)}) berada di bawah HPP ({formatRupiah(product.hppTotal)}).
+          </div>
+        )}
+
+        {/* Description */}
+        <div>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#6f5448]">Deskripsi</h4>
+          <p className="mt-1 text-sm text-gray-700">{product.description || 'Tidak ada deskripsi.'}</p>
+        </div>
+
+        {/* Recipe & Cost Breakdown */}
+        <div>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#6f5448] mb-2">Resep & Breakdown HPP</h4>
+          {loading ? (
+            <p className="text-xs text-gray-400">Memuat breakdown HPP...</p>
+          ) : pricing?.breakdown && pricing.breakdown.length > 0 ? (
+            <div className="overflow-x-auto rounded-lg border border-gray-200">
+              <table className="w-full text-xs">
+                <thead className="bg-gray-100 text-left text-gray-600 font-semibold">
+                  <tr>
+                    <th className="p-2">Nama Bahan</th>
+                    <th className="p-2">Takaran</th>
+                    <th className="p-2">Harga / Satuan</th>
+                    <th className="p-2 text-right">Biaya (HPP)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {pricing.breakdown.map((item, idx) => (
+                    <tr key={idx}>
+                      <td className="p-2 font-medium text-gray-800">{item.bahan}</td>
+                      <td className="p-2">{item.qty} {item.satuan}</td>
+                      <td className="p-2">{formatRupiah(item.unit_price)}</td>
+                      <td className="p-2 text-right font-semibold">{formatRupiah(item.cost)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-xs text-gray-500">Belum ada bahan baku di resep ini.</p>
+          )}
+        </div>
+
+        {/* Price History */}
+        <div>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-[#6f5448] mb-2">Riwayat Perubahan Harga</h4>
+          {loading ? (
+            <p className="text-xs text-gray-400">Memuat riwayat harga...</p>
+          ) : priceHistory.length > 0 ? (
+            <div className="overflow-x-auto rounded-lg border border-gray-200">
+              <table className="w-full text-xs">
+                <thead className="bg-gray-100 text-left text-gray-600 font-semibold">
+                  <tr>
+                    <th className="p-2">Harga Lama</th>
+                    <th className="p-2">Harga Baru</th>
+                    <th className="p-2">HPP Saat Itu</th>
+                    <th className="p-2">Diubah Oleh</th>
+                    <th className="p-2">Tanggal</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {priceHistory.map((history) => (
+                    <tr key={history.id}>
+                      <td className="p-2 text-gray-500">{history.harga_jual_lama ? formatRupiah(history.harga_jual_lama) : '-'}</td>
+                      <td className="p-2 font-bold text-gray-800">{formatRupiah(history.harga_jual_baru)}</td>
+                      <td className="p-2 text-gray-600">{formatRupiah(history.hpp_saat_itu)}</td>
+                      <td className="p-2 text-gray-600">{history.changed_by || 'Owner'}</td>
+                      <td className="p-2 text-gray-500">{history.created_at ? new Date(history.created_at).toLocaleDateString('id-ID') : '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-xs text-gray-500">Belum ada riwayat perubahan harga.</p>
+          )}
+        </div>
+
+        <div className="flex justify-end pt-4 border-t">
+          <button type="button" onClick={onClose} className="rounded-lg bg-gray-200 px-5 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-300">
+            Tutup
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // MAIN PAGE
 // ============================================================
 
@@ -1247,6 +1480,9 @@ export default function SellerProductsPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<ProductWithStatus | null>(null);
+
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [viewingProduct, setViewingProduct] = useState<ProductWithStatus | ArchivedProduct | null>(null);
 
   const loadData = async () => {
     setError(null);
@@ -1342,6 +1578,7 @@ export default function SellerProductsPage() {
           deskripsi: newProduct.description || null,
           kategori: newProduct.category || null,
           is_active: newProduct.status === 'active',
+          minimum_order: newProduct.minimumOrder || 1,
         },
         newProduct.price
       );
@@ -1384,27 +1621,8 @@ export default function SellerProductsPage() {
   };
 
   const handleViewProduct = (product: ProductWithStatus | ArchivedProduct) => {
-    const isArchived = 'daysUntilPermanentDelete' in product;
-
-    alert(
-      [
-        `Nama: ${product.name}`,
-        `Kategori: ${product.category || '-'}`,
-        `Harga Jual: ${formatRupiah(product.price)}`,
-        `HPP: ${formatRupiah(product.hppTotal)}`,
-        `Status: ${product.status === 'active' ? 'Aktif' : 'Diarsipkan'}`,
-        `Available: ${product.isAvailable ? 'Ya' : 'Tidak'}`,
-        ...(isArchived
-          ? [
-              `Sisa waktu sebelum dihapus permanen: ${
-                (product as ArchivedProduct).daysUntilPermanentDelete
-              } hari`,
-            ]
-          : []),
-        '',
-        product.description || 'Tidak ada deskripsi.',
-      ].join('\n')
-    );
+    setViewingProduct(product);
+    setShowViewModal(true);
   };
 
   const handleEditProduct = (product: ProductWithStatus) => {
@@ -1424,8 +1642,8 @@ export default function SellerProductsPage() {
        * HPP juga tidak dikirim karena dihitung otomatis oleh backend.
        */
       await updateProduct(backendId, {
-        nama_produk: payload.name,
         deskripsi: payload.description || null,
+        minimum_order: payload.minimumOrder || 1,
       });
 
       await updateProductPrice(backendId, payload.price);
@@ -1551,8 +1769,17 @@ export default function SellerProductsPage() {
 
   if (loading) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-gray-700" />
+      <div className="space-y-6">
+        <div>
+          <div className="h-8 w-48 animate-pulse rounded bg-gray-200" />
+          <div className="mt-2 h-4 w-72 animate-pulse rounded bg-gray-100" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-24 animate-pulse rounded-xl bg-gray-100" />
+          ))}
+        </div>
+        <div className="h-80 animate-pulse rounded-xl bg-gray-100 p-6" />
       </div>
     );
   }
@@ -1567,8 +1794,15 @@ export default function SellerProductsPage() {
       </div>
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
+        <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <span>❌ {error}</span>
+          <button
+            type="button"
+            onClick={refreshProducts}
+            className="rounded bg-red-600 px-3 py-1 text-xs font-semibold text-white hover:bg-red-700"
+          >
+            Coba Lagi
+          </button>
         </div>
       )}
 
@@ -1871,6 +2105,15 @@ export default function SellerProductsPage() {
         }}
         product={editingProduct}
         onSave={handleSaveEdit}
+      />
+
+      <ViewProductModal
+        isOpen={showViewModal}
+        onClose={() => {
+          setShowViewModal(false);
+          setViewingProduct(null);
+        }}
+        product={viewingProduct}
       />
     </div>
   );

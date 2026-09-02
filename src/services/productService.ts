@@ -38,6 +38,9 @@ export type {
   ProductOut,
 };
 
+// Re-export SetPriceRequest for use in components
+export type { SetPriceRequest };
+
 export interface ArchivedProduct extends SimpleProduct {
   archivedAt: string | null;
   daysUntilPermanentDelete: number;
@@ -145,13 +148,16 @@ function makeSlug(product: Pick<ProductOut, 'id' | 'nama_produk'>): string {
 
 function makeDefaultVariant(product: ProductOut): ProductVariant {
   const price = parseNumber(product.harga_jual);
+  const minOrder = product.minimum_order && product.minimum_order > 0
+    ? product.minimum_order
+    : 1;
 
   return {
     id: `${product.id}-default`,
     name: 'Default',
     price,
     options: {},
-    minOrder: 1,
+    minOrder,
     step: 1,
   };
 }
@@ -198,8 +204,8 @@ export function mapProductOutToProduct(product: ProductOut): Product {
     isActive: product.is_active,
     isAvailable: product.is_available,
 
-    rasa: product.rasa ?? null,
-    ukuranAtauIsi: product.ukuran_atau_isi ?? null,
+    rasa: null,
+    ukuranAtauIsi: null,
     parentCategory: product.parent_category ?? product.kategori ?? null,
 
     optionGroups: [],

@@ -169,6 +169,11 @@ function ProductCard({ product, onAddToCart }: ProductCardProps) {
             <span className="text-[#9C8478]">·</span>
             {product.soldCount} terjual
           </div>
+          {!product.isAvailable && (
+            <div className="absolute left-2 top-2 rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white shadow">
+              Stok Bahan Habis
+            </div>
+          )}
           {minOrder > 1 && (
             <div className="absolute right-2 top-2 rounded-full bg-[#9B4A2F] px-2 py-0.5 text-[10px] font-bold text-white">
               Min. {minOrder} pcs
@@ -201,7 +206,8 @@ function ProductCard({ product, onAddToCart }: ProductCardProps) {
         <div className="mt-3 flex items-center gap-2">
           <button
             onClick={decrement}
-            className="flex h-7 w-7 items-center justify-center rounded border border-[#D0BFAF] text-[#3A1F16] hover:bg-[#E8DCCB]"
+            disabled={!product.isAvailable}
+            className="flex h-7 w-7 items-center justify-center rounded border border-[#D0BFAF] text-[#3A1F16] hover:bg-[#E8DCCB] disabled:opacity-40 disabled:cursor-not-allowed"
             aria-label="Kurangi jumlah"
           >
             <Minus className="h-3 w-3" />
@@ -211,7 +217,8 @@ function ProductCard({ product, onAddToCart }: ProductCardProps) {
           </span>
           <button
             onClick={increment}
-            className="flex h-7 w-7 items-center justify-center rounded border border-[#D0BFAF] text-[#3A1F16] hover:bg-[#E8DCCB]"
+            disabled={!product.isAvailable}
+            className="flex h-7 w-7 items-center justify-center rounded border border-[#D0BFAF] text-[#3A1F16] hover:bg-[#E8DCCB] disabled:opacity-40 disabled:cursor-not-allowed"
             aria-label="Tambah jumlah"
           >
             <Plus className="h-3 w-3" />
@@ -225,11 +232,12 @@ function ProductCard({ product, onAddToCart }: ProductCardProps) {
 
         <button
           type="button"
+          disabled={!product.isAvailable}
           onClick={() => onAddToCart(product, quantity)}
-          className="mt-3 flex h-9 w-full items-center justify-center gap-1.5 rounded-md bg-[#9B4A2F] text-xs font-black text-white transition hover:bg-[#7E3A24]"
+          className="mt-3 flex h-9 w-full items-center justify-center gap-1.5 rounded-md bg-[#9B4A2F] text-xs font-black text-white transition hover:bg-[#7E3A24] disabled:bg-gray-400 disabled:cursor-not-allowed"
         >
           <ShoppingCart className="h-3.5 w-3.5" />
-          Tambah ke Keranjang
+          {product.isAvailable ? 'Tambah ke Keranjang' : 'Stok Bahan Habis'}
         </button>
       </div>
     </article>
@@ -294,23 +302,35 @@ export default function CatalogPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<{ category: string; count: number }[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   const { addItem } = useCart()
 
-  useEffect(() => {
-    async function loadData() {
+  const loadData = async () => {
+    setLoading(true)
+    setError(null)
+    try {
       const [allProducts, catData] = await Promise.all([
         getAllProductsDetailed(),
         getCategories(),
       ])
       setProducts(allProducts)
       setCategories(catData)
+    } catch (err: any) {
+      console.error('Gagal load catalog products:', err)
+      const detail = err?.response?.data?.detail
+      const msg = typeof detail === 'string' ? detail : err?.message || 'Gagal memuat produk. Silakan coba lagi.'
+      setError(msg)
+    } finally {
       setLoading(false)
     }
-    loadData()
+  }
+
+  useEffect(() => {
+    void loadData()
   }, [])
 
   const filteredProducts = useMemo(() => {
@@ -344,8 +364,35 @@ export default function CatalogPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-gray-700" />
+      <div className="bg-white pb-10">
+        <section className="mx-auto max-w-7xl px-4 pt-5 lg:px-8">
+          <div className="h-40 w-full animate-pulse rounded-xl bg-gray-200" />
+        </section>
+        <section className="mx-auto max-w-7xl px-4 pt-6 lg:px-8">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="h-80 animate-pulse rounded-xl bg-gray-100 p-4" />
+            ))}
+          </div>
+        </section>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="mx-auto max-w-xl px-4 py-20 text-center">
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-6 shadow-sm">
+          <p className="text-xl font-bold text-red-700">❌ Gagal Memuat Produk</p>
+          <p className="mt-2 text-sm text-red-600">{error}</p>
+          <button
+            type="button"
+            onClick={loadData}
+            className="mt-5 inline-flex rounded-xl bg-red-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-red-700 transition"
+          >
+            Coba Lagi
+          </button>
+        </div>
       </div>
     )
   }

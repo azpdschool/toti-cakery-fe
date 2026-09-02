@@ -97,17 +97,25 @@ export default function ProductDetailPage() {
           </span>
         </div>
 
+        {!product.isAvailable && (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            ⚠️ Stok bahan baku tidak mencukupi saat ini. Produk ini sementara tidak dapat dipesan.
+          </div>
+        )}
+
         <div className="flex items-center gap-4 pt-4">
           <button
             onClick={() => setQuantity((q) => Math.max(variant.minOrder, q - variant.step))}
-            className="rounded border px-3 py-1"
+            disabled={!product.isAvailable}
+            className="rounded border px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             -
           </button>
           <span className="text-lg">{quantity}</span>
           <button
             onClick={() => setQuantity((q) => q + variant.step)}
-            className="rounded border px-3 py-1"
+            disabled={!product.isAvailable}
+            className="rounded border px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             +
           </button>
@@ -118,9 +126,10 @@ export default function ProductDetailPage() {
 
         <button
           onClick={handleAddToCart}
-          className="w-full rounded-lg bg-amber-600 px-6 py-3 text-white transition hover:bg-amber-700 md:w-auto"
+          disabled={!product.isAvailable}
+          className="w-full rounded-lg bg-amber-600 px-6 py-3 text-white transition hover:bg-amber-700 disabled:bg-gray-400 disabled:cursor-not-allowed md:w-auto"
         >
-          Tambahkan ke Keranjang
+          {product.isAvailable ? 'Tambahkan ke Keranjang' : 'Stok Bahan Habis'}
         </button>
 
         <div className="mt-6 rounded-lg border border-[#25D366]/30 bg-[#25D366]/5 p-4">

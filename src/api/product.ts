@@ -16,7 +16,7 @@ export interface ProductOut {
 
   /**
    * PENTING:
-   * Backend harus mengirim path relatif, contoh:
+   * Backend mengirim path relatif, contoh:
    * "/static/products/12.jpg"
    *
    * Jangan simpan URL absolute seperti:
@@ -30,40 +30,55 @@ export interface ProductOut {
   review_count?: number;
   sold_count?: number;
   is_featured?: boolean;
-  rasa?: string | null;
-  ukuran_atau_isi?: string | null;
+  minimum_order?: number;
   parent_category?: string | null;
+
+  // recipes embedded (nullable)
+  recipes?: RecipeOutEmbedded[] | null;
 
   created_at: string | null;
   updated_at: string | null;
 }
 
+/** Minimal embedded RecipeOut inside ProductOut */
+export interface RecipeOutEmbedded {
+  id: number;
+  product_id: number;
+  stock_item_id: number;
+  jumlah_dibutuhkan: ApiDecimal;
+  quantity_required?: ApiDecimal | null;
+  unit?: string | null;
+  nama_bahan?: string | null;
+  satuan?: string | null;
+  harga_per_satuan?: ApiDecimal | null;
+  biaya_bahan?: ApiDecimal | null;
+  created_at?: string | null;
+}
+
+/**
+ * ProductCreate — mirrors backend ProductCreate schema exactly.
+ * Backend fields: nama_produk, deskripsi, kategori, harga_jual, is_active, minimum_order
+ */
 export interface ProductCreate {
   nama_produk: string;
   deskripsi?: string | null;
   kategori?: string | null;
-  markup_percentage?: number | string | null;
+  harga_jual?: number | string | null;
   is_active?: boolean;
+  minimum_order?: number;
 }
 
+/**
+ * ProductUpdate — mirrors backend ProductUpdate schema exactly.
+ * Backend fields: deskripsi, harga_jual, is_active, image_url, minimum_order
+ * NOTE: nama_produk and kategori are NOT updatable via PUT /products/{id}
+ */
 export interface ProductUpdate {
-  nama_produk?: string;
   deskripsi?: string | null;
-  kategori?: string | null;
-  markup_percentage?: number | string | null;
-  is_active?: boolean;
-
-  /**
-   * Optional dari request BE:
-   * Bisa dipakai kalau backend support set null untuk hapus foto.
-   * Untuk upload/ganti foto normal, FE tetap pakai POST /products/{id}/image.
-   */
+  harga_jual?: number | string | null;
+  is_active?: boolean | null;
   image_url?: string | null;
-
-  slug?: string | null;
-  is_featured?: boolean;
-  rasa?: string | null;
-  ukuran_atau_isi?: string | null;
+  minimum_order?: number | null;
 }
 
 export interface SetPriceRequest {

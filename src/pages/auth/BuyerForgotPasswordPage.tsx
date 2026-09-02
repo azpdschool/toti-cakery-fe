@@ -17,9 +17,8 @@ import {
 import { ROUTES } from '@/constants'
 import {
   resetBuyerPassword,
-  sendBuyerOtp,
-  verifyBuyerOtp,
-  type OTPChannel,
+  startWAVerification,
+  getWAVerificationStatus,
 } from '@/api/auth'
 
 type ResetMethod = 'email' | 'whatsapp'
@@ -77,26 +76,31 @@ export default function BuyerForgotPasswordPage() {
     setSuccess(null)
 
     if (!identifier.trim()) {
-      setError(method === 'email' ? 'Email wajib diisi' : 'Nomor WhatsApp wajib diisi')
+      setError('Nomor WhatsApp wajib diisi')
       return
     }
 
     setIsLoading(true)
 
     try {
-      const channel: OTPChannel = method === 'email' ? 'email' : 'whatsapp'
-
-      const response = await sendBuyerOtp({
-        target: identifier.trim(),
-        channel,
-        purpose: 'reset_password',
+      const response = await startWAVerification({
+        phone_number: identifier.trim(),
       })
 
-      setOtpId(response.otp_id)
-      setSuccess('Kode OTP telah dikirim. Untuk development gunakan kode 7777.')
-      setStep('otp')
+      if (response.mock_mode && response.verify_token) {
+        setVerifyToken(response.verify_token)
+        setSuccess('Verifikasi WhatsApp berhasil. Silakan masukkan password baru.')
+        setStep('reset')
+      } else if (response.nonce) {
+        setOtpId(response.nonce)
+        if (response.deeplink) {
+          window.open(response.deeplink, '_blank')
+        }
+        setSuccess('Silakan kirim pesan verifikasi di WhatsApp. Memeriksa status...')
+        setStep('otp')
+      }
     } catch (err) {
-      setError(parseApiError(err, 'Gagal mengirim OTP reset password.'))
+      setError(parseApiError(err, 'Gagal memulai verifikasi WhatsApp.'))
     } finally {
       setIsLoading(false)
     }
@@ -109,29 +113,25 @@ export default function BuyerForgotPasswordPage() {
     setSuccess(null)
 
     if (!otpId) {
-      setError('OTP ID tidak ditemukan. Silakan kirim ulang OTP.')
+      setError('Nonce verifikasi tidak ditemukan. Silakan coba lagi.')
       setStep('input')
-      return
-    }
-
-    if (!otpCode.trim()) {
-      setError('Kode OTP wajib diisi')
       return
     }
 
     setIsLoading(true)
 
     try {
-      const response = await verifyBuyerOtp({
-        otp_id: otpId,
-        code: otpCode.trim(),
-      })
+      const response = await getWAVerificationStatus(otpId)
 
-      setVerifyToken(response.verify_token)
-      setSuccess('OTP berhasil diverifikasi. Silakan buat password baru.')
-      setStep('reset')
+      if (response.status === 'verified' && response.verify_token) {
+        setVerifyToken(response.verify_token)
+        setSuccess('Verifikasi berhasil. Silakan buat password baru.')
+        setStep('reset')
+      } else {
+        setError('Verifikasi WhatsApp belum selesai. Silakan kirim pesan WhatsApp terlebih dahulu.')
+      }
     } catch (err) {
-      setError(parseApiError(err, 'Kode OTP salah atau sudah expired.'))
+      setError(parseApiError(err, 'Gagal memeriksa status verifikasi WhatsApp.'))
     } finally {
       setIsLoading(false)
     }

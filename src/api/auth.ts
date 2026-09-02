@@ -37,23 +37,9 @@ export interface SellerResetPasswordRequest {
 // BUYER AUTH TYPES
 // ============================================================
 
-export type OTPChannel = 'whatsapp' | 'email'
-export type OTPPurpose = 'register' | 'login' | 'reset_password'
-
-export interface OTPSendRequest {
-  target: string
-  channel: OTPChannel
-  purpose: OTPPurpose
-}
-
 export interface OTPSendResponse {
   otp_id: string
   expires_in: number
-}
-
-export interface OTPVerifyRequest {
-  otp_id: string
-  code: string
 }
 
 export interface OTPVerifyResponse {
@@ -61,10 +47,28 @@ export interface OTPVerifyResponse {
   target: string
 }
 
+export interface WAVerifyStartRequest {
+  phone_number: string
+}
+
+export interface WAVerifyStartResponse {
+  nonce: string
+  deeplink: string
+  expires_in: number
+  verify_token?: string | null
+  mock_mode: boolean
+}
+
+export interface WAVerifyStatusResponse {
+  status: string
+  verify_token?: string | null
+}
+
 export interface BuyerRegisterRequest {
   name: string
   email: string
-  phone: string
+  phone?: string
+  phone_number?: string
   password: string
   verify_token: string
 }
@@ -80,7 +84,8 @@ export interface BuyerLoginPhoneRequest {
 }
 
 export interface BuyerLoginOTPRequest {
-  phone: string
+  phone?: string
+  phone_number?: string
   verify_token: string
 }
 
@@ -193,23 +198,23 @@ export async function resetSellerPassword(
 // BUYER AUTH API
 // ============================================================
 
-export async function sendBuyerOtp(
-  payload: OTPSendRequest,
-): Promise<OTPSendResponse> {
-  const response = await apiClient.post<OTPSendResponse>(
-    '/auth/buyer/otp/send',
+export async function startWAVerification(
+  payload: WAVerifyStartRequest,
+): Promise<WAVerifyStartResponse> {
+  const response = await apiClient.post<WAVerifyStartResponse>(
+    '/auth/verify/wa/start',
     payload,
   )
 
   return response.data
 }
 
-export async function verifyBuyerOtp(
-  payload: OTPVerifyRequest,
-): Promise<OTPVerifyResponse> {
-  const response = await apiClient.post<OTPVerifyResponse>(
-    '/auth/buyer/otp/verify',
-    payload,
+export async function getWAVerificationStatus(
+  nonce: string,
+): Promise<WAVerifyStatusResponse> {
+  const response = await apiClient.get<WAVerifyStatusResponse>(
+    '/auth/verify/wa/status',
+    { params: { nonce } },
   )
 
   return response.data
