@@ -6,6 +6,7 @@ import { TOKEN_KEY, USER_KEY } from '@/constants'
 export interface AuthContextType extends AuthState {
   login: (token: string, user: User) => void
   logout: () => void
+  updateUser: (updatedFields: Partial<User>) => void
   hasRole: (roles: UserRole | UserRole[]) => boolean
   hasSellerRole: (roles: SellerRole | SellerRole[]) => boolean
   isSeller: boolean
@@ -69,18 +70,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
   }
 
-  const hasRole = (roles: UserRole | UserRole[]) => {
-    if (!auth.user) return false
-
-    const allowedRoles = Array.isArray(roles) ? roles : [roles]
-    return allowedRoles.includes(auth.user.role)
-  }
-
-  const hasSellerRole = (roles: SellerRole | SellerRole[]) => {
-    if (!auth.user || !isSellerRole(auth.user.role)) return false
-
-    const allowedRoles = Array.isArray(roles) ? roles : [roles]
-    return allowedRoles.includes(auth.user.role)
+  const updateUser = (updatedFields: Partial<User>) => {
+    setAuth((prev) => {
+      if (!prev.user) return prev
+      const newUser: User = { ...prev.user, ...updatedFields }
+      localStorage.setItem(USER_KEY, JSON.stringify(newUser))
+      return {
+        ...prev,
+        user: newUser,
+      }
+    })
   }
 
   const value = useMemo<AuthContextType>(() => {
@@ -90,8 +89,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ...auth,
       login,
       logout,
-      hasRole,
-      hasSellerRole,
+      updateUser,
+      hasRole: (roles: UserRole | UserRole[]) => {
+        if (!auth.user) return false
+        const allowedRoles = Array.isArray(roles) ? roles : [roles]
+        return allowedRoles.includes(auth.user.role)
+      },
+      hasSellerRole: (roles: SellerRole | SellerRole[]) => {
+        if (!auth.user || !isSellerRole(auth.user.role)) return false
+        const allowedRoles = Array.isArray(roles) ? roles : [roles]
+        return allowedRoles.includes(auth.user.role)
+      },
       isSeller: isSellerRole(role),
       isOwner: role === 'owner',
       isAdmin: role === 'admin',

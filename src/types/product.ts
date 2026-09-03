@@ -71,6 +71,7 @@ export interface Product {
   rasa: string | null;
   ukuranAtauIsi: string | null;
   parentCategory: string | null;
+  minimumOrder?: number;
 
   optionGroups: ProductVariantOptionGroup[];
   variants: ProductVariant[];
@@ -118,6 +119,7 @@ export interface SimpleProduct {
   rasa: string | null;
   ukuranAtauIsi: string | null;
   parentCategory: string | null;
+  minimumOrder?: number;
 
   stock: number;
   status: 'active' | 'inactive';

@@ -17,6 +17,7 @@ import {
   CheckCircle,
   AlertTriangle,
   Clock,
+  Loader2,
 } from 'lucide-react';
 import {
   createProductWithOptionalPrice,
@@ -105,11 +106,20 @@ interface EditProductPayload {
 
 function parseAxiosError(error: unknown, fallbackMessage: string): string {
   if (error && typeof error === 'object' && 'response' in error) {
-    const err = error as any;
+    const err = error as {
+      response?: {
+        data?: {
+          detail?: unknown;
+          message?: string;
+        };
+      };
+    };
     const detail = err.response?.data?.detail;
 
     if (Array.isArray(detail)) {
-      return detail.map((item: any) => item.msg || JSON.stringify(item)).join('\n');
+      return detail
+        .map((item: { msg?: string }) => item?.msg || JSON.stringify(item))
+        .join('\n');
     }
 
     if (typeof detail === 'string') {
@@ -742,9 +752,16 @@ function AddProductModal({ isOpen, onClose, categories, onSave }: AddProductModa
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-lg bg-[#d85b30] px-6 py-2 text-sm font-semibold text-white hover:bg-[#c04e28] disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center justify-center rounded-lg bg-[#d85b30] px-6 py-2 text-sm font-semibold text-white hover:bg-[#c04e28] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {submitting ? 'Menyimpan...' : 'Simpan Produk'}
+              {submitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Menyimpan...
+                </>
+              ) : (
+                'Simpan Produk'
+              )}
             </button>
           </div>
         </form>
@@ -791,7 +808,7 @@ function EditProductModal({ isOpen, onClose, product, onSave }: EditProductModal
         setName(product.name);
         setDescription(product.description || '');
         setPriceInput(product.price ? `Rp ${product.price.toLocaleString('id-ID')}` : '');
-        setMinimumOrder((product as any).minimum_order || (product as any).minimumOrder || 1);
+        setMinimumOrder(product.minimumOrder || 1);
 
         setImagePreview(product.image || null);
         setImageFile(null);
@@ -1262,9 +1279,16 @@ function EditProductModal({ isOpen, onClose, product, onSave }: EditProductModal
               <button
                 type="submit"
                 disabled={submitting}
-                className="rounded-lg bg-[#d85b30] px-6 py-2 text-sm font-semibold text-white hover:bg-[#c04e28] disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center justify-center rounded-lg bg-[#d85b30] px-6 py-2 text-sm font-semibold text-white hover:bg-[#c04e28] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {submitting ? 'Menyimpan...' : 'Simpan Perubahan'}
+                {submitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Menyimpan...
+                  </>
+                ) : (
+                  'Simpan Perubahan'
+                )}
               </button>
             </div>
           </form>
@@ -1484,6 +1508,16 @@ export default function SellerProductsPage() {
   const [showViewModal, setShowViewModal] = useState(false);
   const [viewingProduct, setViewingProduct] = useState<ProductWithStatus | ArchivedProduct | null>(null);
 
+  // Toast Notification State
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast((current) => (current?.message === message ? null : current));
+    }, 4000);
+  };
+
   const loadData = async () => {
     setError(null);
 
@@ -1608,13 +1642,13 @@ export default function SellerProductsPage() {
       setActiveTab('active');
       setCurrentPage(1);
 
-      alert('✅ Produk berhasil ditambahkan!');
+      showToast('✅ Produk dan gambar berhasil ditambahkan!', 'success');
     } catch (err) {
       const message = parseAxiosError(err, 'Gagal menambahkan produk');
 
       console.error('Gagal tambah produk:', err);
       setError(message);
-      alert(`❌ ${message}`);
+      showToast(`❌ ${message}`, 'error');
 
       throw err;
     }
@@ -1637,10 +1671,6 @@ export default function SellerProductsPage() {
     try {
       setError(null);
 
-      /**
-       * Kategori sengaja tidak dikirim.
-       * HPP juga tidak dikirim karena dihitung otomatis oleh backend.
-       */
       await updateProduct(backendId, {
         deskripsi: payload.description || null,
         minimum_order: payload.minimumOrder || 1,
@@ -1648,9 +1678,6 @@ export default function SellerProductsPage() {
 
       await updateProductPrice(backendId, payload.price);
 
-      /**
-       * Hapus recipe yang user hapus dari modal.
-       */
       if (payload.deletedRecipeIds.length > 0) {
         await Promise.all(
           payload.deletedRecipeIds.map((recipeId) =>
@@ -1659,15 +1686,6 @@ export default function SellerProductsPage() {
         );
       }
 
-      /**
-       * Update recipe:
-       * - Recipe baru: POST
-       * - Recipe lama quantity berubah: PUT
-       * - Recipe lama bahan berubah: DELETE lama lalu POST baru
-       *
-       * Karena BE RecipeUpdate hanya support jumlah_dibutuhkan,
-       * bukan update stock_item_id.
-       */
       const validIngredients = payload.ingredients.filter(
         (ingredient) => ingredient.inventoryId && ingredient.quantity > 0
       );
@@ -1703,13 +1721,13 @@ export default function SellerProductsPage() {
 
       await refreshProducts();
 
-      alert('✅ Produk berhasil diperbarui.');
+      showToast('✅ Produk dan gambar berhasil diperbarui.', 'success');
     } catch (err) {
       const message = parseAxiosError(err, 'Gagal memperbarui produk.');
 
       console.error('Gagal update produk:', err);
       setError(message);
-      alert(`❌ ${message}`);
+      showToast(`❌ ${message}`, 'error');
 
       throw err;
     }
@@ -1725,11 +1743,11 @@ export default function SellerProductsPage() {
     try {
       await archiveProduct(product.backendId);
       await refreshProducts();
-      alert('Produk berhasil diarsipkan.');
+      showToast('Produk berhasil diarsipkan.', 'success');
     } catch (err) {
       const message = parseAxiosError(err, 'Gagal mengarsipkan produk.');
       console.error(err);
-      alert(`❌ ${message}`);
+      showToast(`❌ ${message}`, 'error');
     }
   };
 
@@ -1741,11 +1759,11 @@ export default function SellerProductsPage() {
     try {
       await restoreProduct(product.backendId);
       await refreshProducts();
-      alert('Produk berhasil dipulihkan.');
+      showToast('Produk berhasil dipulihkan.', 'success');
     } catch (err) {
       const message = parseAxiosError(err, 'Gagal memulihkan produk.');
       console.error(err);
-      alert(`❌ ${message}`);
+      showToast(`❌ ${message}`, 'error');
     }
   };
 
@@ -1759,11 +1777,11 @@ export default function SellerProductsPage() {
     try {
       await deleteProduct(product.backendId);
       await refreshProducts();
-      alert('Produk berhasil dihapus permanen.');
+      showToast('Produk berhasil dihapus permanen.', 'success');
     } catch (err) {
       const message = parseAxiosError(err, 'Gagal menghapus produk secara permanen.');
       console.error(err);
-      alert(`❌ ${message}`);
+      showToast(`❌ ${message}`, 'error');
     }
   };
 
@@ -2115,6 +2133,31 @@ export default function SellerProductsPage() {
         }}
         product={viewingProduct}
       />
+
+      {/* Floating Toast Notification */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 z-50 flex max-w-md items-center gap-3 rounded-2xl border border-[#ead8ca] bg-white p-4 shadow-2xl transition-all animate-in fade-in slide-in-from-bottom-5">
+          {toast.type === 'success' ? (
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-600">
+              <CheckCircle className="h-5 w-5" />
+            </div>
+          ) : (
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+            </div>
+          )}
+          <div className="flex-1 text-sm font-medium text-[#4b2417]">
+            {toast.message}
+          </div>
+          <button
+            type="button"
+            onClick={() => setToast(null)}
+            className="rounded-full p-1 text-[#8b7166] hover:bg-gray-100"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

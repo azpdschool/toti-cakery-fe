@@ -26,6 +26,7 @@ import {
   startWAVerification,
   getWAVerificationStatus,
 } from '@/api/auth'
+import { InternationalPhoneInput } from '@/components/common/PhoneInput'
 
 type Mode =
   | 'login-email'
@@ -38,13 +39,21 @@ type PendingAction = 'register' | 'login-otp'
 
 function parseApiError(error: unknown, fallback: string): string {
   if (error && typeof error === 'object' && 'response' in error) {
-    const err = error as any
+    const err = error as {
+      response?: {
+        data?: { detail?: unknown; message?: string }
+        status?: number
+      }
+    }
     const detail = err.response?.data?.detail
 
     if (typeof detail === 'string') return detail
 
     if (Array.isArray(detail)) {
-      return detail.map((item) => item?.msg).filter(Boolean).join(', ')
+      return detail
+        .map((item: { msg?: string }) => item?.msg)
+        .filter(Boolean)
+        .join(', ')
     }
 
     if (err.response?.status === 401) return 'Kredensial login tidak valid'
@@ -518,12 +527,11 @@ export default function BuyerLoginPage() {
         {/* Mode: Phone + Password Login */}
         {mode === 'login-phone-password' && (
           <form onSubmit={handlePhonePasswordLogin} className="mt-6 space-y-4">
-            <IconInput
-              icon="phone"
-              type="tel"
+            <InternationalPhoneInput
               value={phonePasswordNumber}
               onChange={setPhonePasswordNumber}
-              placeholder="contoh: 082112341234"
+              placeholder="812 1234 1234"
+              required
             />
 
             <PasswordInput
@@ -541,12 +549,11 @@ export default function BuyerLoginPage() {
         {/* Mode: Phone + WhatsApp OTP Start */}
         {mode === 'login-phone-otp' && (
           <form onSubmit={handleStartLoginOtp} className="mt-6 space-y-4">
-            <IconInput
-              icon="phone"
-              type="tel"
+            <InternationalPhoneInput
               value={otpPhone}
               onChange={setOtpPhone}
-              placeholder="contoh: 082112341234"
+              placeholder="812 1234 1234"
+              required
             />
 
             <button
@@ -585,12 +592,11 @@ export default function BuyerLoginPage() {
               placeholder="Email"
             />
 
-            <IconInput
-              icon="phone"
-              type="tel"
+            <InternationalPhoneInput
               value={registerPhone}
               onChange={setRegisterPhone}
-              placeholder="Nomor HP / WhatsApp"
+              placeholder="812 3456 7890"
+              required
             />
 
             <input

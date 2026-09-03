@@ -28,6 +28,7 @@ export const ROUTES = {
 
   // Auth
   AUTH_BUYER: '/auth/buyer',
+  AUTH_BUYER_REGISTER: '/auth/buyer/register',
   AUTH_SELLER: '/auth/seller',
   AUTH_SELLER_FORGOT_PASSWORD: '/auth/seller/forgot-password',
 

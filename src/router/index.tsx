@@ -28,6 +28,7 @@ const ProfilePage = lazy(() => import('@/pages/buyer/ProfilePage'))
 
 // Auth pages
 const BuyerLoginPage = lazy(() => import('@/pages/auth/BuyerLoginPage'))
+const BuyerRegisterPage = lazy(() => import('@/pages/auth/Register'))
 const SellerLoginPage = lazy(() => import('@/pages/auth/SellerLoginPage'))
 const SellerForgotPasswordPage = lazy(
   () => import('@/pages/auth/SellerForgotPasswordPage'),
@@ -127,6 +128,16 @@ export const router = createBrowserRouter([
   {
     path: ROUTES.AUTH_BUYER,
     element: <BuyerLoginPage />,
+    errorElement: <RouterErrorPage />,
+  },
+  {
+    path: ROUTES.AUTH_BUYER_REGISTER,
+    element: <BuyerRegisterPage />,
+    errorElement: <RouterErrorPage />,
+  },
+  {
+    path: '/register',
+    element: <BuyerRegisterPage />,
     errorElement: <RouterErrorPage />,
   },
   {

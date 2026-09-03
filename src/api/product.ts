@@ -193,15 +193,18 @@ export async function uploadProductImage(
   formData.append('file', file);
 
   /**
-   * Jangan set Content-Type manual.
-   * Axios akan otomatis set:
-   * multipart/form-data; boundary=...
-   *
-   * Kalau boundary hilang, FastAPI kadang gagal baca file.
+   * Mengatur Content-Type: undefined agar Axios tidak menggunakan default
+   * 'application/json' dan membiarkan browser mengeset header multipart/form-data
+   * lengkap beserta boundary wajib (misal: multipart/form-data; boundary=...).
    */
   const response = await apiClient.post<ProductOut>(
     `/products/${id}/image`,
-    formData
+    formData,
+    {
+      headers: {
+        'Content-Type': undefined,
+      },
+    }
   );
 
   return response.data;
