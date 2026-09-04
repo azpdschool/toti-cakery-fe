@@ -23,7 +23,7 @@ type ForgotStep = 'email' | 'otp' | 'reset'
 
 function parseApiError(error: unknown, fallback: string): string {
   if (error && typeof error === 'object' && 'response' in error) {
-    const err = error as any
+    const err = error as { response?: { data?: { detail?: unknown } } }
     const detail = err.response?.data?.detail
 
     if (typeof detail === 'string') return detail
@@ -73,9 +73,7 @@ export default function SellerForgotPasswordPage() {
       })
 
       setOtpId(response.otp_id)
-      setSuccess(
-        `Kode OTP telah dikirim. Untuk development gunakan kode dummy: 7777`,
-      )
+      setSuccess('Kode OTP telah dikirim.')
       setStep('otp')
     } catch (err) {
       setError(
@@ -274,10 +272,6 @@ export default function SellerForgotPasswordPage() {
                   className="mt-1.5 w-full rounded-xl border border-[#d0bfaf] bg-white/70 px-4 py-3 text-center text-xl font-bold text-[#4b2417] outline-none transition placeholder:text-sm placeholder:font-normal placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
                 />
 
-                <p className="mt-2 text-xs text-[#8b7166]">
-                  Untuk development, gunakan kode dummy{' '}
-                  <span className="font-mono font-bold">7777</span>.
-                </p>
               </div>
 
               {error && (

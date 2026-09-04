@@ -1,5 +1,5 @@
 // src/components/common/AuthProvider.tsx
-import { createContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useEffect, useMemo, useState, useCallback, type ReactNode } from 'react'
 import type { AuthState, SellerRole, User, UserRole } from '@/types'
 import { TOKEN_KEY, USER_KEY } from '@/constants'
 
@@ -48,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const login = (token: string, user: User) => {
+  const login = useCallback((token: string, user: User) => {
     localStorage.setItem(TOKEN_KEY, token)
     localStorage.setItem(USER_KEY, JSON.stringify(user))
 
@@ -57,9 +57,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       accessToken: token,
       isAuthenticated: true,
     })
-  }
+  }, [])
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(USER_KEY)
 
@@ -68,9 +68,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       accessToken: null,
       isAuthenticated: false,
     })
-  }
+  }, [])
 
-  const updateUser = (updatedFields: Partial<User>) => {
+  const updateUser = useCallback((updatedFields: Partial<User>) => {
     setAuth((prev) => {
       if (!prev.user) return prev
       const newUser: User = { ...prev.user, ...updatedFields }
@@ -80,7 +80,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user: newUser,
       }
     })
-  }
+  }, [])
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      logout()
+    }
+
+    window.addEventListener('auth:unauthorized', handleUnauthorized)
+    
+    return () => {
+      window.removeEventListener('auth:unauthorized', handleUnauthorized)
+    }
+  }, [logout])
 
   const value = useMemo<AuthContextType>(() => {
     const role = auth.user?.role
@@ -105,7 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin: role === 'admin',
       isStaff: role === 'staff',
     }
-  }, [auth])
+  }, [auth, login, logout, updateUser])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

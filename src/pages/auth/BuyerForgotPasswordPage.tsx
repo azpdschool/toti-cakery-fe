@@ -26,7 +26,7 @@ type ResetStep = 'input' | 'otp' | 'reset'
 
 function parseApiError(error: unknown, fallback: string): string {
   if (error && typeof error === 'object' && 'response' in error) {
-    const err = error as any
+    const err = error as { response?: { data?: { detail?: unknown }, status?: number } }
     const detail = err.response?.data?.detail
 
     if (typeof detail === 'string') return detail
@@ -53,12 +53,11 @@ function parseApiError(error: unknown, fallback: string): string {
 export default function BuyerForgotPasswordPage() {
   const navigate = useNavigate()
 
-  const [method, setMethod] = useState<ResetMethod>('email')
+  const [method] = useState<ResetMethod>('email')
   const [step, setStep] = useState<ResetStep>('input')
 
   const [identifier, setIdentifier] = useState('')
   const [otpId, setOtpId] = useState('')
-  const [otpCode, setOtpCode] = useState('')
   const [verifyToken, setVerifyToken] = useState('')
 
   const [newPassword, setNewPassword] = useState('')
@@ -80,11 +79,13 @@ export default function BuyerForgotPasswordPage() {
       return
     }
 
+    const normalizedIdentifier = identifier.replace(/\D/g, '')
+
     setIsLoading(true)
 
     try {
       const response = await startWAVerification({
-        phone_number: identifier.trim(),
+        phone_number: normalizedIdentifier,
       })
 
       if (response.mock_mode && response.verify_token) {
@@ -207,35 +208,7 @@ export default function BuyerForgotPasswordPage() {
               <div className="mt-5 flex gap-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    setMethod('email')
-                    setIdentifier('')
-                    setError(null)
-                    setSuccess(null)
-                  }}
-                  className={`flex-1 rounded-lg border-2 px-4 py-3 text-sm font-semibold transition ${
-                    method === 'email'
-                      ? 'border-[#d85b30] bg-[#d85b30]/10 text-[#d85b30]'
-                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                  }`}
-                >
-                  <Mail className="mx-auto mb-1 h-5 w-5" />
-                  Email
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMethod('whatsapp')
-                    setIdentifier('')
-                    setError(null)
-                    setSuccess(null)
-                  }}
-                  className={`flex-1 rounded-lg border-2 px-4 py-3 text-sm font-semibold transition ${
-                    method === 'whatsapp'
-                      ? 'border-[#25D366] bg-[#25D366]/10 text-[#25D366]'
-                      : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                  }`}
+                  className="flex-1 rounded-lg border-2 border-[#25D366] bg-[#25D366]/10 px-4 py-3 text-sm font-semibold text-[#25D366] transition"
                 >
                   <MessageCircle className="mx-auto mb-1 h-5 w-5" />
                   WhatsApp
@@ -309,30 +282,13 @@ export default function BuyerForgotPasswordPage() {
 
           {step === 'otp' && (
             <form onSubmit={handleVerifyOtp} className="mt-6 space-y-4">
-              <div>
-                <label
-                  htmlFor="otp"
-                  className="block text-sm font-semibold text-[#4b2417]"
-                >
-                  Kode OTP
-                </label>
-
-                <input
-                  id="otp"
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={6}
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                  placeholder="Masukkan kode OTP"
-                  autoFocus
-                  className="mt-1.5 w-full rounded-xl border border-[#d0bfaf] bg-white/70 px-4 py-3 text-center text-xl font-bold text-[#4b2417] outline-none transition placeholder:text-sm placeholder:font-normal placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
-                />
-
-                <p className="mt-2 text-xs text-[#8b7166]">
-                  Untuk development, gunakan kode{' '}
-                  <span className="font-mono font-bold">7777</span>.
+              <div className="text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#e8f9ee] mb-4">
+                  <MessageCircle className="h-8 w-8 text-[#25D366]" />
+                </div>
+                <p className="text-sm text-[#6f5448]">
+                  Silakan periksa WhatsApp Anda dan ikuti instruksi yang dikirimkan.
+                  Klik tombol di bawah jika Anda sudah menyelesaikannya.
                 </p>
               </div>
 
@@ -361,7 +317,7 @@ export default function BuyerForgotPasswordPage() {
                     Memverifikasi...
                   </>
                 ) : (
-                  'Verifikasi OTP'
+                  'Cek Status Verifikasi'
                 )}
               </button>
 
@@ -369,7 +325,6 @@ export default function BuyerForgotPasswordPage() {
                 type="button"
                 onClick={() => {
                   setOtpId('')
-                  setOtpCode('')
                   setStep('input')
                 }}
                 className="w-full text-sm font-medium text-[#d85b30] hover:text-[#c04e28]"
@@ -406,6 +361,7 @@ export default function BuyerForgotPasswordPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword((prev) => !prev)}
+                    aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166] hover:text-[#4b2417]"
                   >
                     {showPassword ? (
@@ -438,6 +394,19 @@ export default function BuyerForgotPasswordPage() {
                     placeholder="Ulangi password baru"
                     className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-12 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
                   />
+
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166] hover:text-[#4b2417]"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
                 </div>
               </div>
 

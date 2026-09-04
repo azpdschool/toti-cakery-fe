@@ -14,7 +14,7 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { ROUTES } from '@/constants'
 import {
-  getAllProducts,
+  getActiveProducts,
   getProductReviews,
   formatRupiah,
   type SimpleProduct,
@@ -81,7 +81,7 @@ export default function HomePage() {
     async function loadData() {
       setLoading(true)
       const [allProducts, allReviews] = await Promise.all([
-        getAllProducts(),
+        getActiveProducts(),
         getProductReviews(50),
       ])
       setProducts(allProducts)

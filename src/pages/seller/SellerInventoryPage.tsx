@@ -53,11 +53,11 @@ const CATEGORY_OPTIONS: { value: InventoryCategory; label: string }[] = [
 
 function parseAxiosError(error: unknown, fallbackMessage: string): string {
   if (error && typeof error === 'object' && 'response' in error) {
-    const err = error as any;
+    const err = error as { response?: { data?: { detail?: unknown, message?: string } } };
     const detail = err.response?.data?.detail;
 
     if (Array.isArray(detail)) {
-      return detail.map((item: any) => item.msg || JSON.stringify(item)).join('\n');
+      return detail.map((item: { msg?: string }) => item.msg || JSON.stringify(item)).join('\n');
     }
 
     if (typeof detail === 'string') {

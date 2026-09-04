@@ -252,7 +252,7 @@ export default function BuyerLoginPage() {
 
     try {
       const response = await loginBuyerPhone({
-        phone_number: phonePasswordNumber.trim(),
+        phone_number: phonePasswordNumber.replace(/\D/g, ''),
         password: phonePasswordPassword,
       })
 
@@ -270,7 +270,7 @@ export default function BuyerLoginPage() {
     e.preventDefault()
     resetMessage()
 
-    const targetPhone = otpPhone.trim()
+    const targetPhone = otpPhone.replace(/\D/g, '')
     if (!targetPhone) {
       setError('Nomor HP wajib diisi')
       return
@@ -315,7 +315,7 @@ export default function BuyerLoginPage() {
 
     const regName = name.trim()
     const regEmail = registerEmail.trim()
-    const regPhone = registerPhone.trim()
+    const regPhone = registerPhone.replace(/\D/g, '')
 
     if (!regName || !regEmail || !regPhone) {
       setError('Nama, email, dan nomor HP wajib diisi')
@@ -599,20 +599,22 @@ export default function BuyerLoginPage() {
               required
             />
 
-            <input
-              type="password"
+            <PasswordInput
               value={registerPassword}
-              onChange={(e) => setRegisterPassword(e.target.value)}
+              onChange={setRegisterPassword}
+              showPassword={showPassword}
+              setShowPassword={setShowPassword}
+              label="Password"
               placeholder="Password"
-              className="w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-sm outline-none focus:border-[#d85b30]"
             />
 
-            <input
-              type="password"
+            <PasswordInput
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              onChange={setConfirmPassword}
+              showPassword={showPassword}
+              setShowPassword={setShowPassword}
+              label="Konfirmasi Password"
               placeholder="Konfirmasi password"
-              className="w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-sm outline-none focus:border-[#d85b30]"
             />
 
             <button
@@ -718,16 +720,20 @@ function PasswordInput({
   onChange,
   showPassword,
   setShowPassword,
+  label = "Password",
+  placeholder = "Password"
 }: {
   value: string
   onChange: (value: string) => void
   showPassword: boolean
   setShowPassword: (value: boolean | ((prev: boolean) => boolean)) => void
+  label?: string
+  placeholder?: string
 }) {
   return (
     <div>
       <label className="text-sm font-semibold text-[#4b2417]">
-        Password
+        {label}
       </label>
 
       <div className="relative mt-1.5">
@@ -737,13 +743,14 @@ function PasswordInput({
           type={showPassword ? 'text' : 'password'}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="Password"
+          placeholder={placeholder}
           className="w-full rounded-xl border border-[#d0bfaf] py-3 pl-11 pr-12 text-sm outline-none focus:border-[#d85b30]"
         />
 
         <button
           type="button"
           onClick={() => setShowPassword((prev) => !prev)}
+          aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
           className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166]"
         >
           {showPassword ? (

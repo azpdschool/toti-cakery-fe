@@ -3,7 +3,7 @@ import axios from 'axios'
 import { TOKEN_KEY, USER_KEY } from '@/constants'
 
 export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+  import.meta.env.VITE_API_BASE_URL || '/api'
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -29,6 +29,7 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem(TOKEN_KEY)
       localStorage.removeItem(USER_KEY)
+      window.dispatchEvent(new Event('auth:unauthorized'))
     }
 
     return Promise.reject(error)

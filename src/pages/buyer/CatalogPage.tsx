@@ -319,10 +319,11 @@ export default function CatalogPage() {
       ])
       setProducts(allProducts)
       setCategories(catData)
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Gagal load catalog products:', err)
-      const detail = err?.response?.data?.detail
-      const msg = typeof detail === 'string' ? detail : err?.message || 'Gagal memuat produk. Silakan coba lagi.'
+      const e = err as { response?: { data?: { detail?: unknown } }, message?: string }
+      const detail = e?.response?.data?.detail
+      const msg = typeof detail === 'string' ? detail : e?.message || 'Gagal memuat produk. Silakan coba lagi.'
       setError(msg)
     } finally {
       setLoading(false)

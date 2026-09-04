@@ -17,7 +17,7 @@ import { loginSeller, mapSellerLoginResponseToUser } from '@/api/auth'
 
 function parseAuthError(error: unknown): string {
   if (error && typeof error === 'object' && 'response' in error) {
-    const err = error as any
+    const err = error as { response?: { data?: { detail?: unknown }, status?: number } }
     const detail = err.response?.data?.detail
 
     if (typeof detail === 'string') return detail

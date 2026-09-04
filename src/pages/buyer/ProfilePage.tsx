@@ -62,9 +62,10 @@ export default function ProfilePage() {
   const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const [avatar, setAvatar] = useState<string | null>(() => {
-    return localStorage.getItem('buyer_avatar')
-  })
+  const [avatar] = useState<string | null>(null)
+  const [tempAvatar, setTempAvatar] = useState<string | null>(null)
+  const [avatarLoading, setAvatarLoading] = useState(false)
+  const [avatarError, setAvatarError] = useState<string | null>(null)
 
   // Phone Modal State
   const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false)
@@ -114,11 +115,30 @@ export default function ProfilePage() {
 
     reader.onloadend = () => {
       const result = String(reader.result)
-      setAvatar(result)
-      localStorage.setItem('buyer_avatar', result)
+      setTempAvatar(result)
+      setAvatarError(null)
     }
 
     reader.readAsDataURL(file)
+  }
+
+  const handleCancelAvatar = () => {
+    setTempAvatar(null)
+    setAvatarError(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  const handleSaveAvatar = async () => {
+    setAvatarLoading(true)
+    setAvatarError(null)
+    try {
+      // Backend does not currently support profile image upload
+      throw new Error('Backend persistence is not yet supported. Frontend UI is ready.')
+    } catch (err: unknown) {
+      setAvatarError(err instanceof Error ? err.message : 'Gagal menyimpan foto profil.')
+    } finally {
+      setAvatarLoading(false)
+    }
   }
 
   const handleRequestPasswordOtp = async () => {
@@ -272,9 +292,9 @@ export default function ProfilePage() {
           <div className="flex flex-col items-center text-center">
             <div className="relative">
               <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-full bg-[#f3e2d7] text-4xl font-black text-[#d85b30]">
-                {avatar ? (
+                {tempAvatar || avatar ? (
                   <img
-                    src={avatar}
+                    src={tempAvatar || avatar || ''}
                     alt={user.name}
                     className="h-full w-full object-cover"
                   />
@@ -299,6 +319,33 @@ export default function ProfilePage() {
                 className="hidden"
               />
             </div>
+            
+            {tempAvatar && (
+              <div className="mt-4 flex flex-col items-center gap-2">
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSaveAvatar}
+                    disabled={avatarLoading}
+                    className="flex h-8 items-center justify-center rounded-lg bg-[#d85b30] px-4 text-xs font-bold text-white transition hover:bg-[#c04e28] disabled:opacity-60"
+                  >
+                    {avatarLoading ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
+                    Simpan
+                  </button>
+                  <button
+                    onClick={handleCancelAvatar}
+                    disabled={avatarLoading}
+                    className="flex h-8 items-center justify-center rounded-lg border border-[#d0bfaf] px-4 text-xs font-bold text-[#4b2417] transition hover:bg-[#fff4ed]"
+                  >
+                    Batal
+                  </button>
+                </div>
+                {avatarError && (
+                  <div className="mt-1 max-w-[200px] text-center text-xs font-semibold text-red-600">
+                    {avatarError}
+                  </div>
+                )}
+              </div>
+            )}
 
             <h1 className="mt-4 text-xl font-black text-[#4b2417]">
               {user.name || 'Buyer'}
@@ -552,6 +599,7 @@ export default function ProfilePage() {
                     <button
                       type="button"
                       onClick={() => setShowPassword((prev) => !prev)}
+                      aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166] hover:text-[#4b2417]"
                     >
                       {showPassword ? (
@@ -568,18 +616,32 @@ export default function ProfilePage() {
                     Konfirmasi Password
                   </label>
 
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={passwordData.confirm}
-                    onChange={(e) =>
-                      setPasswordData((prev) => ({
-                        ...prev,
-                        confirm: e.target.value,
-                      }))
-                    }
-                    placeholder="Ulangi password baru"
-                    className="mt-1.5 w-full rounded-xl border border-[#d0bfaf] bg-white/70 px-4 py-3 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
-                  />
+                  <div className="relative mt-1.5">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={passwordData.confirm}
+                      onChange={(e) =>
+                        setPasswordData((prev) => ({
+                          ...prev,
+                          confirm: e.target.value,
+                        }))
+                      }
+                      placeholder="Ulangi password baru"
+                      className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-4 pr-12 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166] hover:text-[#4b2417]"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex gap-2">

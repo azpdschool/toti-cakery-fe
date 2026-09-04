@@ -91,7 +91,7 @@ export const Register: React.FC = () => {
           const response = await registerBuyer({
             name: name.trim(),
             email: email.trim(),
-            phone: phone.trim(),
+            phone: phone.replace(/\D/g, ''),
             password,
             verify_token: res.verify_token,
           });
@@ -113,7 +113,7 @@ export const Register: React.FC = () => {
 
     const trimmedName = name.trim();
     const trimmedEmail = email.trim();
-    const trimmedPhone = phone.trim();
+      const trimmedPhone = phone.replace(/\D/g, '');
 
     if (!trimmedName || !trimmedEmail || !trimmedPhone) {
       setError('Nama, email, dan nomor HP wajib diisi');
@@ -257,6 +257,7 @@ export const Register: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
                   className="mr-3 text-[#8b7166] hover:text-[#4b2417]"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -281,6 +282,7 @@ export const Register: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  aria-label={showConfirmPassword ? 'Sembunyikan password' : 'Tampilkan password'}
                   className="mr-3 text-[#8b7166] hover:text-[#4b2417]"
                 >
                   {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
