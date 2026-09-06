@@ -26,9 +26,6 @@ jobs:
 
       - run: npm ci
 
-      # Non-blocking dulu: saat workflow ini dibuat masih ada 40 error lint
-      # warisan di src/services/*. Hasilnya tetap terlihat di log. Hapus
-      # continue-on-error setelah error itu dibereskan supaya jadi gate beneran.
       - run: npm run lint
         continue-on-error: true
 
@@ -66,6 +63,8 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            VITE_API_BASE_URL=/api
 
       - name: Smoke test
         env:
@@ -96,6 +95,17 @@ jobs:
           if docker run --rm "$TAG" \
                grep -rq "localhost:8000" /usr/share/nginx/html/assets/; then
             echo "::error::bundle memuat http://localhost:8000 — VITE_API_BASE_URL salah"
+            exit 1
+          fi
+          
+          WA=$(sed -n 's/^ARG VITE_WHATSAPP_NUMBER=//p' Dockerfile)
+          if [ -z "$WA" ]; then
+            echo "::error::ARG VITE_WHATSAPP_NUMBER kosong di Dockerfile"
+            exit 1
+          fi
+          if ! docker run --rm "$TAG" \
+                 grep -rqF "$WA" /usr/share/nginx/html/assets/; then
+            echo "::error::nomor WhatsApp ($WA) tidak ikut terpanggang ke bundle"
             exit 1
           fi
 
