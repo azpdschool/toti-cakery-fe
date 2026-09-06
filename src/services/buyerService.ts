@@ -1,4 +1,4 @@
-// src/services/buyerService.ts
+import { formatPhoneNumber } from '@/utils/phone';
 
 export interface BuyerProfile {
   id: string;
@@ -15,7 +15,7 @@ const dummyBuyers: BuyerProfile[] = [
     id: 'b1',
     name: 'JiantaraDahayu Doe',
     email: 'john@example.com',
-    phone: '081234567890',
+    phone: '6281234567890',
     password: 'buyer123',
     createdAt: '2026-01-10',
   },
@@ -23,7 +23,7 @@ const dummyBuyers: BuyerProfile[] = [
     id: 'b2',
     name: 'Jane Smith',
     email: 'jane@example.com',
-    phone: '082345678901',
+    phone: '6282345678901',
     password: 'buyer123',
     createdAt: '2026-02-15',
   },
@@ -38,9 +38,8 @@ export async function getBuyerByEmail(email: string): Promise<BuyerProfile | und
 
 export async function getBuyerByPhone(phone: string): Promise<BuyerProfile | undefined> {
   await delay();
-  // Normalize phone: remove spaces, dashes, etc.
-  const normalized = phone.replace(/[\s\-\(\)]/g, '');
-  return dummyBuyers.find((b) => b.phone.replace(/[\s\-\(\)]/g, '') === normalized);
+  const normalized = formatPhoneNumber(phone);
+  return dummyBuyers.find((b) => formatPhoneNumber(b.phone) === normalized);
 }
 
 export async function updateBuyerPassword(email: string, newPassword: string): Promise<void> {

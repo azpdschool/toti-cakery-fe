@@ -23,6 +23,7 @@ import {
   mapBuyerAuthResponseToUser,
 } from '@/api/auth';
 import { InternationalPhoneInput } from '@/components/common/PhoneInput';
+import { formatPhoneNumber } from '@/utils/phone';
 
 function parseApiError(error: unknown, fallback: string): string {
   if (error && typeof error === 'object' && 'response' in error) {
@@ -91,7 +92,7 @@ export const Register: React.FC = () => {
           const response = await registerBuyer({
             name: name.trim(),
             email: email.trim(),
-            phone: phone.replace(/\D/g, ''),
+            phone: formatPhoneNumber(phone),
             password,
             verify_token: res.verify_token,
           });
@@ -113,7 +114,7 @@ export const Register: React.FC = () => {
 
     const trimmedName = name.trim();
     const trimmedEmail = email.trim();
-      const trimmedPhone = phone.replace(/\D/g, '');
+    const trimmedPhone = formatPhoneNumber(phone);
 
     if (!trimmedName || !trimmedEmail || !trimmedPhone) {
       setError('Nama, email, dan nomor HP wajib diisi');

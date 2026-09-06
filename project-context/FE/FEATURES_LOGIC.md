@@ -206,15 +206,16 @@ Dokumen ini memetakan seluruh logika bisnis, alur kerja antarmuka (*frontend wor
 
 ## 2. Phone Number & Country Code System
 
-Berdasarkan audit langsung pada `src/components/common/PhoneInput.tsx` serta penggunaannya di form autentikasi dan profil:
+Berdasarkan implementasi pada `src/components/common/PhoneInput.tsx`, utility `src/utils/phone.ts`, serta integrasinya di seluruh form autentikasi dan profil:
 
 ```mermaid
 flowchart LR
     UserInput["Ketik Nomor<br>(misal: 081234567890)"] --> CountrySelect["Country Selector<br>(Default: 'id' / +62)"]
     CountrySelect --> AutoClean["handlePhoneChange()<br>Regex: phone.replace(/^(\+\d{1,4})0+/, '$1')"]
-    AutoClean --> Normalized["Formatted E.164 with +<br>(+6281234567890)"]
-    Normalized --> APISend["Dikirim ke Backend via Axios<br>phone_number: '+6281234567890'"]
-    APISend --> BETransform["Backend E.164 Normalizer<br>Strip '+' & Non-digits -> '6281234567890'"]
+    AutoClean --> UIFormatted["UI Display State<br>(+6281234567890)"]
+    UIFormatted --> FormSanitize["formatPhoneNumber()<br>Sanitasi digit murni (0 -> 62, strip symbols)"]
+    FormSanitize --> APISend["Dikirim ke Backend via Axios<br>phone_number: '6281234567890'"]
+    APISend --> BEDB["Backend & Database<br>Direct Query Match ('6281234567890')"]
 ```
 
 ### A. Komponen Aktual: `InternationalPhoneInput` (`src/components/common/PhoneInput.tsx`)
@@ -228,7 +229,7 @@ flowchart LR
 - Pemilihan negara secara otomatis mengubah prefix panggilan (misal: Indonesia $\rightarrow$ `+62`, Malaysia $\rightarrow$ `+60`, Singapura $\rightarrow$ `+65`, Amerika Serikat $\rightarrow$ `+1`).
 
 ### C. Formatting, Normalisasi & Penanganan Leading Zero
-- **Leading Zero Handling**:
+- **Leading Zero Handling di UI**:
   Kode aktual di `PhoneInput.tsx` (baris 45–52):
   ```typescript
   const handlePhoneChange = useCallback(
@@ -240,17 +241,18 @@ flowchart LR
     [onChange]
   );
   ```
-- **Logika Regex**:
-  - `^(\+\d{1,4})`: Menangkap tanda `+` diikuti oleh 1 sampai 4 digit kode negara (misal `+62` atau `+1`).
-  - `0+`: Menangkap satu atau lebih digit nol langsung setelah kode negara.
-  - `$1`: Mengganti seluruh bagian awalan tersebut hanya dengan kode negaranya saja, secara efektif membuang angka nol di depan nomor seluler lokal.
-  - *Contoh*: Input pengguna `+62 081234567890` langsung ditransformasi menjadi `+6281234567890`.
+- **Helper Sanitasi `formatPhoneNumber` (`src/utils/phone.ts`)**:
+  - Digunakan saat pengiriman formulir (*form submission*) dan di layer API `src/api/auth.ts`.
+  - Menghapus seluruh karakter non-digit (`\D`).
+  - Mengubah awalan `0` menjadi `62` (misal `08123456789` $\rightarrow$ `628123456789`).
+  - Menjaga nomor berawalan `62` tetap `62` (misal `+62 812 9999 8888` $\rightarrow$ `6281299998888`).
 
-### D. Prefix `+` dan Nilai Akhir yang Dikirim ke API
-- **Nilai yang Dihasilkan Komponen**: Menghasilkan format internasional diawali tanda plus, misal: `"+6281234567890"`.
+### D. Nilai yang Dihasilkan vs Nilai yang Dikirim ke API
+- **Nilai yang Ditampilkan di UI**: Menghasilkan format internasional yang ramah pengguna dengan kode negara (misal `"+6281234567890"`).
 - **Nilai yang Dikirim ke API Backend**:
-  - Pada `BuyerLoginPage.tsx`, `Register.tsx`, dan `ProfilePage.tsx`, nilai string ini dikirim apa adanya ke endpoint `/auth/verify/wa/start`, `/auth/buyer/register`, dan `/auth/buyer/login-phone`.
-  - **Sinkronisasi dengan Backend**: Backend Toti Cakery memiliki fungsi `normalize_phone()` yang membuang simbol non-digit termasuk tanda `+` menjadi digit murni `6281234567890` sebelum divalidasi ke database.
+  - Pada `BuyerLoginPage.tsx`, `Register.tsx`, `BuyerForgotPasswordPage.tsx`, dan `ProfilePage.tsx`, nilai nomor telepon disanitasi menggunakan `formatPhoneNumber` menjadi digit murni (misal: `"6281234567890"`).
+  - API layer (`src/api/auth.ts`) juga mengimplementasikan sanitasi defensif otomatis pada `startWAVerification`, `loginBuyerPhone`, `loginBuyerOtp`, dan `registerBuyer` sebelum payload dikirim via Axios.
+  - Hal ini menjamin kesesuaian query database PostgreSQL backend tanpa kendala simbol atau mismatch prefix.
 
 ### E. Divergensi Antar Halaman
 - `InternationalPhoneInput` digunakan di:

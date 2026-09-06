@@ -1,6 +1,6 @@
-// src/api/auth.ts
 import { apiClient } from './client'
 import type { SellerRole, User } from '@/types'
+import { formatPhoneNumber } from '@/utils/phone'
 
 // ============================================================
 // SELLER AUTH TYPES
@@ -203,7 +203,10 @@ export async function startWAVerification(
 ): Promise<WAVerifyStartResponse> {
   const response = await apiClient.post<WAVerifyStartResponse>(
     '/auth/verify/wa/start',
-    payload,
+    {
+      ...payload,
+      phone_number: formatPhoneNumber(payload.phone_number),
+    },
   )
 
   return response.data
@@ -225,7 +228,11 @@ export async function registerBuyer(
 ): Promise<BuyerAuthResponse> {
   const response = await apiClient.post<BuyerAuthResponse>(
     '/auth/buyer/register',
-    payload,
+    {
+      ...payload,
+      phone: payload.phone ? formatPhoneNumber(payload.phone) : undefined,
+      phone_number: payload.phone_number ? formatPhoneNumber(payload.phone_number) : undefined,
+    },
   )
 
   return response.data
@@ -247,7 +254,10 @@ export async function loginBuyerPhone(
 ): Promise<BuyerAuthResponse> {
   const response = await apiClient.post<BuyerAuthResponse>(
     '/auth/buyer/login-phone',
-    payload,
+    {
+      ...payload,
+      phone_number: formatPhoneNumber(payload.phone_number),
+    },
   )
 
   return response.data
@@ -258,7 +268,11 @@ export async function loginBuyerOtp(
 ): Promise<BuyerAuthResponse> {
   const response = await apiClient.post<BuyerAuthResponse>(
     '/auth/buyer/login/otp',
-    payload,
+    {
+      ...payload,
+      phone: payload.phone ? formatPhoneNumber(payload.phone) : undefined,
+      phone_number: payload.phone_number ? formatPhoneNumber(payload.phone_number) : undefined,
+    },
   )
 
   return response.data
