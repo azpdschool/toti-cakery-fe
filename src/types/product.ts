@@ -132,3 +132,12 @@ export interface CategorySummary {
   category: string;
   count: number;
 }
+
+export interface ProductCreateDTO {
+  nama_produk: string;
+  deskripsi?: string | null;
+  kategori?: string | null;
+  harga_jual?: number | string | null;
+  minimum_order?: number;
+  is_active?: boolean;
+}

@@ -1,7 +1,7 @@
-// src/pages/auth/SellerLoginPage.tsx
 import { useState } from 'react'
 import type React from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   Eye,
   EyeOff,
@@ -15,35 +15,10 @@ import { useAuth } from '@/hooks/useAuth'
 import { ROUTES } from '@/constants'
 import { loginSeller, mapSellerLoginResponseToUser } from '@/api/auth'
 
-function parseAuthError(error: unknown): string {
-  if (error && typeof error === 'object' && 'response' in error) {
-    const err = error as { response?: { data?: { detail?: unknown }, status?: number } }
-    const detail = err.response?.data?.detail
-
-    if (typeof detail === 'string') return detail
-
-    if (Array.isArray(detail)) {
-      return detail
-        .map((item) => item?.msg)
-        .filter(Boolean)
-        .join(', ')
-    }
-
-    if (err.response?.status === 401) {
-      return 'Username atau password salah'
-    }
-
-    if (err.response?.status === 422) {
-      return 'Akun tidak aktif atau data login tidak valid'
-    }
-  }
-
-  return 'Terjadi kesalahan. Silakan coba lagi.'
-}
-
 export default function SellerLoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -52,6 +27,32 @@ export default function SellerLoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
+  const parseAuthError = (err: unknown): string => {
+    if (err && typeof err === 'object' && 'response' in err) {
+      const e = err as { response?: { data?: { detail?: unknown }, status?: number } }
+      const detail = e.response?.data?.detail
+
+      if (typeof detail === 'string') return detail
+
+      if (Array.isArray(detail)) {
+        return detail
+          .map((item) => item?.msg)
+          .filter(Boolean)
+          .join(', ')
+      }
+
+      if (e.response?.status === 401) {
+        return t('auth.error_username_password_wrong')
+      }
+
+      if (e.response?.status === 422) {
+        return t('auth.error_inactive_account')
+      }
+    }
+
+    return t('auth.error_generic')
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -59,7 +60,7 @@ export default function SellerLoginPage() {
     setSuccess(null)
 
     if (!username.trim() || !password.trim()) {
-      setError('Username dan password wajib diisi')
+      setError(t('auth.error_username_password_required'))
       return
     }
 
@@ -75,7 +76,7 @@ export default function SellerLoginPage() {
 
       login(response.access_token, authUser)
 
-      setSuccess('Login berhasil! Mengalihkan ke dashboard...')
+      setSuccess(t('auth.login_success'))
 
       setTimeout(() => {
         navigate(ROUTES.SELLER_DASHBOARD, { replace: true })
@@ -93,20 +94,20 @@ export default function SellerLoginPage() {
         <div className="mb-8 text-center">
           <img
             src="/src/assets/logo.png"
-            alt="Toti Cakery"
+            alt={t('app.name')}
             className="mx-auto h-12 w-auto object-contain"
           />
           <p className="mt-1 text-sm text-[#6f5448]">
-            Login untuk mengelola toko
+            {t('auth.seller_login')}
           </p>
         </div>
 
         <div className="rounded-2xl border border-[#ead8ca] bg-white/90 p-8 shadow-xl backdrop-blur-sm">
           <h1 className="text-2xl font-black text-[#4b2417]">
-            Login Penjual
+            {t('auth.seller_login_title')}
           </h1>
           <p className="mt-1 text-sm text-[#6f5448]">
-            Masuk ke dashboard manajemen Toti Cakery
+            {t('auth.seller_login_subtitle')}
           </p>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
@@ -115,7 +116,7 @@ export default function SellerLoginPage() {
                 htmlFor="username"
                 className="block text-sm font-semibold text-[#4b2417]"
               >
-                Username
+                {t('auth.username_label')}
               </label>
 
               <div className="relative mt-1.5">
@@ -128,14 +129,14 @@ export default function SellerLoginPage() {
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Masukkan username"
+                  placeholder={t('auth.username_placeholder')}
                   autoComplete="username"
                   className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-4 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
                 />
               </div>
 
               <p className="mt-2 text-xs text-[#8b7166]">
-                Gunakan username seller yang terdaftar.
+                {t('auth.username_helper')}
               </p>
             </div>
 
@@ -144,7 +145,7 @@ export default function SellerLoginPage() {
                 htmlFor="password"
                 className="block text-sm font-semibold text-[#4b2417]"
               >
-                Password
+                {t('auth.password_label')}
               </label>
 
               <div className="relative mt-1.5">
@@ -157,7 +158,7 @@ export default function SellerLoginPage() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Ketik password Anda"
+                  placeholder={t('auth.password_placeholder')}
                   autoComplete="current-password"
                   className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-12 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
                 />
@@ -166,7 +167,7 @@ export default function SellerLoginPage() {
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166] hover:text-[#4b2417]"
-                  aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+                  aria-label={showPassword ? t('auth.hide_password') : t('auth.show_password')}
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -199,10 +200,10 @@ export default function SellerLoginPage() {
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Memproses...
+                  {t('auth.processing')}
                 </>
               ) : (
-                'Login'
+                t('auth.login')
               )}
             </button>
 
@@ -211,7 +212,7 @@ export default function SellerLoginPage() {
                 to={ROUTES.AUTH_SELLER_FORGOT_PASSWORD}
                 className="font-medium text-[#d85b30] transition hover:text-[#c04e28]"
               >
-                Lupa password?
+                {t('auth.forgot_password')}
               </Link>
             </div>
 
@@ -220,14 +221,14 @@ export default function SellerLoginPage() {
                 to={ROUTES.HOME}
                 className="font-medium text-[#6f5448] transition hover:text-[#4b2417]"
               >
-                Kembali ke Beranda
+                {t('auth.back_to_home')}
               </Link>
             </div>
           </form>
         </div>
 
         <div className="mt-6 text-center text-xs text-[#8b7166]">
-          <p>Hanya untuk akses manajemen toko Toti Cakery</p>
+          <p>{t('auth.management_only')}</p>
         </div>
       </div>
     </div>

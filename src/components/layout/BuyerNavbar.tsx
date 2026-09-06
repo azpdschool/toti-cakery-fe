@@ -165,6 +165,7 @@ export function BuyerNavbar() {
             )}
           </div>
 
+
           {user ? (
             <Link
               to="/profile"
@@ -298,6 +299,7 @@ export function BuyerNavbar() {
                 Masuk / Daftar
               </Link>
             )}
+
           </div>
         </div>
       )}
