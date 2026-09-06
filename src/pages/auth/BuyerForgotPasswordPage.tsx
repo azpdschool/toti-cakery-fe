@@ -20,6 +20,7 @@ import {
   startWAVerification,
   getWAVerificationStatus,
 } from '@/api/auth'
+import { formatPhoneNumber } from '@/utils/phone'
 
 type ResetMethod = 'email' | 'whatsapp'
 type ResetStep = 'input' | 'otp' | 'reset'
@@ -74,12 +75,12 @@ export default function BuyerForgotPasswordPage() {
     setError(null)
     setSuccess(null)
 
-    if (!identifier.trim()) {
-      setError('Nomor WhatsApp wajib diisi')
+    const normalizedIdentifier = formatPhoneNumber(identifier)
+
+    if (!normalizedIdentifier) {
+      setError('Nomor WhatsApp wajib diisi dengan benar')
       return
     }
-
-    const normalizedIdentifier = identifier.replace(/\D/g, '')
 
     setIsLoading(true)
 

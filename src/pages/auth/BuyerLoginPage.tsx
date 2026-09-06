@@ -27,6 +27,7 @@ import {
   getWAVerificationStatus,
 } from '@/api/auth'
 import { InternationalPhoneInput } from '@/components/common/PhoneInput'
+import { formatPhoneNumber } from '@/utils/phone'
 
 type Mode =
   | 'login-email'
@@ -243,7 +244,8 @@ export default function BuyerLoginPage() {
     e.preventDefault()
     resetMessage()
 
-    if (!phonePasswordNumber.trim() || !phonePasswordPassword.trim()) {
+    const cleanedPhone = formatPhoneNumber(phonePasswordNumber)
+    if (!cleanedPhone || !phonePasswordPassword.trim()) {
       setError('Nomor HP dan password wajib diisi')
       return
     }
@@ -252,7 +254,7 @@ export default function BuyerLoginPage() {
 
     try {
       const response = await loginBuyerPhone({
-        phone_number: phonePasswordNumber.replace(/\D/g, ''),
+        phone_number: cleanedPhone,
         password: phonePasswordPassword,
       })
 
@@ -270,7 +272,7 @@ export default function BuyerLoginPage() {
     e.preventDefault()
     resetMessage()
 
-    const targetPhone = otpPhone.replace(/\D/g, '')
+    const targetPhone = formatPhoneNumber(otpPhone)
     if (!targetPhone) {
       setError('Nomor HP wajib diisi')
       return
@@ -315,7 +317,7 @@ export default function BuyerLoginPage() {
 
     const regName = name.trim()
     const regEmail = registerEmail.trim()
-    const regPhone = registerPhone.replace(/\D/g, '')
+    const regPhone = formatPhoneNumber(registerPhone)
 
     if (!regName || !regEmail || !regPhone) {
       setError('Nama, email, dan nomor HP wajib diisi')

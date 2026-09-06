@@ -51,7 +51,31 @@ Dokumen ini mendokumentasikan pembaruan kode dan panduan pengujian untuk dua fit
 
 ---
 
-## 3. Panduan Pengujian (Testing Guide)
+## 3. Perbaikan Formatting Nomor Telepon (Sanitasi Digit Murni untuk Backend & Login)
+
+### Permasalahan Sebelumnya:
+- Komponen `PhoneInput` menghasilkan string yang membawa simbol `+` atau spasi (contoh: `"+6281299998888"` atau `"+62 81299998888"`).
+- Backend FastAPI dan database PostgreSQL mengharapkan format digit murni tanpa simbol (contoh: `"6281299998888"`).
+- Format yang tidak konsisten ini menyebabkan kegagalan pencocokan (*mismatch*) pada query database saat login pembeli (`POST /auth/buyer/login-phone`) dan verifikasi WhatsApp (`POST /auth/verify/wa/start`).
+
+### Solusi & Perubahan Kode:
+1. **Helper Utility `formatPhoneNumber` (`src/utils/phone.ts`)**:
+   - Menghapus seluruh karakter non-digit (`\D`).
+   - Mengubah awalan `0` menjadi `62` (misal `08123456789` $\rightarrow$ `628123456789`).
+   - Menjaga prefix `62` tetap `62` (misal `+62 812 9999 8888` $\rightarrow$ `6281299998888`).
+   - Menangani kasus nomor dengan kode ganda/redundant `+6208...` $\rightarrow$ `628...`.
+   - Diekspor juga melalui `src/components/common/PhoneInput.tsx` untuk kemudahan impor.
+2. **Sanitasi di Seluruh Form Auth Buyer**:
+   - `src/pages/auth/BuyerLoginPage.tsx`: Sanitasi nomor HP pada login No HP + Password, login No HP + WhatsApp OTP, dan pendaftaran akun.
+   - `src/pages/auth/Register.tsx`: Sanitasi nomor HP pada formulir registrasi pembeli dan polling verifikasi.
+   - `src/pages/auth/BuyerForgotPasswordPage.tsx`: Sanitasi nomor HP sebelum memanggil request OTP WhatsApp.
+   - `src/pages/buyer/ProfilePage.tsx`: Sanitasi nomor HP pada modal ubah nomor telepon dan permintaan OTP WhatsApp.
+3. **Defense-in-Depth API Layer (`src/api/auth.ts`)**:
+   - Fungsi `startWAVerification`, `loginBuyerPhone`, `loginBuyerOtp`, dan `registerBuyer` secara otomatis membersihkan field `phone_number` / `phone` menggunakan `formatPhoneNumber` sebelum mengirim HTTP request ke backend.
+
+---
+
+## 4. Panduan Pengujian (Testing Guide)
 
 ### A. Pengujian Upload Gambar Produk (Seller)
 1. Buka halaman Seller Products (`/seller/products`).
@@ -78,3 +102,17 @@ Dokumen ini mendokumentasikan pembaruan kode dan panduan pengujian untuk dua fit
    - Klik **"Simpan Nomor"**.
    - Pastikan loading indicator muncul saat menyimpan dan toast notifikasi sukses ditampilkan.
    - Nomor HP baru langsung diperbarui pada tampilan profil.
+
+### D. Pengujian Formatting Nomor Telepon Digit Murni (Auth & WhatsApp)
+1. Buka halaman login buyer `/auth/buyer`, pilih tab **No HP**:
+   - Masukkan nomor HP (misal: `+62 812 9999 8888` atau `081299998888`) dan password.
+   - Klik **"Login dengan No HP"**.
+   - Periksa Network tab: Request `POST /auth/buyer/login-phone` membawa payload `{"phone_number": "6281299998888", "password": "..."}` tanpa tanda `+` atau spasi.
+2. Pilih tab **WhatsApp**:
+   - Masukkan nomor HP.
+   - Klik **"Verifikasi WhatsApp & Login"**.
+   - Periksa Network tab: Request `POST /auth/verify/wa/start` membawa payload `{"phone_number": "6281299998888"}`.
+3. Buka halaman lupa password buyer `/auth/buyer/forgot-password`:
+   - Masukkan nomor HP (misal: `081234567890`).
+   - Klik **"Kirim OTP"**.
+   - Periksa Network tab: Request `POST /auth/verify/wa/start` membawa payload `{"phone_number": "6281234567890"}`.

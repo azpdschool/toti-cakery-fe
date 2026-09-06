@@ -27,6 +27,7 @@ import {
   getWAVerificationStatus,
 } from '@/api/auth'
 import { InternationalPhoneInput } from '@/components/common/PhoneInput'
+import { formatPhoneNumber } from '@/utils/phone'
 
 type PasswordStep = 'idle' | 'otp' | 'reset'
 
@@ -145,7 +146,7 @@ export default function ProfilePage() {
     setPasswordError(null)
     setPasswordSuccess(null)
 
-    const targetPhone = user.phone || ''
+    const targetPhone = formatPhoneNumber(user.phone || '')
 
     if (!targetPhone) {
       setPasswordError('Nomor WhatsApp tidak tersedia di akun Anda.')
@@ -260,7 +261,7 @@ export default function ProfilePage() {
     setPhoneError(null)
     setPhoneSuccess(null)
 
-    const cleanedPhone = newPhone.trim()
+    const cleanedPhone = formatPhoneNumber(newPhone)
     if (!cleanedPhone || cleanedPhone.length < 8) {
       setPhoneError('Nomor WhatsApp tidak valid. Silakan periksa kembali.')
       return
