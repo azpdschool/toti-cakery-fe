@@ -42,5 +42,38 @@
   },
   "whatsapp": {
     "chat": "Chat via WhatsApp"
+  },
+  "finance": {
+    "title": "Financial Reports",
+    "revenue": "Total Revenue",
+    "cogs": "Total Expenses",
+    "gross_profit": "Gross Profit",
+    "net_profit": "Net Profit",
+    "expenses": "Expenses",
+    "add_expense": "Add Expense",
+    "expense_category": "Expense Category",
+    "date": "Date",
+    "amount": "Amount",
+    "notes": "Notes",
+    "loading": "Loading financial data...",
+    "empty": "Data not available.",
+    "error": "Failed to load financial data",
+    "retry": "Retry",
+    "save": "Save Expense",
+    "cancel": "Cancel",
+    "not_available": "Not Available",
+    "feature_not_available": "This feature is not supported by the system yet.",
+    "start_date": "Start Date",
+    "end_date": "End Date",
+    "apply_filter": "Apply",
+    "expense_list": "Expense List",
+    "category": "Category",
+    "action": "Action",
+    "unpaid_invoices": "Unpaid Invoices",
+    "sales_chart": "Sales Chart",
+    "payment_summary": "Payment Summary",
+    "expense_by_category": "Expenses by Category",
+    "invoice_list": "Invoice List",
+    "added_success": "Expense successfully added."
   }
 }

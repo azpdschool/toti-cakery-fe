@@ -42,5 +42,38 @@
   },
   "whatsapp": {
     "chat": "Chat via WhatsApp"
+  },
+  "finance": {
+    "title": "Laporan Keuangan",
+    "revenue": "Total Pendapatan",
+    "cogs": "Total Pengeluaran",
+    "gross_profit": "Laba Kotor",
+    "net_profit": "Laba Bersih",
+    "expenses": "Pengeluaran",
+    "add_expense": "Tambah Pengeluaran",
+    "expense_category": "Kategori Pengeluaran",
+    "date": "Tanggal",
+    "amount": "Nominal",
+    "notes": "Catatan",
+    "loading": "Memuat data keuangan...",
+    "empty": "Data tidak tersedia.",
+    "error": "Gagal memuat data keuangan",
+    "retry": "Coba Lagi",
+    "save": "Simpan Pengeluaran",
+    "cancel": "Batal",
+    "not_available": "Belum Tersedia",
+    "feature_not_available": "Fitur ini belum didukung oleh sistem.",
+    "start_date": "Tanggal Mulai",
+    "end_date": "Tanggal Akhir",
+    "apply_filter": "Terapkan",
+    "expense_list": "Daftar Pengeluaran",
+    "category": "Kategori",
+    "action": "Aksi",
+    "unpaid_invoices": "Invoice Belum Lunas",
+    "sales_chart": "Grafik Penjualan",
+    "payment_summary": "Ringkasan Pembayaran",
+    "expense_by_category": "Pengeluaran per Kategori",
+    "invoice_list": "Daftar Invoice",
+    "added_success": "Pengeluaran berhasil ditambahkan."
   }
 }
