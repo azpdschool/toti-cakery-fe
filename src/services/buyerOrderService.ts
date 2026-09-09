@@ -1,3 +1,5 @@
+import { createBuyerOrderAPI, BuyerOrderCreate } from '@/api/order';
+import { processPaymentAPI, PaymentChargeRequest, PaymentChargeResponse } from '@/api/payment';
 // src/services/buyerOrderService.ts
 import { apiClient } from '@/api/client'
 
@@ -41,6 +43,8 @@ export interface BuyerOrder {
   subtotal: number
   serviceFee: number
   total: number
+  amountPaid?: number
+  amountDue?: number
 
   notes?: string | null
   estimatedDate?: string | null
@@ -87,6 +91,15 @@ interface ApiOrderItem {
 
 interface ApiOrder {
   id?: number | string
+  invoice?: {
+    status?: string
+  }
+  invoice_status?: string
+  invoiceStatus?: string
+  amount_paid?: ApiMaybeDecimal
+  amountPaid?: ApiMaybeDecimal
+  amount_due?: ApiMaybeDecimal
+  amountDue?: ApiMaybeDecimal
 
   order_number?: string
   orderNumber?: string
@@ -199,7 +212,8 @@ function normalizeStatus(status?: string): OrderStatus {
     value === 'processing' ||
     value === 'diproses' ||
     value === 'baking' ||
-    value === 'paid'
+    value === 'paid' ||
+    value === 'in_process'
   ) {
     return 'processed'
   }
@@ -349,15 +363,20 @@ function mapApiOrder(order: ApiOrder): BuyerOrder {
       order.metode_pembayaran ??
       '-',
     paymentStatus: normalizePaymentStatus(
+      order.invoice?.status ??
+      order.invoice_status ??
+      order.invoiceStatus ??
       order.payment_status ??
-        order.paymentStatus ??
-        order.status_pembayaran,
+      order.paymentStatus ??
+      order.status_pembayaran
     ),
 
     items,
     subtotal,
     serviceFee,
     total,
+    amountPaid: (order.amount_paid ?? order.amountPaid) != null ? toNumber(order.amount_paid ?? order.amountPaid) : undefined,
+    amountDue: (order.amount_due ?? order.amountDue) != null ? toNumber(order.amount_due ?? order.amountDue) : undefined,
 
     notes: order.notes ?? order.catatan ?? null,
     estimatedDate: order.estimated_date ?? order.estimatedDate ?? null,
@@ -446,29 +465,41 @@ export interface CreateOrderPayload {
  * Endpoint ini juga perlu disesuaikan dengan BE order route kamu,
  * biasanya POST /orders atau POST /orders/buyer.
  */
-const CREATE_ORDER_ENDPOINT = '/orders'
+
+
 
 export async function createOrder(payload: CreateOrderPayload): Promise<BuyerOrder> {
-  const response = await apiClient.post(CREATE_ORDER_ENDPOINT, payload)
-  return mapApiOrder(response.data)
+  const buyerPayload: BuyerOrderCreate = {
+    metode_pengiriman: payload.deliveryMethod === 'pickup' ? 'pickup' : 'delivery',
+    items: payload.items.map(i => ({
+      product_id: Number(i.productId),
+      jumlah: i.quantity,
+      custom_decoration_charge: 0
+    })),
+    created_via: 'web'
+  };
+
+  const responseData = await createBuyerOrderAPI(buyerPayload);
+  return mapApiOrder(responseData);
 }
 
-export interface SimulatePaymentResult {
-  success: boolean
-  message: string
+
+
+export async function processPayment(
+  orderId: string,
+  paymentMethod: string,
+  paymentType: string,
+  amount: number
+): Promise<PaymentChargeResponse> {
+  const request: PaymentChargeRequest = {
+    order_id: Number(orderId),
+    payment_method: paymentMethod === 'qris' ? 'qris' : 'bank_transfer',
+    payment_type: paymentType === 'dp' ? 'dp' : 'full',
+    amount
+  };
+  return await processPaymentAPI(request);
 }
 
-/**
- * Simulasi pembayaran di FE (dipakai buat step "Saya Sudah Bayar" di CheckoutPage).
- * Kalau nanti BE udah punya endpoint pembayaran asli, ganti isi fungsi ini
- * supaya betulan hit BE, misalnya: await apiClient.post(`/orders/${orderId}/pay`)
- */
-export async function simulatePayment(orderId: string): Promise<SimulatePaymentResult> {
-  await new Promise((resolve) => setTimeout(resolve, 1200))
-
-  if (!orderId) {
-    return { success: false, message: 'ID pesanan tidak ditemukan.' }
-  }
-
-  return { success: true, message: 'Pembayaran berhasil disimulasikan.' }
+export async function getOrderPaymentStatus(orderId: string) {
+  return await import('@/api/payment').then(m => m.getPaymentStatusAPI(orderId));
 }

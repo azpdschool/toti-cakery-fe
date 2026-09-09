@@ -29,12 +29,6 @@ export interface InventoryItem {
   id: string;
   name: string;
 
-  /**
-   * Backend stock_items belum punya kolom brand/supplier di model StockItem.
-   * Jadi sementara isi '-'.
-   */
-  brand: string;
-
   category: InventoryCategory;
   unit: InventoryUnit;
 
@@ -56,6 +50,8 @@ export interface InventoryItem {
    */
   pricePerUnit: number;
 
+  supplierId: number | null;
+
   createdAt: string;
   updatedAt: string;
 }
@@ -73,7 +69,6 @@ export interface InventoryOption {
    */
   id: string;
   name: string;
-  brand: string;
   unit: string;
   stock: number;
 }
@@ -130,12 +125,12 @@ function mapStockOutToInventoryItem(item: StockOut): InventoryItem {
   return {
     id: String(item.id),
     name: item.nama_item,
-    brand: '-',
     category: mapApiCategoryToFe(item.kategori),
     unit,
     stock,
     minStock: getDefaultMinStock(unit),
     pricePerUnit: parseNumber(item.harga_per_satuan),
+    supplierId: item.supplier_id ?? null,
     createdAt: item.created_at ?? '',
     updatedAt: item.updated_at ?? item.created_at ?? '',
   };
@@ -150,6 +145,7 @@ function toStockCreatePayload(
     kategori: mapFeCategoryToApi(data.category),
     harga_per_satuan: data.pricePerUnit,
     stok_tersedia: data.stock,
+    supplier_id: data.supplierId,
   };
 }
 
@@ -163,6 +159,7 @@ function toStockUpdatePayload(
   if (data.category !== undefined) payload.kategori = mapFeCategoryToApi(data.category);
   if (data.pricePerUnit !== undefined) payload.harga_per_satuan = data.pricePerUnit;
   if (data.stock !== undefined) payload.stok_tersedia = data.stock;
+  if (data.supplierId !== undefined) payload.supplier_id = data.supplierId;
 
   return payload;
 }
@@ -247,7 +244,6 @@ export async function getInventoryOptions(): Promise<InventoryOption[]> {
   return stockItems.map((item) => ({
     id: String(item.id),
     name: item.nama_item,
-    brand: '-',
     unit: item.satuan,
     stock: parseNumber(item.stok_tersedia),
   }));

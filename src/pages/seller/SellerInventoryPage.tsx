@@ -29,6 +29,9 @@ import { formatRupiah } from '@/services/productService';
 import { hasPermission } from '@/services/rbacService';
 import { useAuth } from '@/hooks/useAuth';
 import { UserRole } from '@/services/sellerSettingsService';
+import { supplierService } from '@/services/supplierService';
+import type { SupplierOut } from '@/api/supplier';
+import SupplierManagementModal from './SupplierManagementModal';
 
 // ============================================================
 // CONSTANTS
@@ -116,12 +119,12 @@ function StatCard({ title, value, subtitle, icon: Icon, color }: StatCardProps) 
 
 interface StockFormData {
   name: string;
-  brand: string;
   category: InventoryCategory;
   unit: InventoryUnit;
   stock: number;
   minStock: number;
   pricePerUnit: number;
+  supplierId: number | null;
 }
 
 interface StockModalProps {
@@ -140,19 +143,35 @@ function StockModal({
   onSave,
 }: StockModalProps) {
   const [submitting, setSubmitting] = useState(false);
+  const [suppliers, setSuppliers] = useState<SupplierOut[]>([]);
 
   const [formData, setFormData] = useState<StockFormData>({
     name: '',
-    brand: '-',
     category: 'Bahan',
     unit: 'kg',
     stock: 0,
     minStock: 1,
     pricePerUnit: 0,
+    supplierId: null,
   });
 
   const [stockInput, setStockInput] = useState('0');
   const [priceInput, setPriceInput] = useState('0');
+  const [supplierInput, setSupplierInput] = useState<string>('');
+
+  useEffect(() => {
+    async function loadSuppliers() {
+      try {
+        const data = await supplierService.fetchSuppliers();
+        setSuppliers(data);
+      } catch (err) {
+        console.error('Gagal memuat supplier:', err);
+      }
+    }
+    if (isOpen) {
+      void loadSuppliers();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -160,27 +179,29 @@ function StockModal({
     if (mode === 'edit' && initialData) {
       setFormData({
         name: initialData.name,
-        brand: initialData.brand || '-',
         category: initialData.category,
         unit: initialData.unit,
         stock: initialData.stock,
         minStock: initialData.minStock,
         pricePerUnit: initialData.pricePerUnit,
+        supplierId: initialData.supplierId,
       });
       setStockInput(String(initialData.stock));
       setPriceInput(String(initialData.pricePerUnit));
+      setSupplierInput(initialData.supplierId !== null ? String(initialData.supplierId) : '');
     } else {
       setFormData({
         name: '',
-        brand: '-',
         category: 'Bahan',
         unit: 'kg',
         stock: 0,
         minStock: 1,
         pricePerUnit: 0,
+        supplierId: null,
       });
       setStockInput('0');
       setPriceInput('0');
+      setSupplierInput('');
     }
   }, [isOpen, mode, initialData]);
 
@@ -211,9 +232,9 @@ function StockModal({
       await onSave({
         ...formData,
         name: formData.name.trim(),
-        brand: formData.brand.trim() || '-',
         stock,
         pricePerUnit,
+        supplierId: supplierInput ? parseInt(supplierInput, 10) : null,
       });
 
       onClose();
@@ -254,18 +275,20 @@ function StockModal({
 
           <div>
             <label className="block text-sm font-semibold text-[#4b2417]">
-              Brand / Supplier
+              Supplier
             </label>
-            <input
-              type="text"
-              placeholder="Opsional. Backend belum menyimpan brand."
-              value={formData.brand}
-              onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-              className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
-            />
-            <p className="mt-1 text-xs text-[#8b7166]">
-              Catatan: backend stock_items saat ini belum punya kolom brand, jadi brand tidak tersimpan ke database.
-            </p>
+            <select
+              value={supplierInput}
+              onChange={(e) => setSupplierInput(e.target.value)}
+              className="mt-1 w-full rounded-xl border border-[#d0bfaf] bg-white py-3 px-4 text-sm focus:border-[#c95b31] outline-none"
+            >
+              <option value="">Tidak ada supplier</option>
+              {suppliers.map((supplier) => (
+                <option key={supplier.id} value={supplier.id}>
+                  {supplier.nama_supplier}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
@@ -416,6 +439,7 @@ export default function SellerInventoryPage() {
   const itemsPerPage = 5;
 
   const [showStockModal, setShowStockModal] = useState(false);
+  const [showSupplierModal, setShowSupplierModal] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
 
@@ -459,7 +483,6 @@ export default function SellerInventoryPage() {
       result = result.filter(
         (item) =>
           item.name.toLowerCase().includes(q) ||
-          item.brand.toLowerCase().includes(q) ||
           item.category.toLowerCase().includes(q)
       );
     }
@@ -524,7 +547,7 @@ export default function SellerInventoryPage() {
     alert(
       [
         `Nama: ${item.name}`,
-        `Brand/Supplier: ${item.brand || '-'}`,
+        `ID Supplier: ${item.supplierId || '-'}`,
         `Kategori: ${item.category}`,
         `Satuan: ${item.unit}`,
         `Stok: ${item.stock} ${item.unit}`,
@@ -538,12 +561,12 @@ export default function SellerInventoryPage() {
 
   const handleSaveStock = async (data: {
     name: string;
-    brand: string;
     category: InventoryCategory;
     unit: InventoryUnit;
     stock: number;
     minStock: number;
     pricePerUnit: number;
+    supplierId: number | null;
   }) => {
     try {
       setError(null);
@@ -686,14 +709,23 @@ export default function SellerInventoryPage() {
           </select>
 
           {canManageInventory && (
-            <button
-              type="button"
-              onClick={openAddModal}
-              className="flex items-center gap-1 rounded-lg bg-[#d85b30] px-4 py-2 text-sm font-semibold text-white hover:bg-[#c04e28]"
-            >
-              <Plus className="h-4 w-4" />
-              Tambah Stok
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setShowSupplierModal(true)}
+                className="flex items-center gap-1 rounded-lg border border-[#d85b30] px-4 py-2 text-sm font-semibold text-[#d85b30] hover:bg-[#fff5f0]"
+              >
+                Kelola Supplier
+              </button>
+              <button
+                type="button"
+                onClick={openAddModal}
+                className="flex items-center gap-1 rounded-lg bg-[#d85b30] px-4 py-2 text-sm font-semibold text-white hover:bg-[#c04e28]"
+              >
+                <Plus className="h-4 w-4" />
+                Tambah Stok
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -828,16 +860,22 @@ export default function SellerInventoryPage() {
       </div>
 
       {canManageInventory && (
-        <StockModal
-          isOpen={showStockModal}
-          mode={modalMode}
-          initialData={editingItem}
-          onClose={() => {
-            setShowStockModal(false);
-            setEditingItem(null);
-          }}
-          onSave={handleSaveStock}
-        />
+        <>
+          <StockModal
+            isOpen={showStockModal}
+            mode={modalMode}
+            initialData={editingItem}
+            onClose={() => {
+              setShowStockModal(false);
+              setEditingItem(null);
+            }}
+            onSave={handleSaveStock}
+          />
+          <SupplierManagementModal
+            isOpen={showSupplierModal}
+            onClose={() => setShowSupplierModal(false)}
+          />
+        </>
       )}
     </div>
   );

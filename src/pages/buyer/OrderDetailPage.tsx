@@ -19,6 +19,7 @@ import { formatRupiah } from '@/services/productService'
 import {
   getBuyerOrderById,
   type BuyerOrder,
+  getOrderPaymentStatus,
   type OrderStatus,
 } from '@/services/buyerOrderService'
 import { ROUTES } from '@/constants'
@@ -70,6 +71,7 @@ export default function OrderDetailPage() {
   const [order, setOrder] = useState<BuyerOrder | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [paymentInstructions, setPaymentInstructions] = useState<any>(null)
 
   useEffect(() => {
     async function loadOrder() {
@@ -89,6 +91,22 @@ export default function OrderDetailPage() {
           setError('Pesanan tidak ditemukan')
         } else {
           setOrder(data)
+          
+          const needsPayment = data.paymentStatus === 'unpaid' || (data.paymentStatus === 'partial' && (data.amountDue === undefined || data.amountDue > 0));
+          if (data.status !== 'cancelled' && needsPayment) {
+            try {
+              const paymentData = await getOrderPaymentStatus(id)
+              if (paymentData.payments && paymentData.payments.length > 0) {
+                // Find the latest pending payment
+                const pendingPayment = paymentData.payments.reverse().find((p: any) => p.payment_status.toLowerCase() === 'pending');
+                if (pendingPayment && (pendingPayment.qris_url || pendingPayment.va_number)) {
+                  setPaymentInstructions(pendingPayment);
+                }
+              }
+            } catch (err) {
+              console.error('Gagal memuat status pembayaran:', err)
+            }
+          }
         }
       } catch (err) {
         console.error('Gagal memuat detail pesanan:', err)
@@ -255,7 +273,7 @@ export default function OrderDetailPage() {
                       {order.paymentStatus === 'paid'
                         ? 'Lunas'
                         : order.paymentStatus === 'partial'
-                          ? 'DP'
+                          ? 'DP Dibayar'
                           : 'Belum Dibayar'}
                     </span>
                   </div>
@@ -266,6 +284,22 @@ export default function OrderDetailPage() {
                       {formatRupiah(order.total)}
                     </span>
                   </div>
+                  {order.amountPaid !== undefined && (
+                    <div className="flex justify-between mt-1 text-sm">
+                      <span className="text-[#6f5448]">Total Dibayar</span>
+                      <span className="text-[#4b2417] font-medium">
+                        {formatRupiah(order.amountPaid)}
+                      </span>
+                    </div>
+                  )}
+                  {order.amountDue !== undefined  && (
+                    <div className="flex justify-between mt-1 text-sm font-bold">
+                      <span className="text-[#4b2417]">Sisa Tagihan</span>
+                      <span className="text-red-600">
+                        {formatRupiah(order.amountDue)}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -351,6 +385,22 @@ export default function OrderDetailPage() {
                       {formatRupiah(order.total)}
                     </span>
                   </div>
+                  {order.amountPaid !== undefined && (
+                    <div className="flex justify-between mt-1 text-sm">
+                      <span className="text-[#6f5448]">Total Dibayar</span>
+                      <span className="text-[#4b2417] font-medium">
+                        {formatRupiah(order.amountPaid)}
+                      </span>
+                    </div>
+                  )}
+                  {order.amountDue !== undefined  && (
+                    <div className="flex justify-between mt-1 text-sm font-bold">
+                      <span className="text-[#4b2417]">Sisa Tagihan</span>
+                      <span className="text-red-600">
+                        {formatRupiah(order.amountDue)}
+                      </span>
+                    </div>
+                  )}
 
                   {order.deliveryMethod !== 'pickup' && (
                     <p className="mt-2 text-center text-xs text-[#8b7166]">
@@ -366,8 +416,30 @@ export default function OrderDetailPage() {
                   Status Pesanan
                 </h3>
 
+                
                 <div className="mt-3 space-y-3">
+                  {paymentInstructions && (
+                    <div className="mb-4 rounded-xl border-2 border-[#d85b30] bg-[#f8f4f0] p-4 text-center">
+                      <h4 className="text-sm font-bold text-[#4b2417] mb-3">Lanjutkan Pembayaran</h4>
+                      {paymentInstructions.qris_url ? (
+                        <>
+                          <p className="text-xs font-semibold text-[#6f5448] mb-2">Scan QRIS</p>
+                          <img src={paymentInstructions.qris_url} alt="QRIS" className="mx-auto w-48 h-48 bg-white p-2 rounded-lg" />
+                        </>
+                      ) : paymentInstructions.va_number ? (
+                        <>
+                          <p className="text-xs font-semibold text-[#6f5448] mb-2">Virtual Account Bank Transfer</p>
+                          <p className="text-2xl font-mono text-[#d85b30]">{paymentInstructions.va_number}</p>
+                        </>
+                      ) : null}
+                      <p className="mt-2 text-xs text-[#8b7166]">
+                        Silakan selesaikan pembayaran agar pesanan dapat diproses.
+                      </p>
+                    </div>
+                  )}
+
                   <div className="flex items-center gap-3">
+
                     <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100">
                       <CheckCircle className="h-4 w-4 text-green-600" />
                     </div>

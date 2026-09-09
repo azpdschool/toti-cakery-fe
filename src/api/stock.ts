@@ -14,6 +14,7 @@ export interface StockOut {
   kategori: StockCategoryApi;
   harga_per_satuan: ApiDecimal;
   stok_tersedia: ApiDecimal;
+  supplier_id: number | null;
   version: number;
   created_at: string | null;
   updated_at: string | null;
@@ -25,6 +26,7 @@ export interface StockCreate {
   kategori: StockCategoryApi;
   harga_per_satuan: number | string;
   stok_tersedia: number | string;
+  supplier_id: number | null;
 }
 
 export interface StockUpdate {
@@ -33,6 +35,7 @@ export interface StockUpdate {
   kategori?: StockCategoryApi;
   harga_per_satuan?: number | string;
   stok_tersedia?: number | string;
+  supplier_id?: number | null;
 }
 
 export async function getStockItems(

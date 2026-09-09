@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Package, TrendingUp, ShoppingBag, Clock } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
@@ -8,7 +8,7 @@ export default function SellerDashboardPage() {
   const { user } = useAuth()
   
   // Dashboard mock data - realistically this would come from an API
-  const [stats, setStats] = useState({
+  const [stats] = useState({
     totalProducts: 120,
     activeProducts: 105,
     totalSales: 5400000,

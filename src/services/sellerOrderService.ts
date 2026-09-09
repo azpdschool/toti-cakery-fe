@@ -12,7 +12,13 @@ export type OrderStatus =
   | 'sedang_dibuat'
   | 'siap_dikirim'
   | 'selesai'
-  | 'dibatalkan';
+  | 'dibatalkan'
+  | 'pending'
+  | 'in_process'
+  | 'ready'
+  | 'delivered'
+  | 'picked_up'
+  | 'cancelled';
 
 export interface OrderItem {
   id: string;
@@ -39,6 +45,7 @@ export interface Order {
   items?: OrderItem[];
   notes?: string;
   customDesignFee?: number;
+  createdVia?: string;
   invoiceId?: string;
 }
 
@@ -258,76 +265,50 @@ dummyOrders.forEach((order) => {
 
 const delay = (ms = 300) => new Promise((resolve) => setTimeout(resolve, ms));
 
+
+import { apiClient } from '@/api/client';
+
 export async function getOrders(): Promise<Order[]> {
-  await delay();
-  return dummyOrders;
+  try {
+    const response = await apiClient.get('/orders');
+    return response.data.map((o: any) => ({
+      id: o.id.toString(),
+      orderNumber: `#${o.id}`,
+      customerName: o.customer?.nama || 'Unknown Customer',
+      customerPhone: o.customer?.nomor_wa || '-',
+      address: o.customer?.alamat || '',
+      total: parseFloat(o.total_harga_pesanan) || 0,
+      date: new Date(o.created_at).toLocaleDateString('id-ID', {
+        day: 'numeric', month: 'long', year: 'numeric'
+      }),
+      time: new Date(o.created_at).toLocaleTimeString('id-ID', {
+        hour: '2-digit', minute: '2-digit'
+      }),
+      method: o.metode_pengiriman === 'pickup' ? 'Pickup' : 'Delivery Toko',
+      paymentMethod: o.payment_method_preference === 'full' ? 'LUNAS' : 'DP',
+      dueDate: o.due_date ? new Date(o.due_date).toLocaleDateString('id-ID') : '-',
+      status: o.status,
+      items: o.order_items.map((item: any) => ({
+        id: item.id.toString(),
+        productName: item.custom_product_name || `Product #${item.product_id}`,
+        quantity: item.jumlah,
+        price: parseFloat(item.subtotal) / item.jumlah,
+        total: parseFloat(item.subtotal)
+      })),
+      notes: o.notes || '',
+      customDesignFee: 0,
+      invoiceId: o.invoice?.nomor_invoice || '',
+      createdVia: o.created_via,
+    }));
+  } catch (error) {
+    console.error('Failed to fetch orders:', error);
+    return [];
+  }
 }
 
-export async function getOrderStats(): Promise<{
-  totalOrdersThisMonth: number;
-  ordersChange: string;
-  completed: number;
-  completedChange: string;
-  processed: number;
-  processedChange: string;
-  waitingConfirmation: number;
-  waitingChange: string;
-}> {
-  await delay();
-  const totalOrders = dummyOrders.length;
-  const completed = dummyOrders.filter((o) => o.status === 'selesai').length;
-  const processed = dummyOrders.filter((o) => o.status === 'sedang_dibuat').length;
-  const waitingConfirmation = dummyOrders.filter(
-    (o) => o.status === 'belum_dibayar' || o.status === 'sudah_dikonfirmasi'
-  ).length;
 
-  return {
-    totalOrdersThisMonth: totalOrders,
-    ordersChange: '+9% dari bulan lalu',
-    completed,
-    completedChange: '+15% dari bulan lalu',
-    processed,
-    processedChange: '-3% dari bulan lalu',
-    waitingConfirmation,
-    waitingChange: '-8% dari bulan lalu',
-  };
-}
 
-export async function addOrder(orderData: Partial<Order>): Promise<Order> {
-  await delay(500);
-  const newOrder: Order = {
-    id: `order-${Date.now()}`,
-    orderNumber: `#${Math.floor(Math.random() * 100) + 1}`,
-    customerName: orderData.customerName || 'Customer',
-    customerPhone: orderData.customerPhone || '',
-    address: orderData.address || '',
-    total: orderData.total || 0,
-    date: new Date().toLocaleDateString('id-ID', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    }),
-    time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-    method: orderData.method || 'Pickup',
-    paymentMethod: orderData.paymentMethod || 'DP',
-    dueDate:
-      orderData.dueDate ||
-      new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
-    status: 'belum_dibayar',
-    items: orderData.items || [],
-    notes: orderData.notes || '',
-    customDesignFee: orderData.customDesignFee || 0,
-  };
-  dummyOrders.unshift(newOrder);
-  // Generate invoice
-  let paid = 0;
-  if (newOrder.paymentMethod === 'LUNAS') paid = newOrder.total;
-  else if (newOrder.paymentMethod === 'DP') paid = Math.round(newOrder.total * 0.5);
-  const invoice = generateInvoiceFromOrder(newOrder, paid);
-  dummyInvoices.unshift(invoice);
-  newOrder.invoiceId = invoice.id;
-  return newOrder;
-}
+
 
 export async function updateOrderPayment(orderId: string, paidAmount: number): Promise<Order> {
   await delay(300);
@@ -373,4 +354,89 @@ export function exportInvoicePdf(invoiceId: string): void {
 export function exportInvoicesPdf(invoiceIds: string[]): void {
   console.log(`Export invoices ${invoiceIds.join(', ')} to PDF`);
   alert(`Export ${invoiceIds.length} invoice ke PDF (simulasi)`);
+}
+
+export async function getOrderStats(): Promise<{
+  totalOrdersThisMonth: number;
+  ordersChange: string;
+  completed: number;
+  completedChange: string;
+  processed: number;
+  processedChange: string;
+  waitingConfirmation: number;
+  waitingChange: string;
+}> {
+  try {
+    const response = await apiClient.get('/orders');
+    const orders = response.data;
+    const totalOrders = orders.length;
+    const completed = orders.filter((o: any) => o.status === 'delivered' || o.status === 'picked_up').length;
+    const processed = orders.filter((o: any) => o.status === 'in_process' || o.status === 'ready').length;
+    const waitingConfirmation = orders.filter((o: any) => o.status === 'pending').length;
+
+    return {
+      totalOrdersThisMonth: totalOrders,
+      ordersChange: 'Real-time',
+      completed,
+      completedChange: 'Real-time',
+      processed,
+      processedChange: 'Real-time',
+      waitingConfirmation,
+      waitingChange: 'Real-time',
+    };
+  } catch(e) {
+    return {
+      totalOrdersThisMonth: 0,
+      ordersChange: '',
+      completed: 0,
+      completedChange: '',
+      processed: 0,
+      processedChange: '',
+      waitingConfirmation: 0,
+      waitingChange: '',
+    };
+  }
+}
+
+export async function addOrder(orderData: any): Promise<Order> {
+  const payload = {
+    customer_name: orderData.customerName,
+    customer_phone: orderData.customerPhone,
+    address: orderData.address,
+    metode_pengiriman: orderData.deliveryMethod === 'Pickup' ? 'pickup' : 'delivery',
+    payment_method: orderData.paymentMethod === 'LUNAS' ? 'full' : 'dp',
+    notes: orderData.notes,
+    due_date: orderData.dueDate ? new Date(orderData.dueDate).toISOString() : null,
+    items: orderData.items.map((item: any) => ({
+      custom_product_name: item.name,
+      custom_price: item.price,
+      jumlah: item.qty,
+      custom_decoration_charge: 0,
+    }))
+  };
+  const response = await apiClient.post('/orders/custom', payload);
+  const o = response.data;
+  return {
+      id: o.id.toString(),
+      orderNumber: `#${o.id}`,
+      customerName: o.customer?.nama || orderData.customerName,
+      customerPhone: o.customer?.nomor_wa || orderData.customerPhone,
+      address: o.customer?.alamat || '',
+      total: parseFloat(o.total_harga_pesanan) || 0,
+      date: new Date(o.created_at).toLocaleDateString('id-ID', {
+        day: 'numeric', month: 'long', year: 'numeric'
+      }),
+      time: new Date(o.created_at).toLocaleTimeString('id-ID', {
+        hour: '2-digit', minute: '2-digit'
+      }),
+      method: o.metode_pengiriman === 'pickup' ? 'Pickup' : 'Delivery Toko',
+      paymentMethod: o.payment_method_preference === 'full' ? 'LUNAS' : 'DP',
+      dueDate: o.due_date ? new Date(o.due_date).toLocaleDateString('id-ID') : '-',
+      status: o.status,
+      items: [],
+      notes: o.notes || '',
+      customDesignFee: 0,
+      invoiceId: o.invoice?.nomor_invoice || '',
+      createdVia: o.created_via,
+  };
 }

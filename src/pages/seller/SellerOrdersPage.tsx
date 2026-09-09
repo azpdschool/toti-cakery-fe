@@ -443,15 +443,21 @@ export default function SellerOrdersPage() {
       );
     }
     if (filterStatus !== 'Semua Status') {
-      const statusMap: Record<OrderStatus, string> = {
+      const statusMap: Record<string, string> = {
         belum_dibayar: 'Belum Dibayar',
         sudah_dikonfirmasi: 'Sudah Dikonfirmasi',
         sedang_dibuat: 'Sedang Dibuat',
         siap_dikirim: 'Siap Dikirim',
         selesai: 'Selesai',
         dibatalkan: 'Dibatalkan',
+        pending: 'Pending',
+        in_process: 'In Process',
+        ready: 'Ready',
+        delivered: 'Delivered',
+        picked_up: 'Picked Up',
+        cancelled: 'Cancelled',
       };
-      result = result.filter((o) => statusMap[o.status] === filterStatus);
+      result = result.filter((o) => statusMap[o.status as string] === filterStatus);
     }
     if (filterMethod !== 'Semua Metode') {
       result = result.filter((o) => o.method === filterMethod);
@@ -466,15 +472,21 @@ export default function SellerOrdersPage() {
   const handlePageChange = (page: number) => setCurrentPage(page);
 
   const getStatusBadge = (status: OrderStatus) => {
-    const map: Record<OrderStatus, { label: string; className: string }> = {
+    const map: Record<string, { label: string; className: string }> = {
       belum_dibayar: { label: 'Belum Dibayar', className: 'bg-gray-100 text-gray-700' },
       sudah_dikonfirmasi: { label: 'Sudah Dikonfirmasi', className: 'bg-blue-100 text-blue-700' },
       sedang_dibuat: { label: 'Sedang Dibuat', className: 'bg-yellow-100 text-yellow-700' },
       siap_dikirim: { label: 'Siap Dikirim', className: 'bg-purple-100 text-purple-700' },
       selesai: { label: 'Selesai', className: 'bg-green-100 text-green-700' },
       dibatalkan: { label: 'Dibatalkan', className: 'bg-red-100 text-red-700' },
+      pending: { label: 'Pending', className: 'bg-orange-100 text-orange-700' },
+      in_process: { label: 'In Process', className: 'bg-yellow-100 text-yellow-700' },
+      ready: { label: 'Ready', className: 'bg-purple-100 text-purple-700' },
+      delivered: { label: 'Delivered', className: 'bg-green-100 text-green-700' },
+      picked_up: { label: 'Picked Up', className: 'bg-green-100 text-green-700' },
+      cancelled: { label: 'Cancelled', className: 'bg-red-100 text-red-700' },
     };
-    return map[status] || { label: status, className: 'bg-gray-100 text-gray-700' };
+    return map[status as string] || { label: status, className: 'bg-gray-100 text-gray-700' };
   };
 
   const handleAddOrder = async (orderData: any) => {
@@ -583,7 +595,8 @@ export default function SellerOrdersPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 text-left text-xs font-semibold uppercase text-[#6f5448]">
-                <th className="pb-3 pr-4">ID ORDER</th>
+<th className="pb-3 pr-4">ID ORDER</th>
+                <th className="pb-3 pr-4">SUMBER</th>
                 <th className="pb-3 pr-4">PELANGGAN</th>
                 <th className="pb-3 pr-4">TOTAL</th>
                 <th className="pb-3 pr-4">TANGGAL</th>
@@ -596,7 +609,7 @@ export default function SellerOrdersPage() {
             <tbody>
               {paginatedOrders.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-sm text-[#6f5448]">
+                  <td colSpan={9} className="py-8 text-center text-sm text-[#6f5448]">
                     Tidak ada pesanan ditemukan.
                   </td>
                 </tr>
@@ -605,7 +618,8 @@ export default function SellerOrdersPage() {
                   const statusBadge = getStatusBadge(order.status);
                   return (
                     <tr key={order.id} className="border-b border-gray-100 hover:bg-gray-50">
-                      <td className="py-3 pr-4 font-bold text-[#4b2417]">{order.orderNumber}</td>
+<td className="py-3 pr-4 font-bold text-[#4b2417]">{order.orderNumber}</td>
+                      <td className="py-3 pr-4"><span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full font-medium capitalize">{order.createdVia || "Web"}</span></td>
                       <td className="py-3 pr-4">
                         <p className="font-medium text-[#4b2417]">{order.customerName}</p>
                         <p className="text-xs text-[#8b7166]">{order.customerPhone}</p>
@@ -634,7 +648,7 @@ export default function SellerOrdersPage() {
                         <div className="flex items-center gap-2">
                           {canManageOrders && (
                             <>
-                              <button className="rounded p-1 text-[#6f5448] hover:bg-gray-100">
+                              <button onClick={() => alert("Detail Pesanan " + order.orderNumber + "\nPelanggan: " + order.customerName + " (" + order.customerPhone + ")\nTotal: Rp " + order.total.toLocaleString("id-ID") + "\nSumber: " + (order.createdVia || "Web") + "\n\nItem:\n" + (order.items?.map(i => i.productName + " (" + i.quantity + "x)").join("\n") || "-"))} className="rounded p-1 text-[#6f5448] hover:bg-gray-100">
                                 <Eye className="h-4 w-4" />
                               </button>
                               <button className="rounded p-1 text-[#6f5448] hover:bg-gray-100">

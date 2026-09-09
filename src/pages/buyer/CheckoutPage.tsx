@@ -12,12 +12,12 @@ import {
   AlertCircle,
   CheckCircle,
   Loader2,
-  QrCode,
+
 } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/hooks/useAuth';
 import { formatRupiah } from '@/services/productService';
-import { createOrder, simulatePayment, type DeliveryMethod, type PaymentMethod } from '@/services/buyerOrderService';
+import { createOrder, processPayment, type DeliveryMethod, type PaymentMethod } from '@/services/buyerOrderService';
 import { ROUTES } from '@/constants';
 
 type CheckoutStep = 'form' | 'payment' | 'success';
@@ -44,6 +44,8 @@ export default function CheckoutPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
+  const [midtransMethod, setMidtransMethod] = useState<'qris' | 'bank_transfer'>('qris');
+  const [paymentResult, setPaymentResult] = useState<any>(null);
 
   const [formData, setFormData] = useState({
     deliveryMethod: 'pickup' as DeliveryMethod,
@@ -69,6 +71,7 @@ export default function CheckoutPage() {
     return total;
   }, [formData.paymentMethod, total]);
 
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -117,55 +120,76 @@ export default function CheckoutPage() {
 
       setOrderId(order.id);
       setStep('payment');
-    } catch (err) {
-      setError('Gagal membuat pesanan. Silakan coba lagi.');
+    } catch (err: any) {
+      if (err.response?.status === 400) {
+        setError('Stok tidak mencukupi atau pesanan tidak valid.');
+      } else if (err.response?.status === 409) {
+        setError('Terdapat tagihan/order aktif yang belum diselesaikan. Anda tidak dapat membuat order baru.');
+      } else {
+        setError('Gagal membuat pesanan. Silakan coba lagi.');
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
+
+  
   const handlePayment = async () => {
     if (!orderId) return;
     setIsLoading(true);
     setError(null);
 
     try {
-      const result = await simulatePayment(orderId);
-      if (result.success) {
+      const result = await processPayment(
+        orderId, 
+        midtransMethod, 
+        formData.paymentMethod, // 'lunas' or 'dp' mapping to 'full' or 'dp'
+        payableAmount
+      );
+      
+      const resultStatus = String(result.status ?? '').toLowerCase();
+      const hasInstruction = !!(result.qris_url || result.va_number || result.midtrans_response?.redirect_url);
+
+      if (resultStatus === 'pending' || resultStatus === 'success' || hasInstruction) {
         clearCart();
-        setStep('success');
+        setPaymentResult(result);
+        // Do not change step yet, just show the instruction on the same step
       } else {
-        setError(result.message);
+        setError('Gagal mendapatkan instruksi pembayaran');
       }
-    } catch (err) {
-      setError('Gagal memproses pembayaran. Silakan coba lagi.');
+    } catch (err: any) {
+      if (err.response?.status === 400) {
+        setError('Gagal memproses pembayaran: nominal tidak sesuai atau bad request.');
+      } else {
+        setError('Gagal memproses pembayaran. Silakan coba lagi.');
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
+
   if (!isAuthenticated) return null;
 
   // Step: Payment
+  
   if (step === 'payment') {
     return (
       <div className="mx-auto max-w-2xl px-4 py-8">
-        <button
-          onClick={() => setStep('form')}
-          className="mb-6 flex items-center gap-2 text-sm font-medium text-[#6f5448] hover:text-[#4b2417] transition"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Kembali
-        </button>
+        {!paymentResult && (
+          <button
+            onClick={() => setStep('form')}
+            className="mb-6 flex items-center gap-2 text-sm font-medium text-[#6f5448] hover:text-[#4b2417] transition"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Kembali
+          </button>
+        )}
 
         <div className="rounded-2xl bg-white p-6 shadow-sm border border-[#ead8ca]">
           <h1 className="text-2xl font-black text-[#4b2417]">Pembayaran</h1>
-          <p className="mt-1 text-sm text-[#6f5448]">
-            {formData.paymentMethod === 'dp'
-              ? 'Lakukan pembayaran DP 50% untuk memproses pesanan Anda'
-              : 'Selesaikan pembayaran untuk memproses pesanan Anda'}
-          </p>
-
+          
           <div className="mt-6 rounded-xl bg-[#f8f4f0] p-4">
             <div className="flex items-center justify-between">
               <span className="text-sm text-[#6f5448]">
@@ -173,16 +197,6 @@ export default function CheckoutPage() {
               </span>
               <span className="text-2xl font-black text-[#d85b30]">{formatRupiah(payableAmount)}</span>
             </div>
-            {formData.deliveryMethod !== 'pickup' && (
-              <p className="mt-2 text-xs text-[#8b7166] text-center">
-                * Biaya pengiriman akan diinfokan melalui WhatsApp setelah pesanan dibuat
-              </p>
-            )}
-            {formData.paymentMethod === 'dp' && (
-              <p className="mt-1 text-xs text-[#8b7166] text-center">
-                * Sisa pembayaran Rp {formatRupiah(total - payableAmount)} akan dibayarkan saat pickup/delivery
-              </p>
-            )}
           </div>
 
           {error && (
@@ -192,54 +206,77 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          <div className="mt-6 space-y-4">
-            <div className="rounded-xl border border-[#ead8ca] p-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#d85b30]/10">
-                  <QrCode className="h-6 w-6 text-[#d85b30]" />
-                </div>
-                <div>
-                  <p className="font-semibold text-[#4b2417]">QRIS</p>
-                  <p className="text-xs text-[#6f5448]">Scan QR Code untuk membayar</p>
+          {!paymentResult ? (
+            <div className="mt-6 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-[#4b2417] mb-2">Metode Pembayaran</label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setMidtransMethod('qris')}
+                    className={`flex-1 rounded-lg border-2 p-3 text-sm ${midtransMethod === 'qris' ? 'border-[#d85b30] text-[#d85b30]' : 'border-gray-200 text-gray-600'}`}
+                  >
+                    QRIS
+                  </button>
+                  <button
+                    onClick={() => setMidtransMethod('bank_transfer')}
+                    className={`flex-1 rounded-lg border-2 p-3 text-sm ${midtransMethod === 'bank_transfer' ? 'border-[#d85b30] text-[#d85b30]' : 'border-gray-200 text-gray-600'}`}
+                  >
+                    Transfer Bank (BCA VA)
+                  </button>
                 </div>
               </div>
-              <div className="mt-4 flex justify-center">
-                <div className="flex h-40 w-40 items-center justify-center rounded-xl border-2 border-dashed border-[#d0bfaf] bg-gray-50">
-                  <div className="text-center">
-                    <QrCode className="mx-auto h-16 w-16 text-[#6f5448]" />
-                    <p className="mt-2 text-xs text-[#8b7166]">QR Code Simulasi</p>
-                    <p className="text-xs font-mono text-[#d85b30]">{orderId?.slice(0, 8) || 'ORD-XXXX'}</p>
-                  </div>
-                </div>
-              </div>
-              <p className="mt-3 text-center text-xs text-[#8b7166]">
-                Scan QRIS di atas atau transfer ke rekening yang tersedia
-              </p>
+
+              <button
+                onClick={handlePayment}
+                disabled={isLoading}
+                className="flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white transition hover:bg-[#c04e28] disabled:opacity-60"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Memproses Pembayaran...
+                  </>
+                ) : (
+                  'Dapatkan Kode Pembayaran'
+                )}
+              </button>
             </div>
+          ) : (
+            <div className="mt-6 space-y-4 text-center">
+              {paymentResult.qris_url ? (
+                <div className="rounded-xl border border-[#ead8ca] p-4">
+                  <p className="font-semibold text-[#4b2417] mb-2">Scan QRIS</p>
+                  <img src={paymentResult.qris_url} alt="QRIS" className="mx-auto w-48 h-48" />
+                </div>
+              ) : paymentResult.va_number ? (
+                <div className="rounded-xl border border-[#ead8ca] p-4">
+                  <p className="font-semibold text-[#4b2417] mb-2">Virtual Account BCA</p>
+                  <p className="text-2xl font-mono text-[#d85b30]">{paymentResult.va_number}</p>
+                </div>
+              ) : paymentResult.midtrans_response?.redirect_url ? (
+                <div className="rounded-xl border border-[#ead8ca] p-4">
+                  <p className="font-semibold text-[#4b2417] mb-2">Lanjutkan Pembayaran</p>
+                  <a href={paymentResult.midtrans_response.redirect_url} target="_blank" rel="noreferrer" className="text-blue-500 underline">
+                    Klik di sini untuk membayar
+                  </a>
+                </div>
+              ) : null}
 
-            <button
-              onClick={handlePayment}
-              disabled={isLoading}
-              className="flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white transition hover:bg-[#c04e28] disabled:opacity-60"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Memproses Pembayaran...
-                </>
-              ) : (
-                'Saya Sudah Bayar'
-              )}
-            </button>
-
-            <p className="text-center text-xs text-[#8b7166]">
-              Klik tombol di atas setelah melakukan pembayaran
-            </p>
-          </div>
+              <div className="mt-6">
+                <Link
+                  to={ROUTES.ORDERS}
+                  className="inline-flex h-12 items-center justify-center rounded-xl bg-[#d85b30] px-6 text-sm font-black text-white transition hover:bg-[#c04e28]"
+                >
+                  Lihat Pesanan Saya
+                </Link>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
   }
+
 
   // Step: Success
   if (step === 'success') {
