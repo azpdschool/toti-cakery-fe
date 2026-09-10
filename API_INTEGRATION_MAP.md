@@ -7,6 +7,8 @@
 ## Endpoint Mapping
 
 ### Auth & User (`src/services/authService.ts`)
+* `GET /users/` -> Fetch list pengguna (Owner/Admin/Staff)
+* `POST /users/` -> Tambah pengguna baru
 * `POST /auth/verify/wa/start` -> Inisiasi verifikasi WhatsApp
 * `GET /auth/verify/wa/status/{session_id}` -> Polling status verifikasi WA
 * `POST /auth/buyer/register` -> Registrasi akun buyer

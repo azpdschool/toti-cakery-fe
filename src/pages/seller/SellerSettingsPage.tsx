@@ -23,8 +23,6 @@ import {
   deleteUser,
   type UserProfile,
   type ShopProfile,
-  type UserRole,
-  type UserStatus,
 } from '@/services/sellerSettingsService';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -310,11 +308,10 @@ interface UserModalProps {
 
 function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
   const [formData, setFormData] = useState({
-    name: '',
     username: '',
     email: '',
-    phone: '',
-    role: 'staff' as UserRole,
+    phone_number: '',
+    role_id: 3,
     password: '',
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -322,20 +319,18 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
   useEffect(() => {
     if (initialData) {
       setFormData({
-        name: initialData.name,
         username: initialData.username,
         email: initialData.email || '',
-        phone: initialData.phone,
-        role: initialData.role,
+        phone_number: initialData.phone_number,
+        role_id: initialData.role_id,
         password: '',
       });
     } else {
       setFormData({
-        name: '',
         username: '',
         email: '',
-        phone: '',
-        role: 'staff',
+        phone_number: '',
+        role_id: 3,
         password: '',
       });
     }
@@ -343,7 +338,7 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.username || !formData.email || !formData.phone) {
+    if (!formData.username || !formData.email || !formData.phone_number) {
       alert('Semua field wajib diisi');
       return;
     }
@@ -370,19 +365,6 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">
-              Nama Lengkap <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              placeholder="Contoh: Rina Staff"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
-            />
-          </div>
-
           <div>
             <label className="block text-sm font-semibold text-[#4b2417]">
               Username <span className="text-red-500">*</span>
@@ -416,8 +398,8 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
             <input
               type="text"
               placeholder="0812-3456-7890"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              value={formData.phone_number}
+              onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
               className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
             />
           </div>
@@ -427,12 +409,12 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
               Role <span className="text-red-500">*</span>
             </label>
             <select
-              value={formData.role}
-              onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })}
+              value={formData.role_id}
+              onChange={(e) => setFormData({ ...formData, role_id: parseInt(e.target.value, 10) })}
               className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
             >
-              <option value="admin">Admin</option>
-              <option value="staff">Staff</option>
+              <option value={2}>Admin</option>
+              <option value={3}>Staff</option>
             </select>
           </div>
 
@@ -492,6 +474,14 @@ function UsersTab() {
   const [filterRole, setFilterRole] = useState('Semua role');
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+  const [toastMessage, setToastMessage] = useState('');
+
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => setToastMessage(''), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
 
   const loadUsers = async () => {
     setLoading(true);
@@ -506,16 +496,18 @@ function UsersTab() {
 
   const filteredUsers = users.filter((u) => {
     const matchSearch =
-      u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.phone.includes(searchQuery) ||
+      u.phone_number.includes(searchQuery) ||
       (u.email && u.email.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchRole = filterRole === 'Semua role' || u.role === filterRole;
+    let targetRoleId = 0;
+    if (filterRole === 'admin') targetRoleId = 2;
+    if (filterRole === 'staff') targetRoleId = 3;
+    const matchRole = filterRole === 'Semua role' || u.role_id === targetRoleId;
     return matchSearch && matchRole;
   });
 
-  const getStatusBadge = (status: UserStatus) => {
-    if (status === 'active') {
+  const getStatusBadge = (isActive: boolean) => {
+    if (isActive) {
       return <span className="text-xs font-semibold text-green-600">Aktif</span>;
     }
     return <span className="text-xs font-semibold text-red-600">Nonaktif</span>;
@@ -523,16 +515,16 @@ function UsersTab() {
 
   const handleAddUser = async (data: any) => {
     try {
-      const existing = await getUserByUsername(data.username);
-      if (existing) {
-        alert('Username sudah digunakan. Silakan pilih username lain.');
-        return;
+      await addUser(data);
+      await loadUsers(); // Refetch data
+      setToastMessage('Pengguna berhasil ditambahkan!');
+      closeModal();
+    } catch (error: any) {
+      if (error.response?.data?.detail) {
+        alert(error.response.data.detail);
+      } else {
+        alert('Gagal menambahkan pengguna.');
       }
-      const newUser = await addUser(data);
-      setUsers([newUser, ...users]);
-      alert('Pengguna berhasil ditambahkan!');
-    } catch (error) {
-      alert('Gagal menambahkan pengguna.');
     }
   };
 
@@ -554,7 +546,7 @@ function UsersTab() {
     }
   };
 
-  const handleDeleteUser = async (id: string) => {
+  const handleDeleteUser = async (id: number) => {
     if (!confirm('Yakin ingin menghapus pengguna ini?')) return;
     try {
       await deleteUser(id);
@@ -622,22 +614,22 @@ function UsersTab() {
             className="flex flex-wrap items-center justify-between rounded-xl bg-white p-4 shadow-sm"
           >
             <div className="flex items-center gap-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f3e2d7] text-sm font-black text-[#4b2417]">
-                {user.name.charAt(0)}
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f3e2d7] text-sm font-black text-[#4b2417] uppercase">
+                {user.username.charAt(0)}
               </div>
               <div>
-                <p className="font-bold text-[#4b2417]">{user.name}</p>
+                <p className="font-bold text-[#4b2417]">{user.username}</p>
                 <p className="text-xs text-[#6f5448]">
-                  @{user.username} · {user.phone} · {getStatusBadge(user.status)}
+                  @{user.username} · {user.phone_number} · {getStatusBadge(user.is_active)}
                   {user.email && <span className="ml-2">{user.email}</span>}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <span className="rounded bg-[#f3e2d7] px-2 py-0.5 text-xs font-bold capitalize text-[#4b2417]">
-                {user.role}
+                {user.role_id === 1 ? 'Owner' : user.role_id === 2 ? 'Admin' : 'Staff'}
               </span>
-              {canManageUsers && user.role !== 'owner' && (
+              {canManageUsers && user.role_id !== 1 && (
                 <>
                   <button
                     onClick={() => openEditModal(user)}
@@ -664,6 +656,11 @@ function UsersTab() {
         onSave={editingUser ? handleEditUser : handleAddUser}
         initialData={editingUser}
       />
+      {toastMessage && (
+        <div className="fixed bottom-4 right-4 z-50 rounded-lg bg-green-500 px-4 py-3 text-white shadow-lg">
+          {toastMessage}
+        </div>
+      )}
     </div>
   );
 }

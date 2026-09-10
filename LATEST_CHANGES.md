@@ -3,6 +3,7 @@
 Dokumen ini mendokumentasikan pembaruan kode dan panduan pengujian untuk dua fitur utama:
 1. **Perbaikan Bug Upload Gambar Produk (Error 422)**
 2. **Implementasi Komponen International Phone Input**
+3. **Integrasi Manajemen Pengguna (Users Management) ke Backend API**
 
 ---
 
@@ -116,3 +117,33 @@ Dokumen ini mendokumentasikan pembaruan kode dan panduan pengujian untuk dua fit
    - Masukkan nomor HP (misal: `081234567890`).
    - Klik **"Kirim OTP"**.
    - Periksa Network tab: Request `POST /auth/verify/wa/start` membawa payload `{"phone_number": "6281234567890"}`.
+
+---
+
+## 5. Integrasi Manajemen Pengguna (Users Management) ke Backend API
+
+### Permasalahan Sebelumnya:
+- Data pengguna pada halaman Pengaturan Toko (`/seller/settings`) masih menggunakan data *mock* (dummy) statis di frontend.
+- Form penambahan pengguna baru hanya menyimpan data sementara di _state_ lokal dan menggunakan _camelCase_ yang tidak kompatibel dengan skema Pydantic backend FastAPI.
+
+### Solusi & Perubahan Kode:
+1. **Service Layer (`src/services/sellerSettingsService.ts`)**:
+   - Menghapus data *mock* statis pengguna (Jake Hartono, Ayu Admin, dsb).
+   - Mengubah fungsi `getUsers()` untuk memanggil `GET /users/` menggunakan Axios instance (`src/api/client.ts`).
+   - Mengubah fungsi `addUser(data)` untuk mengirim request `POST /users/`.
+   - Menyesuaikan antarmuka `UserProfile` agar sesuai dengan response backend: `id` bertipe number, dan menggunakan konvensi penamaan `snake_case` (`username`, `role_id`, `email`, `phone_number`, `is_active`).
+
+2. **UI & Formulir Pengguna (`src/pages/seller/SellerSettingsPage.tsx`)**:
+   - Menyesuaikan struktur _state_ `formData` di `UserModal` agar kompatibel dengan `snake_case`. Menghapus field `name` dan menyesuaikan tipe `role_id` menjadi _integer_ (1: Owner, 2: Admin, 3: Staff).
+   - Menambahkan mekanisme *refetching* otomatis (`loadUsers()`) setelah `addUser` berhasil dipanggil.
+   - Menambahkan pesan notifikasi (Toast) "Pengguna berhasil ditambahkan!" saat proses penambahan pengguna berhasil dilakukan.
+   - Menangani error respon validasi dari backend dan menampilkannya di _alert_.
+
+### Panduan Pengujian:
+1. Buka halaman Pengaturan Toko (`/seller/settings`) lalu arahkan ke tab **Pengguna**.
+2. Pastikan tabel pengguna menampilkan data asli yang bersumber dari server backend (Network request ke `GET /users/`).
+3. Klik tombol **Tambah**, lalu isi formulir (Username, Email, Nomor WhatsApp, Role, dan Password).
+4. Klik **Tambah Pengguna**:
+   - Pastikan Network request `POST /users/` membawa payload berformat JSON `snake_case` dan *Authorization Header* Bearer Token terlampir.
+   - Periksa kemunculan notifikasi sukses (Toast) di pojok kanan bawah.
+   - Pastikan tabel otomatis termuat ulang dan menampilkan data pengguna baru tanpa *refresh* halaman.
