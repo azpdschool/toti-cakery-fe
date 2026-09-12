@@ -16,7 +16,12 @@ export default function SupplierManagementModal({ isOpen, onClose }: SupplierMan
 
   const [mode, setMode] = useState<'list' | 'add' | 'edit'>('list');
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [formData, setFormData] = useState({ nama_supplier: '' });
+  const [formData, setFormData] = useState({ 
+    nama_supplier: '',
+    kontak_person: '',
+    nomor_telepon: '',
+    email: '',
+  });
   const [submitting, setSubmitting] = useState(false);
 
   const loadSuppliers = async () => {
@@ -43,12 +48,17 @@ export default function SupplierManagementModal({ isOpen, onClose }: SupplierMan
   if (!isOpen) return null;
 
   const handleAdd = () => {
-    setFormData({ nama_supplier: '' });
+    setFormData({ nama_supplier: '', kontak_person: '', nomor_telepon: '', email: '' });
     setMode('add');
   };
 
   const handleEdit = (supplier: SupplierOut) => {
-    setFormData({ nama_supplier: supplier.nama_supplier });
+    setFormData({ 
+      nama_supplier: supplier.nama_supplier,
+      kontak_person: supplier.kontak_person || '',
+      nomor_telepon: supplier.nomor_telepon || '',
+      email: supplier.email || '',
+    });
     setEditingId(supplier.id);
     setMode('edit');
   };
@@ -73,13 +83,20 @@ export default function SupplierManagementModal({ isOpen, onClose }: SupplierMan
       return;
     }
 
+    const payload = {
+      nama_supplier: formData.nama_supplier.trim(),
+      kontak_person: formData.kontak_person.trim() || undefined,
+      nomor_telepon: formData.nomor_telepon.trim() || undefined,
+      email: formData.email.trim() || undefined,
+    };
+
     try {
       setSubmitting(true);
       setError(null);
       if (mode === 'add') {
-        await supplierService.createSupplier({ nama_supplier: formData.nama_supplier.trim() });
+        await supplierService.createSupplier(payload);
       } else if (mode === 'edit' && editingId !== null) {
-        await supplierService.updateSupplier(editingId, { nama_supplier: formData.nama_supplier.trim() });
+        await supplierService.updateSupplier(editingId, payload);
       }
       setMode('list');
       await loadSuppliers();
@@ -93,7 +110,7 @@ export default function SupplierManagementModal({ isOpen, onClose }: SupplierMan
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-lg rounded-2xl border border-[#ead8ca] bg-white p-6 shadow-xl">
+      <div className="w-full max-w-2xl rounded-2xl border border-[#ead8ca] bg-white p-6 shadow-xl">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-2xl font-black text-[#4b2417]">
             {mode === 'list' ? 'Manajemen Supplier' : mode === 'add' ? 'Tambah Supplier' : 'Edit Supplier'}
@@ -130,14 +147,22 @@ export default function SupplierManagementModal({ isOpen, onClose }: SupplierMan
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left font-medium text-gray-700">Nama Supplier</th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700">Supplier</th>
+                      <th className="px-4 py-3 text-left font-medium text-gray-700">Kontak</th>
                       <th className="px-4 py-3 text-right font-medium text-gray-700">Aksi</th>
                     </tr>
                   </thead>
                   <tbody>
                     {suppliers.map(supplier => (
                       <tr key={supplier.id} className="border-t border-gray-100">
-                        <td className="px-4 py-3 text-gray-800">{supplier.nama_supplier}</td>
+                        <td className="px-4 py-3">
+                          <p className="font-bold text-gray-800">{supplier.nama_supplier}</p>
+                          {supplier.email && <p className="text-xs text-gray-500">{supplier.email}</p>}
+                        </td>
+                        <td className="px-4 py-3 text-gray-800">
+                          {supplier.kontak_person ? <p>{supplier.kontak_person}</p> : <span className="text-gray-400">-</span>}
+                          {supplier.nomor_telepon && <p className="text-xs text-gray-500">{supplier.nomor_telepon}</p>}
+                        </td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex justify-end gap-2">
                             <button
@@ -172,10 +197,43 @@ export default function SupplierManagementModal({ isOpen, onClose }: SupplierMan
               <input
                 type="text"
                 value={formData.nama_supplier}
-                onChange={e => setFormData({ nama_supplier: e.target.value })}
+                onChange={e => setFormData({ ...formData, nama_supplier: e.target.value })}
                 className="mt-1 w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-sm outline-none focus:border-[#d85b30]"
                 placeholder="Masukkan nama supplier"
                 autoFocus
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-[#4b2417]">Nama Kontak Person</label>
+              <input
+                type="text"
+                value={formData.kontak_person}
+                onChange={e => setFormData({ ...formData, kontak_person: e.target.value })}
+                className="mt-1 w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-sm outline-none focus:border-[#d85b30]"
+                placeholder="Masukkan nama kontak"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-[#4b2417]">Nomor Telepon</label>
+              <input
+                type="tel"
+                value={formData.nomor_telepon}
+                onChange={e => setFormData({ ...formData, nomor_telepon: e.target.value })}
+                className="mt-1 w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-sm outline-none focus:border-[#d85b30]"
+                placeholder="Masukkan nomor telepon"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-[#4b2417]">Email</label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={e => setFormData({ ...formData, email: e.target.value })}
+                className="mt-1 w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-sm outline-none focus:border-[#d85b30]"
+                placeholder="Masukkan alamat email"
               />
             </div>
             

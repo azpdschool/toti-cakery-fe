@@ -3,14 +3,33 @@ import { apiClient } from './client';
 export interface SupplierOut {
   id: number;
   nama_supplier: string;
+  kontak_person?: string;
+  email?: string;
+  nomor_telepon?: string;
+  alamat?: string;
+  kota?: string;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface SupplierCreate {
   nama_supplier: string;
+  kontak_person?: string;
+  email?: string;
+  nomor_telepon?: string;
+  alamat?: string;
+  kota?: string;
 }
 
 export interface SupplierUpdate {
-  nama_supplier: string;
+  nama_supplier?: string;
+  kontak_person?: string;
+  email?: string;
+  nomor_telepon?: string;
+  alamat?: string;
+  kota?: string;
+  is_active?: boolean;
 }
 
 export async function getSuppliers(): Promise<SupplierOut[]> {

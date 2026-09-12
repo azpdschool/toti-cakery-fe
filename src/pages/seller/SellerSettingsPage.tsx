@@ -14,17 +14,18 @@ import {
   X,
 } from 'lucide-react';
 import {
-  getShopProfile,
-  updateShopProfile,
+  getMyProfile,
+  updateMyProfile,
+  changeMyPassword,
+  uploadAvatar,
   getUsers,
-  getUserByUsername,
   addUser,
   updateUser,
   deleteUser,
   type UserProfile,
-  type ShopProfile,
 } from '@/services/sellerSettingsService';
 import { useAuth } from '@/hooks/useAuth';
+import type React from 'react';
 
 // ============================================================
 // KOMPONEN TAB NAVIGATION
@@ -59,46 +60,127 @@ function TabButton({ label, icon: Icon, isActive, onClick }: TabButtonProps) {
 
 function ProfileTab() {
   const [loading, setLoading] = useState(true);
-  const [formData, setFormData] = useState<ShopProfile>({
-    name: '',
-    phone: '',
-    address: '',
-    description: '',
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [formData, setFormData] = useState({
+    username: '',
+    email: '',
+    phone_number: '',
+    nomor_wa_admin: '',
   });
-  const { user } = useAuth();
 
-  useEffect(() => {
-    async function loadProfile() {
-      const data = await getShopProfile();
-      setFormData(data);
+  const loadProfile = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await getMyProfile();
+      setProfile(data);
+      setFormData({
+        username: data.username || '',
+        email: data.email || '',
+        phone_number: data.phone_number || '',
+        nomor_wa_admin: data.nomor_wa_admin || '',
+      });
+    } catch (err: any) {
+      console.error(err);
+      setError('Gagal memuat profil.');
+    } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
     loadProfile();
   }, []);
 
   const handleSave = async () => {
+    if (formData.username && !/^[a-zA-Z0-9_-]+$/.test(formData.username)) {
+      setError('Username hanya boleh menggunakan huruf, angka, underscore (_), atau tanda hubung (-). Tidak boleh ada spasi.');
+      return;
+    }
+
     try {
-      await updateShopProfile(formData);
+      setSaving(true);
+      setError(null);
+      
+      const payload = {
+        username: formData.username || undefined,
+        email: formData.email || undefined,
+        phone_number: formData.phone_number || undefined,
+        nomor_wa_admin: formData.nomor_wa_admin || undefined,
+      };
+
+      const updated = await updateMyProfile(payload);
+      setProfile(updated);
       alert('Profil berhasil diperbarui!');
-    } catch (error) {
-      alert('Gagal memperbarui profil.');
+    } catch (err: any) {
+      if (err.response?.data?.detail) {
+        const detail = err.response.data.detail;
+        if (Array.isArray(detail)) {
+          setError(detail.map((d: any) => {
+            const field = d.loc && d.loc.length > 1 ? d.loc[d.loc.length - 1] : 'Field';
+            return `${field}: ${d.msg}`;
+          }).join(', '));
+        } else {
+          setError(detail);
+        }
+      } else {
+        setError('Gagal memperbarui profil.');
+      }
+    } finally {
+      setSaving(false);
     }
   };
 
-  if (loading) return <div className="py-8 text-center">Memuat...</div>;
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+    
+    try {
+      setError(null);
+      const updated = await uploadAvatar(file);
+      setProfile(updated);
+      alert('Avatar berhasil diperbarui!');
+    } catch (err: any) {
+      setError('Gagal mengupload avatar.');
+    }
+  };
+
+  if (loading) return <div className="py-8 text-center text-gray-500">Memuat profil...</div>;
+  if (!profile) return <div className="py-8 text-center text-red-500">Gagal memuat profil.</div>;
 
   return (
     <div className="space-y-6">
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
       <div className="rounded-xl bg-white p-6 shadow-sm">
         <div className="flex items-center gap-4">
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#d85b30] text-2xl font-black text-white">
-            {user?.name?.charAt(0) || 'J'}
+          <div className="relative group">
+            {profile.avatar_url ? (
+              <img src={profile.avatar_url} alt="Avatar" className="h-16 w-16 rounded-full object-cover border border-[#d0bfaf]" />
+            ) : (
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#d85b30] text-2xl font-black text-white">
+                {profile.username?.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <label className="absolute inset-0 flex cursor-pointer items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+              <span className="text-xs text-white">Ubah</span>
+              <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+            </label>
           </div>
           <div>
-            <h3 className="text-lg font-bold text-[#4b2417]">{user?.name || 'Jake'}</h3>
-            <p className="text-sm capitalize text-[#6f5448]">{user?.role || 'Owner'}</p>
-            <p className="text-sm text-green-600">Aktif</p>
-            <p className="text-xs text-[#8b7166]">Bergabung 10 Jan 2026</p>
+            <h3 className="text-lg font-bold text-[#4b2417]">{profile.username}</h3>
+            <p className="text-sm capitalize text-[#6f5448]">{profile.role_name || (profile.role_id === 1 ? 'Owner' : profile.role_id === 2 ? 'Admin' : 'Staff')}</p>
+            {profile.is_active ? (
+              <p className="text-sm text-green-600 font-semibold">Aktif</p>
+            ) : (
+              <p className="text-sm text-red-600 font-semibold">Nonaktif</p>
+            )}
           </div>
         </div>
       </div>
@@ -107,43 +189,40 @@ function ProfileTab() {
         <h3 className="mb-4 text-sm font-bold uppercase text-[#6f5448]">Data Personal</h3>
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">
-              Nama lengkap <span className="text-red-500">*</span>
-            </label>
+            <label className="block text-sm font-semibold text-[#4b2417]">Username <span className="text-red-500">*</span></label>
             <input
               type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              value={formData.username}
+              onChange={(e) => setFormData({ ...formData, username: e.target.value })}
               className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">
-              Nomor WhatsApp <span className="text-red-500">*</span>
-            </label>
+            <label className="block text-sm font-semibold text-[#4b2417]">Email</label>
             <input
-              type="text"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">Alamat</label>
+            <label className="block text-sm font-semibold text-[#4b2417]">Nomor Telepon</label>
             <input
-              type="text"
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              type="tel"
+              value={formData.phone_number}
+              onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
               className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">Deskripsi Singkat</label>
-            <textarea
-              rows={3}
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            <label className="block text-sm font-semibold text-[#4b2417]">Nomor WA Admin</label>
+            <input
+              type="tel"
+              value={formData.nomor_wa_admin}
+              onChange={(e) => setFormData({ ...formData, nomor_wa_admin: e.target.value })}
               className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
+              placeholder="Contoh: +62812..."
             />
           </div>
         </div>
@@ -151,9 +230,10 @@ function ProfileTab() {
         <div className="mt-6 flex gap-3 border-t border-gray-200 pt-6">
           <button
             onClick={handleSave}
-            className="rounded-lg bg-[#d85b30] px-6 py-2 text-sm font-semibold text-white hover:bg-[#c04e28]"
+            disabled={saving}
+            className="rounded-lg bg-[#d85b30] px-6 py-2 text-sm font-semibold text-white hover:bg-[#c04e28] disabled:opacity-50"
           >
-            Simpan
+            {saving ? 'Menyimpan...' : 'Simpan'}
           </button>
         </div>
       </div>
@@ -175,17 +255,41 @@ function SecurityTab() {
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  const handleUpdatePassword = () => {
-    if (passwordData.new.length < 8) {
-      alert('Password baru minimal 8 karakter');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleUpdatePassword = async () => {
+    if (!passwordData.current) {
+      setError('Password lama wajib diisi');
+      return;
+    }
+    if (passwordData.new.length < 6) {
+      setError('Password baru minimal 6 karakter');
       return;
     }
     if (passwordData.new !== passwordData.confirm) {
-      alert('Konfirmasi password tidak cocok');
+      setError('Konfirmasi password tidak cocok');
       return;
     }
-    alert('Password berhasil diperbarui! (dummy)');
-    setPasswordData({ current: '', new: '', confirm: '' });
+    
+    try {
+      setSaving(true);
+      setError(null);
+      await changeMyPassword({
+        old_password: passwordData.current,
+        new_password: passwordData.new,
+      });
+      alert('Password berhasil diperbarui!');
+      setPasswordData({ current: '', new: '', confirm: '' });
+    } catch (err: any) {
+      if (err.response?.data?.detail) {
+        setError(err.response.data.detail);
+      } else {
+        setError('Gagal memperbarui password.');
+      }
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -259,37 +363,23 @@ function SecurityTab() {
 
           <button
             onClick={handleUpdatePassword}
-            className="w-full rounded-lg bg-[#d85b30] py-2 text-sm font-semibold text-white hover:bg-[#c04e28]"
+            disabled={saving}
+            className="w-full rounded-lg bg-[#d85b30] py-2 text-sm font-semibold text-white hover:bg-[#c04e28] disabled:opacity-50"
           >
-            Perbarui Password
+            {saving ? 'Memperbarui...' : 'Perbarui Password'}
           </button>
         </div>
       </div>
 
       <div className="rounded-xl bg-white p-6 shadow-sm">
-        <h3 className="text-sm font-bold uppercase text-[#6f5448]">Info Akun</h3>
-        <div className="mt-4 space-y-2 text-sm">
-          <div className="flex justify-between border-b border-gray-100 py-2">
-            <span className="text-[#6f5448]">Role</span>
-            <span className="font-semibold capitalize text-[#4b2417]">Owner</span>
+        <h3 className="text-sm font-bold uppercase text-[#6f5448]">Info</h3>
+        <p className="mt-2 text-sm text-[#6f5448]">Pastikan password yang Anda gunakan aman dan tidak mudah ditebak.</p>
+        
+        {error && (
+          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {error}
           </div>
-          <div className="flex justify-between border-b border-gray-100 py-2">
-            <span className="text-[#6f5448]">Level</span>
-            <span className="font-semibold text-[#4b2417]">1</span>
-          </div>
-          <div className="flex justify-between border-b border-gray-100 py-2">
-            <span className="text-[#6f5448]">Dibuat</span>
-            <span className="font-semibold text-[#4b2417]">10 Jan 2026, 10:15 WIB</span>
-          </div>
-          <div className="flex justify-between border-b border-gray-100 py-2">
-            <span className="text-[#6f5448]">Status</span>
-            <span className="font-semibold text-green-600">Aktif</span>
-          </div>
-          <div className="flex justify-between py-2">
-            <span className="text-[#6f5448]">Login terakhir</span>
-            <span className="font-semibold text-[#4b2417]">25 Mei 2026, 09:12 WIB</span>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -321,7 +411,7 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
       setFormData({
         username: initialData.username,
         email: initialData.email || '',
-        phone_number: initialData.phone_number,
+        phone_number: initialData.phone_number || '',
         role_id: initialData.role_id,
         password: '',
       });
@@ -342,6 +432,13 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
       alert('Semua field wajib diisi');
       return;
     }
+    
+    const usernameRegex = /^[a-zA-Z0-9_-]+$/;
+    if (!usernameRegex.test(formData.username)) {
+      alert('Username hanya boleh menggunakan huruf, angka, underscore (_), atau tanda hubung (-). Tidak boleh ada spasi.');
+      return;
+    }
+
     if (!initialData && !formData.password) {
       alert('Password wajib diisi untuk user baru');
       return;
@@ -503,7 +600,7 @@ function UsersTab() {
   const filteredUsers = users.filter((u) => {
     const matchSearch =
       u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.phone_number.includes(searchQuery) ||
+      (u.phone_number && u.phone_number.includes(searchQuery)) ||
       (u.email && u.email.toLowerCase().includes(searchQuery.toLowerCase()));
     let targetRoleId = 0;
     if (filterRole === 'admin') targetRoleId = 2;
@@ -519,6 +616,21 @@ function UsersTab() {
     return <span className="text-xs font-semibold text-red-600">Nonaktif</span>;
   };
 
+  const extractErrorMessage = (error: any, defaultMsg: string) => {
+    if (error.response?.data?.detail) {
+      const detail = error.response.data.detail;
+      if (Array.isArray(detail)) {
+        // Validation error from FastAPI
+        return detail.map((d: any) => {
+          const field = d.loc && d.loc.length > 1 ? d.loc[d.loc.length - 1] : 'Field';
+          return `${field}: ${d.msg}`;
+        }).join('\n');
+      }
+      return detail;
+    }
+    return defaultMsg;
+  };
+
   const handleAddUser = async (data: any) => {
     try {
       await addUser(data);
@@ -526,29 +638,18 @@ function UsersTab() {
       setToastMessage('Pengguna berhasil ditambahkan!');
       closeModal();
     } catch (error: any) {
-      if (error.response?.data?.detail) {
-        alert(error.response.data.detail);
-      } else {
-        alert('Gagal menambahkan pengguna.');
-      }
+      alert(extractErrorMessage(error, 'Gagal menambahkan pengguna.'));
     }
   };
 
   const handleEditUser = async (data: any) => {
     if (!editingUser) return;
     try {
-      if (data.username !== editingUser.username) {
-        const existing = await getUserByUsername(data.username);
-        if (existing) {
-          alert('Username sudah digunakan. Silakan pilih username lain.');
-          return;
-        }
-      }
       const updated = await updateUser(editingUser.id, data);
       setUsers(users.map((u) => (u.id === updated.id ? updated : u)));
       alert('Pengguna berhasil diperbarui!');
-    } catch (error) {
-      alert('Gagal memperbarui pengguna.');
+    } catch (error: any) {
+      alert(extractErrorMessage(error, 'Gagal memperbarui pengguna.'));
     }
   };
 
@@ -558,8 +659,8 @@ function UsersTab() {
       await deleteUser(id);
       setUsers(users.filter((u) => u.id !== id));
       alert('Pengguna berhasil dihapus.');
-    } catch (error) {
-      alert('Gagal menghapus pengguna.');
+    } catch (error: any) {
+      alert(extractErrorMessage(error, 'Gagal menghapus pengguna.'));
     }
   };
 
