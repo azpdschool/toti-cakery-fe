@@ -6,6 +6,7 @@ import { apiClient } from '@/api/client'
 export type OrderStatus =
   | 'pending'
   | 'processed'
+  | 'ready'
   | 'shipped'
   | 'completed'
   | 'cancelled'
@@ -225,6 +226,13 @@ function normalizeStatus(status?: string): OrderStatus {
     value === 'dikirim'
   ) {
     return 'shipped'
+  }
+
+  if (
+    value === 'ready' ||
+    value === 'siap'
+  ) {
+    return 'ready'
   }
 
   if (
@@ -469,6 +477,12 @@ export interface CreateOrderPayload {
 
 
 export async function createOrder(payload: CreateOrderPayload): Promise<BuyerOrder> {
+  let finalNotes = payload.notes || '';
+  if (payload.deliveryMethod !== 'pickup') {
+    const deliveryInfo = `[DELIVERY INFO] Penerima: ${payload.recipientName} (${payload.recipientPhone}), Alamat: ${payload.address}`;
+    finalNotes = finalNotes ? `${finalNotes}\n${deliveryInfo}` : deliveryInfo;
+  }
+
   const buyerPayload: BuyerOrderCreate = {
     metode_pengiriman: payload.deliveryMethod === 'pickup' ? 'pickup' : 'delivery',
     items: payload.items.map(i => ({
@@ -476,7 +490,9 @@ export async function createOrder(payload: CreateOrderPayload): Promise<BuyerOrd
       jumlah: i.quantity,
       custom_decoration_charge: 0
     })),
-    created_via: 'web'
+    created_via: 'web',
+    notes: finalNotes,
+    payment_method_preference: payload.paymentMethod
   };
 
   const responseData = await createBuyerOrderAPI(buyerPayload);

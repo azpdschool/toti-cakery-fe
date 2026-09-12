@@ -394,6 +394,182 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
 }
 
 // ============================================================
+// KOMPONEN MODAL DETAIL ORDER
+// ============================================================
+
+interface OrderDetailModalProps {
+  orderId: string | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onStatusUpdated: (updatedOrder: Order) => void;
+  canManageOrders: boolean;
+}
+
+function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManageOrders }: OrderDetailModalProps) {
+  const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [updating, setUpdating] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<OrderStatus | ''>('');
+
+  useEffect(() => {
+    if (isOpen && orderId) {
+      setLoading(true);
+      setError('');
+      import('@/services/sellerOrderService').then(({ getOrderById }) => {
+        getOrderById(orderId)
+          .then(data => {
+            setOrder(data);
+            setSelectedStatus(data.status);
+            setLoading(false);
+          })
+          .catch(err => {
+            console.error(err);
+            setError('Gagal memuat detail pesanan');
+            setLoading(false);
+          });
+      });
+    }
+  }, [isOpen, orderId]);
+
+  const handleUpdateStatus = async () => {
+    if (!orderId || !selectedStatus || selectedStatus === order?.status) return;
+    setUpdating(true);
+    try {
+      const { updateOrderStatus } = await import('@/services/sellerOrderService');
+      const updated = await updateOrderStatus(orderId, selectedStatus as OrderStatus);
+      setOrder(updated);
+      onStatusUpdated(updated);
+      alert('Status berhasil diperbarui!');
+    } catch (err) {
+      console.error(err);
+      alert('Gagal memperbarui status');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="text-2xl font-black text-[#4b2417]">Detail Pesanan</h2>
+          <button onClick={onClose} className="rounded-full p-1 hover:bg-gray-100">
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center p-8">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-gray-700" />
+          </div>
+        ) : error ? (
+          <div className="text-center text-red-500 p-4">{error}</div>
+        ) : order ? (
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-gray-500">ID Order</p>
+                <p className="font-bold text-[#4b2417]">{order.orderNumber}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Tanggal</p>
+                <p className="font-semibold">{order.date} {order.time}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Pelanggan</p>
+                <p className="font-semibold">{order.customerName}</p>
+                <p className="text-xs text-gray-500">{order.customerPhone}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Sumber</p>
+                <p className="font-semibold capitalize">{order.createdVia || 'web'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Metode Pengiriman</p>
+                <p className="font-semibold">{order.method}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Preferensi Pembayaran</p>
+                <p className="font-semibold">{order.paymentMethod}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Catatan</p>
+                <p className="font-semibold">{order.notes || '-'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Jatuh Tempo</p>
+                <p className="font-semibold">{order.dueDate}</p>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="font-bold text-[#4b2417] border-b pb-2 mb-2">Item Pesanan</h3>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-gray-500">
+                    <th className="pb-2">Produk</th>
+                    <th className="pb-2 text-right">Harga</th>
+                    <th className="pb-2 text-center">Qty</th>
+                    <th className="pb-2 text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {order.items?.map(item => (
+                    <tr key={item.id} className="border-b border-gray-100">
+                      <td className="py-2">{item.productName}</td>
+                      <td className="py-2 text-right">{formatRupiah(item.price)}</td>
+                      <td className="py-2 text-center">{item.quantity}</td>
+                      <td className="py-2 text-right font-medium">{formatRupiah(item.total)}</td>
+                    </tr>
+                  ))}
+                  <tr className="font-bold text-[#4b2417]">
+                    <td colSpan={3} className="py-3 text-right">Total Tagihan</td>
+                    <td className="py-3 text-right">{formatRupiah(order.total)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {canManageOrders && (
+              <div className="bg-gray-50 p-4 rounded-lg flex items-end gap-4 border border-gray-200">
+                <div className="flex-1">
+                  <label className="block text-sm font-semibold text-[#4b2417] mb-1">
+                    Ubah Status Pesanan
+                  </label>
+                  <select
+                    value={selectedStatus}
+                    onChange={(e) => setSelectedStatus(e.target.value as OrderStatus)}
+                    className="w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
+                    disabled={updating}
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="in_process">In Process</option>
+                    <option value="ready">Ready</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="picked_up">Picked Up</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+                <button
+                  onClick={handleUpdateStatus}
+                  disabled={updating || selectedStatus === order.status}
+                  className="rounded-lg bg-[#d85b30] px-6 py-2 text-sm font-semibold text-white hover:bg-[#c04e28] disabled:opacity-50"
+                >
+                  {updating ? 'Menyimpan...' : 'Update Status'}
+                </button>
+              </div>
+            )}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // KOMPONEN UTAMA
 // ============================================================
 
@@ -414,6 +590,8 @@ export default function SellerOrdersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
   const [showAddModal, setShowAddModal] = useState(false);
+  const [selectedDetailOrderId, setSelectedDetailOrderId] = useState<string | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -648,10 +826,10 @@ export default function SellerOrdersPage() {
                         <div className="flex items-center gap-2">
                           {canManageOrders && (
                             <>
-                              <button onClick={() => alert("Detail Pesanan " + order.orderNumber + "\nPelanggan: " + order.customerName + " (" + order.customerPhone + ")\nTotal: Rp " + order.total.toLocaleString("id-ID") + "\nSumber: " + (order.createdVia || "Web") + "\n\nItem:\n" + (order.items?.map(i => i.productName + " (" + i.quantity + "x)").join("\n") || "-"))} className="rounded p-1 text-[#6f5448] hover:bg-gray-100">
+                              <button onClick={() => { setSelectedDetailOrderId(order.id); setShowDetailModal(true); }} className="rounded p-1 text-[#6f5448] hover:bg-gray-100">
                                 <Eye className="h-4 w-4" />
                               </button>
-                              <button className="rounded p-1 text-[#6f5448] hover:bg-gray-100">
+                              <button onClick={() => { setSelectedDetailOrderId(order.id); setShowDetailModal(true); }} className="rounded p-1 text-[#6f5448] hover:bg-gray-100">
                                 <Edit className="h-4 w-4" />
                               </button>
                               <button className="rounded p-1 text-[#25D366] hover:bg-green-50">
@@ -704,6 +882,18 @@ export default function SellerOrdersPage() {
           isOpen={showAddModal}
           onClose={() => setShowAddModal(false)}
           onSave={handleAddOrder}
+        />
+      )}
+
+      {showDetailModal && (
+        <OrderDetailModal
+          orderId={selectedDetailOrderId}
+          isOpen={showDetailModal}
+          onClose={() => { setShowDetailModal(false); setSelectedDetailOrderId(null); }}
+          onStatusUpdated={(updatedOrder) => {
+            setOrders(orders.map(o => o.id === updatedOrder.id ? { ...o, status: updatedOrder.status } : o));
+          }}
+          canManageOrders={canManageOrders}
         />
       )}
     </div>

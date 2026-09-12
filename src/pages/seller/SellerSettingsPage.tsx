@@ -485,9 +485,15 @@ function UsersTab() {
 
   const loadUsers = async () => {
     setLoading(true);
-    const data = await getUsers();
-    setUsers(data);
-    setLoading(false);
+    try {
+      const data = await getUsers();
+      setUsers(data);
+    } catch (error) {
+      console.error("Gagal memuat pengguna (Mungkin Endpoint belum tersedia)", error);
+      setUsers([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {

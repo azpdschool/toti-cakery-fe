@@ -49,7 +49,7 @@ export async function updateShopProfile(data: Partial<ShopProfile>): Promise<Sho
 }
 
 export async function getUsers(): Promise<UserProfile[]> {
-  const response = await apiClient.get('/users/');
+  const response = await apiClient.get('/users');
   return response.data;
 }
 
@@ -71,7 +71,7 @@ export async function getUserByUsername(username: string): Promise<UserProfile |
 export async function addUser(
   data: Omit<UserProfile, 'id' | 'is_active'> & { password?: string }
 ): Promise<UserProfile> {
-  const response = await apiClient.post('/users/', data);
+  const response = await apiClient.post('/users', data);
   return response.data;
 }
 

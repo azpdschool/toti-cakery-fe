@@ -13,6 +13,7 @@ import {
   Package,
   User,
   Phone,
+  Loader2,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { formatRupiah } from '@/services/productService'
@@ -21,6 +22,7 @@ import {
   type BuyerOrder,
   getOrderPaymentStatus,
   type OrderStatus,
+  processPayment,
 } from '@/services/buyerOrderService'
 import { ROUTES } from '@/constants'
 
@@ -48,6 +50,11 @@ const statusMap: Record<
     icon: CheckCircle,
     color: 'text-green-600 bg-green-50',
   },
+  ready: {
+    label: 'Siap',
+    icon: CheckCircle,
+    color: 'text-teal-600 bg-teal-50',
+  },
   cancelled: {
     label: 'Dibatalkan',
     icon: XCircle,
@@ -72,6 +79,39 @@ export default function OrderDetailPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [paymentInstructions, setPaymentInstructions] = useState<any>(null)
+
+  const [showPayRemaining, setShowPayRemaining] = useState(false)
+  const [payRemainingMethod, setPayRemainingMethod] = useState<'qris' | 'bank_transfer'>('qris')
+  const [isPayingRemaining, setIsPayingRemaining] = useState(false)
+
+  const handlePayRemaining = async () => {
+    if (!order || !order.amountDue) return;
+    setIsPayingRemaining(true);
+    setError(null);
+    try {
+      const result = await processPayment(order.id, payRemainingMethod, 'dp', order.amountDue);
+      
+      const resultStatus = String(result.status ?? '').toLowerCase();
+      const hasInstruction = !!(result.qris_url || result.va_number || result.midtrans_response?.redirect_url);
+
+      if (resultStatus === 'pending' || resultStatus === 'success' || hasInstruction) {
+        setPaymentInstructions(result);
+        setShowPayRemaining(false);
+      } else {
+        setError('Gagal mendapatkan instruksi pembayaran untuk pelunasan');
+      }
+    } catch (err: any) {
+      if (err.response?.status === 400) {
+        setError('Gagal memproses pembayaran pelunasan: nominal tidak sesuai.');
+      } else if (err.response?.status === 409) {
+        setError('Terdapat tagihan pembayaran pelunasan yang aktif.');
+      } else {
+        setError('Gagal memproses pembayaran pelunasan. Silakan coba lagi.');
+      }
+    } finally {
+      setIsPayingRemaining(false);
+    }
+  }
 
   useEffect(() => {
     async function loadOrder() {
@@ -101,6 +141,8 @@ export default function OrderDetailPage() {
                 const pendingPayment = paymentData.payments.reverse().find((p: any) => p.payment_status.toLowerCase() === 'pending');
                 if (pendingPayment && (pendingPayment.qris_url || pendingPayment.va_number)) {
                   setPaymentInstructions(pendingPayment);
+                } else {
+                  setPaymentInstructions(null);
                 }
               }
             } catch (err) {
@@ -123,8 +165,47 @@ export default function OrderDetailPage() {
     }
   }, [id, isAuthenticated, user])
 
-  const getStatusBadge = (status: OrderStatus) => {
-    const info = statusMap[status] || statusMap.pending
+  // Polling for payment status if there are instructions (pending payment)
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+
+    async function checkStatus() {
+      if (!id || !paymentInstructions) return;
+      try {
+        const paymentData = await getOrderPaymentStatus(id);
+        const pendingPayment = paymentData.payments?.reverse().find((p: any) => p.payment_status.toLowerCase() === 'pending');
+        
+        if (!pendingPayment) {
+          // Payment is no longer pending (either success or failed)
+          setPaymentInstructions(null);
+          // Reload the order to get the latest amountPaid, amountDue, and paymentStatus
+          const updatedOrder = await getBuyerOrderById(id);
+          if (updatedOrder) {
+            setOrder(updatedOrder);
+          }
+        }
+      } catch (err) {
+        console.error('Polling error:', err);
+      }
+    }
+
+    if (paymentInstructions) {
+      intervalId = setInterval(checkStatus, 5000);
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [id, paymentInstructions]);
+
+  const getStatusBadge = (order: BuyerOrder) => {
+    const status = order.status
+    let info = statusMap[status] || statusMap.pending
+
+    if (status === 'ready') {
+      const label = order.deliveryMethod === 'pickup' ? 'Siap Diambil' : 'Siap Dikirim'
+      info = { ...info, label }
+    }
 
     return (
       <span
@@ -193,7 +274,7 @@ export default function OrderDetailPage() {
               </p>
             </div>
 
-            {getStatusBadge(order.status)}
+            {getStatusBadge(order)}
           </div>
         </div>
 
@@ -301,6 +382,63 @@ export default function OrderDetailPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Bayar Sisa Tagihan */}
+                {order.paymentStatus === 'partial' && order.amountDue !== undefined && order.amountDue > 0 && !paymentInstructions && (
+                  <div className="mt-4 border-t border-[#ead8ca] pt-4">
+                    {!showPayRemaining ? (
+                      <button
+                        onClick={() => setShowPayRemaining(true)}
+                        className="flex h-10 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white transition hover:bg-[#c04e28]"
+                      >
+                        Bayar Sisa Tagihan
+                      </button>
+                    ) : (
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-semibold text-[#4b2417] mb-2">Pilih Metode Pelunasan</label>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setPayRemainingMethod('qris')}
+                              className={`flex-1 rounded-lg border-2 p-2 text-xs font-semibold ${payRemainingMethod === 'qris' ? 'border-[#d85b30] text-[#d85b30] bg-[#d85b30]/5' : 'border-gray-200 text-gray-600'}`}
+                            >
+                              QRIS
+                            </button>
+                            <button
+                              onClick={() => setPayRemainingMethod('bank_transfer')}
+                              className={`flex-1 rounded-lg border-2 p-2 text-xs font-semibold ${payRemainingMethod === 'bank_transfer' ? 'border-[#d85b30] text-[#d85b30] bg-[#d85b30]/5' : 'border-gray-200 text-gray-600'}`}
+                            >
+                              Bank Transfer
+                            </button>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setShowPayRemaining(false)}
+                            disabled={isPayingRemaining}
+                            className="flex-1 h-10 rounded-xl border border-gray-300 text-sm font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                          >
+                            Batal
+                          </button>
+                          <button
+                            onClick={handlePayRemaining}
+                            disabled={isPayingRemaining}
+                            className="flex-[2] flex h-10 items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white transition hover:bg-[#c04e28] disabled:opacity-60"
+                          >
+                            {isPayingRemaining ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Memproses...
+                              </>
+                            ) : (
+                              'Dapatkan Kode Bayar'
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {order.notes && (
@@ -456,6 +594,7 @@ export default function OrderDetailPage() {
 
                   {(order.status === 'processed' ||
                     order.status === 'shipped' ||
+                    order.status === 'ready' ||
                     order.status === 'completed') && (
                     <div className="flex items-center gap-3">
                       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
@@ -473,8 +612,24 @@ export default function OrderDetailPage() {
                     </div>
                   )}
 
-                  {(order.status === 'shipped' ||
+                  {(order.status === 'ready' ||
+                    order.status === 'shipped' ||
                     order.status === 'completed') && (
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-teal-100">
+                        <CheckCircle className="h-4 w-4 text-teal-600" />
+                      </div>
+
+                      <div>
+                        <p className="text-sm font-medium text-[#4b2417]">
+                          {order.deliveryMethod === 'pickup' ? 'Siap Diambil' : 'Siap Dikirim'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {(order.status === 'shipped' ||
+                    order.status === 'completed') && order.deliveryMethod !== 'pickup' && (
                     <div className="flex items-center gap-3">
                       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100">
                         <Truck className="h-4 w-4 text-purple-600" />

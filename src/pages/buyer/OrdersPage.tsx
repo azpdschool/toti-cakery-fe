@@ -47,6 +47,11 @@ const statusMap: Record<
     icon: CheckCircle,
     color: 'text-green-600 bg-green-50',
   },
+  ready: {
+    label: 'Siap',
+    icon: CheckCircle,
+    color: 'text-teal-600 bg-teal-50',
+  },
   cancelled: {
     label: 'Dibatalkan',
     icon: XCircle,
@@ -114,6 +119,7 @@ export default function OrdersPage() {
       const map: Record<string, OrderStatus> = {
         Menunggu: 'pending',
         Diproses: 'processed',
+        Siap: 'ready',
         Dikirim: 'shipped',
         Selesai: 'completed',
         Dibatalkan: 'cancelled',
@@ -125,8 +131,14 @@ export default function OrdersPage() {
     return result
   }, [orders, searchQuery, filterStatus])
 
-  const getStatusBadge = (status: OrderStatus) => {
-    const info = statusMap[status] || statusMap.pending
+  const getStatusBadge = (order: BuyerOrder) => {
+    const status = order.status
+    let info = statusMap[status] || statusMap.pending
+
+    if (status === 'ready') {
+      const label = order.deliveryMethod === 'pickup' ? 'Siap Diambil' : 'Siap Dikirim'
+      info = { ...info, label }
+    }
 
     return (
       <span
@@ -210,6 +222,7 @@ export default function OrdersPage() {
           <option value="Semua Status">Semua Status</option>
           <option value="Menunggu">Menunggu</option>
           <option value="Diproses">Diproses</option>
+          <option value="Siap">Siap</option>
           <option value="Dikirim">Dikirim</option>
           <option value="Selesai">Selesai</option>
           <option value="Dibatalkan">Dibatalkan</option>
@@ -264,7 +277,7 @@ export default function OrdersPage() {
                   {getMethodBadge(order.deliveryMethod)}
                 </div>
 
-                {getStatusBadge(order.status)}
+                {getStatusBadge(order)}
               </div>
 
               <div className="p-4">

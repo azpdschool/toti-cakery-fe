@@ -27,9 +27,14 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem(TOKEN_KEY)
-      localStorage.removeItem(USER_KEY)
-      window.dispatchEvent(new Event('auth:unauthorized'))
+      const url = error.config?.url || '';
+      const isPaymentPolling = /\/payments\/[^\/]+\/status/.test(url);
+
+      if (!isPaymentPolling) {
+        localStorage.removeItem(TOKEN_KEY)
+        localStorage.removeItem(USER_KEY)
+        window.dispatchEvent(new Event('auth:unauthorized'))
+      }
     }
 
     return Promise.reject(error)

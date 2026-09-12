@@ -47,6 +47,9 @@ export interface Order {
   customDesignFee?: number;
   createdVia?: string;
   invoiceId?: string;
+  amountPaid?: number;
+  amountDue?: number;
+  createdAt?: string;
 }
 
 export interface Invoice {
@@ -268,42 +271,60 @@ const delay = (ms = 300) => new Promise((resolve) => setTimeout(resolve, ms));
 
 import { apiClient } from '@/api/client';
 
-export async function getOrders(): Promise<Order[]> {
+export function mapOrderResponse(o: any): Order {
+  return {
+    id: o.id.toString(),
+    orderNumber: `#${o.id}`,
+    customerName: o.customer?.nama || 'Unknown Customer',
+    customerPhone: o.customer?.nomor_wa || '-',
+    address: o.customer?.alamat || '',
+    total: parseFloat(o.total_harga_pesanan) || 0,
+    date: new Date(o.created_at).toLocaleDateString('id-ID', {
+      day: 'numeric', month: 'long', year: 'numeric'
+    }),
+    time: new Date(o.created_at).toLocaleTimeString('id-ID', {
+      hour: '2-digit', minute: '2-digit'
+    }),
+    method: o.metode_pengiriman === 'pickup' ? 'Pickup' : 'Delivery Toko',
+    paymentMethod: o.payment_method_preference === 'full' ? 'LUNAS' : 'DP',
+    dueDate: o.due_date ? new Date(o.due_date).toLocaleDateString('id-ID') : '-',
+    status: o.status,
+    items: o.order_items?.map((item: any) => ({
+      id: item.id.toString(),
+      productName: item.custom_product_name || (item.product ? item.product.nama : `Product #${item.product_id}`),
+      quantity: item.jumlah,
+      price: parseFloat(item.subtotal) / (item.jumlah || 1),
+      total: parseFloat(item.subtotal)
+    })) || [],
+    notes: o.notes || '',
+    customDesignFee: 0,
+    invoiceId: o.invoice?.nomor_invoice || '',
+    createdVia: o.created_via,
+    // Extensions
+    amountPaid: o.amount_paid !== undefined && o.amount_paid !== null ? parseFloat(o.amount_paid) : undefined,
+    amountDue: o.amount_due !== undefined && o.amount_due !== null ? parseFloat(o.amount_due) : undefined,
+    createdAt: o.created_at,
+  } as any;
+}
+
+export async function getOrders(params?: { limit?: number; offset?: number; status?: string }): Promise<Order[]> {
   try {
-    const response = await apiClient.get('/orders');
-    return response.data.map((o: any) => ({
-      id: o.id.toString(),
-      orderNumber: `#${o.id}`,
-      customerName: o.customer?.nama || 'Unknown Customer',
-      customerPhone: o.customer?.nomor_wa || '-',
-      address: o.customer?.alamat || '',
-      total: parseFloat(o.total_harga_pesanan) || 0,
-      date: new Date(o.created_at).toLocaleDateString('id-ID', {
-        day: 'numeric', month: 'long', year: 'numeric'
-      }),
-      time: new Date(o.created_at).toLocaleTimeString('id-ID', {
-        hour: '2-digit', minute: '2-digit'
-      }),
-      method: o.metode_pengiriman === 'pickup' ? 'Pickup' : 'Delivery Toko',
-      paymentMethod: o.payment_method_preference === 'full' ? 'LUNAS' : 'DP',
-      dueDate: o.due_date ? new Date(o.due_date).toLocaleDateString('id-ID') : '-',
-      status: o.status,
-      items: o.order_items.map((item: any) => ({
-        id: item.id.toString(),
-        productName: item.custom_product_name || `Product #${item.product_id}`,
-        quantity: item.jumlah,
-        price: parseFloat(item.subtotal) / item.jumlah,
-        total: parseFloat(item.subtotal)
-      })),
-      notes: o.notes || '',
-      customDesignFee: 0,
-      invoiceId: o.invoice?.nomor_invoice || '',
-      createdVia: o.created_via,
-    }));
+    const response = await apiClient.get('/orders', { params });
+    return response.data.map(mapOrderResponse);
   } catch (error) {
     console.error('Failed to fetch orders:', error);
     return [];
   }
+}
+
+export async function getOrderById(id: string): Promise<Order> {
+  const response = await apiClient.get(`/orders/${id}`);
+  return mapOrderResponse(response.data);
+}
+
+export async function updateOrderStatus(id: string, status: OrderStatus): Promise<Order> {
+  const response = await apiClient.patch(`/orders/${id}/status`, { status });
+  return mapOrderResponse(response.data);
 }
 
 
@@ -402,15 +423,15 @@ export async function addOrder(orderData: any): Promise<Order> {
   const payload = {
     customer_name: orderData.customerName,
     customer_phone: orderData.customerPhone,
-    address: orderData.address,
+    customer_address: orderData.address,
     metode_pengiriman: orderData.deliveryMethod === 'Pickup' ? 'pickup' : 'delivery',
-    payment_method: orderData.paymentMethod === 'LUNAS' ? 'full' : 'dp',
+    payment_method_preference: orderData.paymentMethod === 'LUNAS' ? 'full' : 'dp',
     notes: orderData.notes,
     due_date: orderData.dueDate ? new Date(orderData.dueDate).toISOString() : null,
     items: orderData.items.map((item: any) => ({
       custom_product_name: item.name,
-      custom_price: item.price,
-      jumlah: item.qty,
+      price: item.price,
+      qty: item.qty,
       custom_decoration_charge: 0,
     }))
   };

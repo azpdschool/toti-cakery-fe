@@ -10,6 +10,8 @@ export interface BuyerOrderCreate {
   metode_pengiriman: string;
   items: OrderItemCreate[];
   created_via: string;
+  notes?: string;
+  payment_method_preference?: string;
 }
 
 export async function createBuyerOrderAPI(payload: BuyerOrderCreate) {
