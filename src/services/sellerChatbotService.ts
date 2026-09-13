@@ -14,7 +14,6 @@ export interface Faq {
   id: string
   question: string
   answer: string
-  category: string
   status: FaqStatus
   order: number
   updatedBy: {
@@ -33,23 +32,6 @@ export interface FaqStats {
   inactivePercentage: number
   usedInChatbot: number
 }
-
-export type FaqCategory =
-  | 'Umum'
-  | 'Pesanan'
-  | 'Pengiriman'
-  | 'Pembayaran'
-  | 'Produk'
-  | 'Lainnya'
-
-const categoryOptions: FaqCategory[] = [
-  'Umum',
-  'Pesanan',
-  'Pengiriman',
-  'Pembayaran',
-  'Produk',
-  'Lainnya',
-]
 
 function formatDateString(value?: string | null) {
   if (!value) return '-'
@@ -77,10 +59,6 @@ function mapFaqOutToFaq(item: FaqOut, index: number): Faq {
     id: String(item.id),
     question: item.pertanyaan,
     answer: item.jawaban,
-
-    // Backend FAQ kamu belum punya field category.
-    // Jadi sementara semua dibuat "Umum".
-    category: 'Umum',
 
     status: item.is_active ? 'active' : 'inactive',
 
@@ -123,10 +101,6 @@ export async function getChatbotStats(): Promise<FaqStats> {
     inactivePercentage,
     usedInChatbot: active,
   }
-}
-
-export async function getFaqCategories(): Promise<FaqCategory[]> {
-  return categoryOptions
 }
 
 export async function addFaq(

@@ -13,6 +13,8 @@ export interface ProductOut {
   markup_percentage: ApiDecimal | null;
   is_active: boolean;
   is_available: boolean;
+  stock_quantity?: number | null;
+  is_in_stock?: boolean | null;
 
   /**
    * PENTING:

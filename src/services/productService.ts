@@ -203,6 +203,8 @@ export function mapProductOutToProduct(product: ProductOut): Product {
 
     isActive: product.is_active,
     isAvailable: product.is_available,
+    stockQuantity: product.stock_quantity ?? 0,
+    isInStock: product.is_in_stock ?? false,
 
     rasa: null,
     ukuranAtauIsi: null,
@@ -246,17 +248,13 @@ export function mapProductOutToSimpleProduct(product: ProductOut): SimpleProduct
 
     isActive: mapped.isActive,
     isAvailable: mapped.isAvailable,
+    stockQuantity: mapped.stockQuantity,
+    isInStock: mapped.isInStock,
 
     rasa: mapped.rasa,
     ukuranAtauIsi: mapped.ukuranAtauIsi,
     parentCategory: mapped.parentCategory,
     minimumOrder: mapped.minimumOrder ?? 1,
-
-    /**
-     * Backend product belum punya stok numerik produk.
-     * Untuk sementara UI stok produk pakai ketersediaan recipe.
-     */
-    stock: mapped.isAvailable ? 999 : 0,
 
     status: mapped.isActive ? 'active' : 'inactive',
 

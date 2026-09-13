@@ -18,3 +18,9 @@ export async function createBuyerOrderAPI(payload: BuyerOrderCreate) {
   const response = await apiClient.post('/orders/buyer', payload);
   return response.data;
 }
+
+export async function downloadOrderInvoicePdfAPI(orderId: number | string) {
+  return apiClient.get(`/orders/${orderId}/invoice/pdf`, {
+    responseType: 'blob',
+  });
+}

@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import instagramIcon from '@/assets/instagram.png'
 import whatsappIcon from '@/assets/whatsapp.png'
+import { WHATSAPP_URL, WHATSAPP_NUMBER_DISPLAY } from '@/constants'
 
 export function BuyerFooter() {
   return (
@@ -105,14 +106,14 @@ export function BuyerFooter() {
 
               {/* WhatsApp */}
               <a
-                href="https://wa.me/6281234567890"
+                href={WHATSAPP_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 transition hover:opacity-80"
               >
                 <img src={whatsappIcon} alt="WhatsApp" className="h-7 w-7" />
                 <span className="text-xs text-[#6f5448] hover:text-[#d85b30]">
-                  +62 812-3456-7890
+                  {WHATSAPP_NUMBER_DISPLAY}
                 </span>
               </a>
             </div>

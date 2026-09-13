@@ -11,14 +11,18 @@ export interface CartItem {
   image: string;
   minOrder: number;
   step: number;
+  isAvailable?: boolean;
+  isInStock?: boolean;
+  stockQuantity?: number;
 }
 
 interface CartContextType {
   items: CartItem[];
-  addItem: (item: Omit<CartItem, 'quantity'> & { quantity?: number }) => void;
+  addItem: (item: Omit<CartItem, 'quantity' | 'isAvailable'> & { quantity?: number }) => void;
   removeItem: (productId: string, variantId: string) => void;
   updateQuantity: (productId: string, variantId: string, quantity: number) => void;
   clearCart: () => void;
+  updateMultipleAvailability: (availabilities: Record<string, { isAvailable?: boolean; isInStock?: boolean; stockQuantity?: number } | undefined>) => void;
   totalItems: number;
   totalPrice: number;
 }
@@ -32,7 +36,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     const stored = localStorage.getItem(CART_STORAGE_KEY);
     if (stored) {
       try {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        // We do NOT want to trust stored isAvailable permanently, 
+        // but we can load it. It will be refreshed by the Cart/Checkout page.
+        return parsed;
       } catch {
         return [];
       }
@@ -41,10 +48,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+    // We can omit isAvailable when storing to avoid stale cache on reload,
+    // or just store it and let the pages refresh it.
+    // The prompt says: "Jangan menyimpan isAvailable sebagai cache permanen yang bisa stale tanpa refresh."
+    // So we map it out before saving.
+    const itemsToStore = items.map(({ isAvailable, isInStock, stockQuantity, ...rest }) => rest);
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(itemsToStore));
   }, [items]);
 
-  const addItem = (item: Omit<CartItem, 'quantity'> & { quantity?: number }) => {
+  const addItem = (item: Omit<CartItem, 'quantity' | 'isAvailable'> & { quantity?: number }) => {
     setItems((prev) => {
       const existing = prev.find(
         (i) => i.productId === item.productId && i.variantId === item.variantId
@@ -52,11 +64,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (existing) {
         return prev.map((i) =>
           i.productId === item.productId && i.variantId === item.variantId
-            ? { ...i, quantity: i.quantity + (item.quantity || 1) }
+            ? { ...i, quantity: i.quantity + (item.quantity || 1), isAvailable: true, isInStock: true }
             : i
         );
       }
-      return [...prev, { ...item, quantity: item.quantity || 1 }];
+      return [...prev, { ...item, quantity: item.quantity || 1, isAvailable: true, isInStock: true }];
     });
   };
 
@@ -76,10 +88,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
     );
   };
 
+  const updateMultipleAvailability = (availabilities: Record<string, { isAvailable?: boolean; isInStock?: boolean; stockQuantity?: number } | undefined>) => {
+    setItems((prev) =>
+      prev.map((i) => {
+        const update = availabilities[i.productId];
+        return update !== undefined
+          ? { ...i, ...update }
+          : i;
+      })
+    );
+  };
+
   const clearCart = () => setItems([]);
 
-  const totalItems = items.reduce((sum, i) => sum + i.quantity, 0);
-  const totalPrice = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  // Only calculate total for available items
+  const totalItems = items.filter(i => i.isAvailable !== false && i.isInStock !== false && i.quantity <= (i.stockQuantity ?? Infinity)).reduce((sum, i) => sum + i.quantity, 0);
+  const totalPrice = items.filter(i => i.isAvailable !== false && i.isInStock !== false && i.quantity <= (i.stockQuantity ?? Infinity)).reduce((sum, i) => sum + i.price * i.quantity, 0);
 
   return (
     <CartContext.Provider
@@ -89,6 +113,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         removeItem,
         updateQuantity,
         clearCart,
+        updateMultipleAvailability,
         totalItems,
         totalPrice,
       }}

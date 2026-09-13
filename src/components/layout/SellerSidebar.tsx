@@ -6,7 +6,7 @@ import {
   Package,
   Boxes,
   Receipt,
-  Bot,
+  MessageCircleQuestion,
   Settings,
   LogOut,
 } from 'lucide-react'
@@ -48,8 +48,8 @@ const allMenuItems = [
   },
   {
     path: ROUTES.SELLER_CHATBOT,
-    label: 'Chatbot',
-    icon: Bot,
+    label: 'FAQ',
+    icon: MessageCircleQuestion,
     permission: 'manage_chatbot_faq',
   },
   {

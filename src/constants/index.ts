@@ -3,7 +3,9 @@
 export const API_BASE_URL = '/api'
 
 export const WHATSAPP_NUMBER =
-  import.meta.env.VITE_WHATSAPP_NUMBER ?? '6281234567890'
+  import.meta.env.VITE_WHATSAPP_NUMBER ?? '6282283088019'
+
+export const WHATSAPP_NUMBER_DISPLAY = `+${WHATSAPP_NUMBER.slice(0, 2)} ${WHATSAPP_NUMBER.slice(2, 5)}-${WHATSAPP_NUMBER.slice(5, 9)}-${WHATSAPP_NUMBER.slice(9)}`
 
 export const WHATSAPP_MESSAGE =
   'Halo Toti Cakery! Saya ingin bertanya tentang...'

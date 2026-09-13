@@ -38,8 +38,7 @@ export interface InventoryItem {
   stock: number;
 
   /**
-   * Backend belum punya minimum stock.
-   * FE pakai nilai turunan supaya status Aman/Menipis tetap bisa jalan.
+   * alert_min_stok dari backend.
    */
   minStock: number;
 
@@ -101,26 +100,10 @@ function mapFeUnitToApi(unit: InventoryUnit): StockUnitApi {
   return unit;
 }
 
-function getDefaultMinStock(unit: InventoryUnit): number {
-  switch (unit) {
-    case 'kg':
-      return 1;
-    case 'gram':
-      return 500;
-    case 'liter':
-      return 1;
-    case 'ml':
-      return 500;
-    case 'pcs':
-      return 10;
-    default:
-      return 1;
-  }
-}
-
 function mapStockOutToInventoryItem(item: StockOut): InventoryItem {
   const unit = mapApiUnitToFe(item.satuan);
   const stock = parseNumber(item.stok_tersedia);
+  const minStock = parseNumber(item.alert_min_stok);
 
   return {
     id: String(item.id),
@@ -128,7 +111,7 @@ function mapStockOutToInventoryItem(item: StockOut): InventoryItem {
     category: mapApiCategoryToFe(item.kategori),
     unit,
     stock,
-    minStock: getDefaultMinStock(unit),
+    minStock,
     pricePerUnit: parseNumber(item.harga_per_satuan),
     supplierId: item.supplier_id ?? null,
     createdAt: item.created_at ?? '',
@@ -145,6 +128,7 @@ function toStockCreatePayload(
     kategori: mapFeCategoryToApi(data.category),
     harga_per_satuan: data.pricePerUnit,
     stok_tersedia: data.stock,
+    alert_min_stok: data.minStock,
     supplier_id: data.supplierId,
   };
 }
@@ -159,6 +143,7 @@ function toStockUpdatePayload(
   if (data.category !== undefined) payload.kategori = mapFeCategoryToApi(data.category);
   if (data.pricePerUnit !== undefined) payload.harga_per_satuan = data.pricePerUnit;
   if (data.stock !== undefined) payload.stok_tersedia = data.stock;
+  if (data.minStock !== undefined) payload.alert_min_stok = data.minStock;
   if (data.supplierId !== undefined) payload.supplier_id = data.supplierId;
 
   return payload;

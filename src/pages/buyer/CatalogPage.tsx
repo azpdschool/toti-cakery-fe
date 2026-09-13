@@ -149,9 +149,28 @@ function ProductCard({ product, onAddToCart }: ProductCardProps) {
   const minOrder = variant?.minOrder || 1
   const step = variant?.step || 1
 
+  const isPurchasable = product.isAvailable && product.isInStock && product.stockQuantity > 0;
+  const maxQty = product.stockQuantity;
+
+  let badgeText = '';
+  if (!product.isAvailable) {
+    badgeText = 'Tidak tersedia';
+  } else if (!product.isInStock || maxQty <= 0) {
+    badgeText = 'Stok habis';
+  }
+
+  let stockText = '';
+  if (isPurchasable) {
+    if (maxQty <= 3) {
+      stockText = `Stok tersisa ${maxQty} pcs`;
+    } else {
+      stockText = `Tersedia ${maxQty} pcs`;
+    }
+  }
+
   const [quantity, setQuantity] = useState(minOrder)
 
-  const increment = () => setQuantity((prev) => prev + step)
+  const increment = () => setQuantity((prev) => Math.min(maxQty, prev + step))
   const decrement = () => setQuantity((prev) => Math.max(minOrder, prev - step))
 
   return (
@@ -169,9 +188,9 @@ function ProductCard({ product, onAddToCart }: ProductCardProps) {
             <span className="text-[#9C8478]">·</span>
             {product.soldCount} terjual
           </div>
-          {!product.isAvailable && (
+          {badgeText && (
             <div className="absolute left-2 top-2 rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white shadow">
-              Stok Bahan Habis
+              {badgeText}
             </div>
           )}
           {minOrder > 1 && (
@@ -193,6 +212,12 @@ function ProductCard({ product, onAddToCart }: ProductCardProps) {
         <p className="mt-0.5 text-xs font-medium text-[#6B4A3C]">
           {product.category}
         </p>
+        
+        {stockText && (
+          <p className="mt-0.5 text-xs font-semibold text-green-700">
+            {stockText}
+          </p>
+        )}
 
         <p className="mt-1.5 text-xs text-[#9C8478]">
           {variantCount} Varian Tersedia
@@ -206,7 +231,7 @@ function ProductCard({ product, onAddToCart }: ProductCardProps) {
         <div className="mt-3 flex items-center gap-2">
           <button
             onClick={decrement}
-            disabled={!product.isAvailable}
+            disabled={!isPurchasable || quantity <= minOrder}
             className="flex h-7 w-7 items-center justify-center rounded border border-[#D0BFAF] text-[#3A1F16] hover:bg-[#E8DCCB] disabled:opacity-40 disabled:cursor-not-allowed"
             aria-label="Kurangi jumlah"
           >
@@ -217,7 +242,7 @@ function ProductCard({ product, onAddToCart }: ProductCardProps) {
           </span>
           <button
             onClick={increment}
-            disabled={!product.isAvailable}
+            disabled={!isPurchasable || quantity >= maxQty}
             className="flex h-7 w-7 items-center justify-center rounded border border-[#D0BFAF] text-[#3A1F16] hover:bg-[#E8DCCB] disabled:opacity-40 disabled:cursor-not-allowed"
             aria-label="Tambah jumlah"
           >
@@ -232,18 +257,17 @@ function ProductCard({ product, onAddToCart }: ProductCardProps) {
 
         <button
           type="button"
-          disabled={!product.isAvailable}
+          disabled={!isPurchasable}
           onClick={() => onAddToCart(product, quantity)}
           className="mt-3 flex h-9 w-full items-center justify-center gap-1.5 rounded-md bg-[#9B4A2F] text-xs font-black text-white transition hover:bg-[#7E3A24] disabled:bg-gray-400 disabled:cursor-not-allowed"
         >
           <ShoppingCart className="h-3.5 w-3.5" />
-          {product.isAvailable ? 'Tambah ke Keranjang' : 'Stok Bahan Habis'}
+          {isPurchasable ? 'Tambah ke Keranjang' : badgeText}
         </button>
       </div>
     </article>
   )
 }
-
 // ============================================================
 // SEARCH BAR
 // ============================================================

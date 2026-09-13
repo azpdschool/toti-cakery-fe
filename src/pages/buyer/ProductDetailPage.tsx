@@ -67,6 +67,25 @@ export default function ProductDetailPage() {
 
   const variant = product.variants[0]
 
+  const isPurchasable = product.isAvailable && product.isInStock && product.stockQuantity > 0;
+  const maxQty = product.stockQuantity;
+
+  let badgeText = '';
+  if (!product.isAvailable) {
+    badgeText = '⚠️ Mohon maaf, produk ini sedang tidak tersedia.';
+  } else if (!product.isInStock || maxQty <= 0) {
+    badgeText = '⚠️ Mohon maaf, stok saat ini sedang habis. Produk ini sementara tidak dapat dipesan.';
+  }
+
+  let stockText = '';
+  if (isPurchasable) {
+    if (maxQty <= 3) {
+      stockText = `Stok tersisa ${maxQty} pcs`;
+    } else {
+      stockText = `Tersedia ${maxQty} pcs`;
+    }
+  }
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-12 md:grid md:grid-cols-2 md:gap-8">
       <div>
@@ -85,6 +104,13 @@ export default function ProductDetailPage() {
         <p className="text-3xl font-semibold text-amber-700">
           {formatRupiah(variant.price)}
         </p>
+        
+        {stockText && (
+          <p className="text-sm font-semibold text-green-700">
+            {stockText}
+          </p>
+        )}
+        
         {product.description && <p className="text-gray-600">{product.description}</p>}
 
         <div className="flex items-center gap-2">
@@ -97,24 +123,24 @@ export default function ProductDetailPage() {
           </span>
         </div>
 
-        {!product.isAvailable && (
+        {badgeText && (
           <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-            ⚠️ Stok bahan baku tidak mencukupi saat ini. Produk ini sementara tidak dapat dipesan.
+            {badgeText}
           </div>
         )}
 
         <div className="flex items-center gap-4 pt-4">
           <button
             onClick={() => setQuantity((q) => Math.max(variant.minOrder, q - variant.step))}
-            disabled={!product.isAvailable}
+            disabled={!isPurchasable || quantity <= variant.minOrder}
             className="rounded border px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             -
           </button>
           <span className="text-lg">{quantity}</span>
           <button
-            onClick={() => setQuantity((q) => q + variant.step)}
-            disabled={!product.isAvailable}
+            onClick={() => setQuantity((q) => Math.min(maxQty, q + variant.step))}
+            disabled={!isPurchasable || quantity >= maxQty}
             className="rounded border px-3 py-1 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             +
@@ -126,10 +152,10 @@ export default function ProductDetailPage() {
 
         <button
           onClick={handleAddToCart}
-          disabled={!product.isAvailable}
+          disabled={!isPurchasable}
           className="w-full rounded-lg bg-amber-600 px-6 py-3 text-white transition hover:bg-amber-700 disabled:bg-gray-400 disabled:cursor-not-allowed md:w-auto"
         >
-          {product.isAvailable ? 'Tambahkan ke Keranjang' : 'Stok Bahan Habis'}
+          {isPurchasable ? 'Tambahkan ke Keranjang' : (product.isAvailable ? 'Stok Habis' : 'Tidak tersedia')}
         </button>
 
         <div className="mt-6 rounded-lg border border-[#25D366]/30 bg-[#25D366]/5 p-4">

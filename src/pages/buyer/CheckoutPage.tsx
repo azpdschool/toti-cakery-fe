@@ -17,7 +17,7 @@ import {
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/hooks/useAuth';
 import { formatRupiah } from '@/services/productService';
-import { createOrder, processPayment, type DeliveryMethod, type PaymentMethod } from '@/services/buyerOrderService';
+import { createOrder, processPayment, getOrderPaymentStatus, type DeliveryMethod, type PaymentMethod } from '@/services/buyerOrderService';
 import { ROUTES } from '@/constants';
 
 type CheckoutStep = 'form' | 'payment' | 'success';
@@ -25,7 +25,7 @@ type CheckoutStep = 'form' | 'payment' | 'success';
 export default function CheckoutPage() {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const { items, totalPrice, clearCart } = useCart();
+  const { items, totalPrice, clearCart, updateMultipleAvailability } = useCart();
 
   // Protected route
   useEffect(() => {
@@ -34,18 +34,43 @@ export default function CheckoutPage() {
     }
   }, [isAuthenticated, navigate]);
 
-  useEffect(() => {
-    if (items.length === 0 && isAuthenticated) {
-      navigate('/catalog');
-    }
-  }, [items, isAuthenticated, navigate]);
-
   const [step, setStep] = useState<CheckoutStep>('form');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [midtransMethod, setMidtransMethod] = useState<'qris' | 'bank_transfer'>('qris');
   const [paymentResult, setPaymentResult] = useState<any>(null);
+  const [finalPayableAmount, setFinalPayableAmount] = useState<number>(0);
+
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+
+    if (paymentResult && orderId) {
+      intervalId = setInterval(async () => {
+        try {
+          const status = await getOrderPaymentStatus(orderId);
+          if (status.invoice_status === 'paid' || status.invoice_status === 'partial') {
+            clearInterval(intervalId);
+            navigate(`/orders/${orderId}`);
+          }
+        } catch (err: any) {
+          console.error('Failed to poll payment status:', err);
+          // Only stop polling if we get a 4xx error that is not 401 (401 might be transient as per user prompt "jangan logout hanya karena transient 401")
+          // But actually, we just let it retry next tick.
+        }
+      }, 3000);
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [paymentResult, orderId, navigate]);
+
+  useEffect(() => {
+    if (items.length === 0 && isAuthenticated && step === 'form') {
+      navigate('/catalog');
+    }
+  }, [items, isAuthenticated, navigate, step]);
 
   const [formData, setFormData] = useState({
     deliveryMethod: 'pickup' as DeliveryMethod,
@@ -75,6 +100,13 @@ export default function CheckoutPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    // Initial check against frontend state
+    const hasUnavailableItems = items.some(item => item.isAvailable === false);
+    if (hasUnavailableItems) {
+      setError('Terdapat produk yang sudah tidak tersedia di keranjang Anda. Silakan kembali ke keranjang untuk menghapusnya.');
+      return;
+    }
 
     if (formData.deliveryMethod !== 'pickup') {
       if (!formData.address.trim()) {
@@ -119,10 +151,35 @@ export default function CheckoutPage() {
       });
 
       setOrderId(order.id);
+      setFinalPayableAmount(payableAmount);
       setStep('payment');
     } catch (err: any) {
       if (err.response?.status === 400) {
-        setError('Stok tidak mencukupi atau pesanan tidak valid.');
+        setError('Mohon maaf, beberapa produk di keranjang Anda sudah tidak tersedia atau stok tidak mencukupi. Silakan kembali ke keranjang untuk memperbarui pesanan Anda.');
+        // Refresh availability on error
+        try {
+          const { getProductByBackendId } = await import('@/services/productService');
+          const availabilities: Record<string, { isAvailable?: boolean; isInStock?: boolean; stockQuantity?: number } | undefined> = {};
+          await Promise.all(
+            items.map(async (item) => {
+              try {
+                const product = await getProductByBackendId(Number(item.productId));
+                availabilities[item.productId] = {
+                  isAvailable: product.isAvailable && product.isActive,
+                  isInStock: product.isInStock,
+                  stockQuantity: product.stockQuantity,
+                };
+              } catch (error) {
+                availabilities[item.productId] = undefined;
+              }
+            })
+          );
+          if (updateMultipleAvailability) {
+            updateMultipleAvailability(availabilities);
+          }
+        } catch (refreshErr) {
+          console.error('Failed to refresh availability after 400 error', refreshErr);
+        }
       } else if (err.response?.status === 409) {
         setError('Terdapat tagihan/order aktif yang belum diselesaikan. Anda tidak dapat membuat order baru.');
       } else {
@@ -145,7 +202,7 @@ export default function CheckoutPage() {
         orderId, 
         midtransMethod, 
         formData.paymentMethod, // 'lunas' or 'dp' mapping to 'full' or 'dp'
-        payableAmount
+        finalPayableAmount || payableAmount
       );
       
       const resultStatus = String(result.status ?? '').toLowerCase();
@@ -195,7 +252,7 @@ export default function CheckoutPage() {
               <span className="text-sm text-[#6f5448]">
                 {formData.paymentMethod === 'dp' ? 'Total DP (50%)' : 'Total Pembayaran'}
               </span>
-              <span className="text-2xl font-black text-[#d85b30]">{formatRupiah(payableAmount)}</span>
+              <span className="text-2xl font-black text-[#d85b30]">{formatRupiah(finalPayableAmount || payableAmount)}</span>
             </div>
           </div>
 

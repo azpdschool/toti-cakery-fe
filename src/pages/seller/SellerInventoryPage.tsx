@@ -387,7 +387,7 @@ function StockModal({
               className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
             />
             <p className="mt-1 text-xs text-[#8b7166]">
-              Catatan: backend belum punya kolom minimum stock, jadi nilai ini hanya untuk UI sementara.
+              Notifikasi peringatan stok rendah akan muncul jika stok di bawah batas ini.
             </p>
           </div>
 
@@ -494,12 +494,12 @@ export default function SellerInventoryPage() {
     if (filterStatus !== 'Semua Status') {
       if (filterStatus === 'Aman') {
         result = result.filter((item) => item.stock > item.minStock);
-      } else if (filterStatus === 'Menipis') {
+      } else if (filterStatus === 'Stok Rendah') {
         result = result.filter(
           (item) => item.stock <= item.minStock && item.stock > 0
         );
       } else if (filterStatus === 'Habis') {
-        result = result.filter((item) => item.stock === 0);
+        result = result.filter((item) => item.stock <= 0);
       }
     }
 
@@ -511,22 +511,25 @@ export default function SellerInventoryPage() {
   const paginatedItems = filteredItems.slice(startIndex, startIndex + itemsPerPage);
 
   const getStatus = (item: InventoryItem) => {
-    if (item.stock === 0) {
+    if (item.stock <= 0) {
       return {
         label: 'Habis',
+        icon: '🔴',
         className: 'bg-red-100 text-red-700',
       };
     }
 
-    if (item.stock <= item.minStock) {
+    if (item.stock > 0 && item.stock <= item.minStock) {
       return {
-        label: 'Menipis',
+        label: 'Stok Rendah',
+        icon: '🟡',
         className: 'bg-yellow-100 text-yellow-700',
       };
     }
 
     return {
       label: 'Aman',
+      icon: '🟢',
       className: 'bg-green-100 text-green-700',
     };
   };
@@ -635,8 +638,15 @@ export default function SellerInventoryPage() {
       </div>
 
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
+        <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <span>{error}</span>
+          <button
+            type="button"
+            onClick={loadInventory}
+            className="rounded border border-red-300 px-3 py-1 text-xs font-bold hover:bg-red-100"
+          >
+            Retry
+          </button>
         </div>
       )}
 
@@ -650,17 +660,17 @@ export default function SellerInventoryPage() {
         />
 
         <StatCard
-          title="Stok Aman"
+          title="Aman"
           value={stats?.safeStock || 0}
-          subtitle="Stok mencukupi"
+          subtitle={`${stats?.safeStock || 0} bahan`}
           icon={CheckCircle}
           color="bg-green-50 text-green-700"
         />
 
         <StatCard
-          title="Stok Menipis"
+          title="Stok Rendah"
           value={stats?.lowStock || 0}
-          subtitle="Perlu restock"
+          subtitle={`${stats?.lowStock || 0} bahan`}
           icon={AlertTriangle}
           color="bg-yellow-50 text-yellow-700"
         />
@@ -668,7 +678,7 @@ export default function SellerInventoryPage() {
         <StatCard
           title="Stok Habis"
           value={stats?.emptyStock || 0}
-          subtitle="Segera restock"
+          subtitle={`${stats?.emptyStock || 0} bahan`}
           icon={XCircle}
           color="bg-red-50 text-red-700"
         />
@@ -704,7 +714,7 @@ export default function SellerInventoryPage() {
           >
             <option value="Semua Status">Semua Status</option>
             <option value="Aman">Aman</option>
-            <option value="Menipis">Menipis</option>
+            <option value="Stok Rendah">Stok Rendah</option>
             <option value="Habis">Habis</option>
           </select>
 
@@ -782,11 +792,19 @@ export default function SellerInventoryPage() {
                       </td>
 
                       <td className="py-3 pr-4">
-                        <span
-                          className={`inline-block rounded-full px-2 py-0.5 text-xs font-bold ${status.className}`}
-                        >
-                          {status.label}
-                        </span>
+                        <div className="flex flex-col items-start gap-1">
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold ${status.className}`}
+                          >
+                            <span>{status.icon}</span>
+                            <span>{status.label}</span>
+                          </span>
+                          {status.label === 'Stok Rendah' && (
+                            <span className="text-[10px] text-[#8b7166]">
+                              Minimum: {item.minStock} {item.unit}
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       <td className="py-3 text-right">

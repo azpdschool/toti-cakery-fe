@@ -16,6 +16,8 @@ import {
   Loader2,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
+import { downloadInvoice } from '@/services/invoiceService'
+import { Download } from 'lucide-react'
 import { formatRupiah } from '@/services/productService'
 import {
   getBuyerOrderById,
@@ -83,6 +85,20 @@ export default function OrderDetailPage() {
   const [showPayRemaining, setShowPayRemaining] = useState(false)
   const [payRemainingMethod, setPayRemainingMethod] = useState<'qris' | 'bank_transfer'>('qris')
   const [isPayingRemaining, setIsPayingRemaining] = useState(false)
+  const [isDownloading, setIsDownloading] = useState(false)
+
+  const handleDownloadInvoice = async () => {
+    if (!order) return;
+    setIsDownloading(true);
+    setError(null);
+    try {
+      await downloadInvoice(order.id);
+    } catch (err: any) {
+      setError(err.message || 'Gagal mengunduh invoice.');
+    } finally {
+      setIsDownloading(false);
+    }
+  }
 
   const handlePayRemaining = async () => {
     if (!order || !order.amountDue) return;
@@ -274,7 +290,26 @@ export default function OrderDetailPage() {
               </p>
             </div>
 
-            {getStatusBadge(order)}
+            <div className="flex items-center gap-3">
+              {getStatusBadge(order)}
+              <button
+                onClick={handleDownloadInvoice}
+                disabled={isDownloading}
+                className="flex items-center gap-1.5 rounded-lg border border-[#d85b30] bg-white px-3 py-1.5 text-xs font-semibold text-[#d85b30] transition hover:bg-[#fff9f6] disabled:opacity-50"
+              >
+                {isDownloading ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Mengunduh...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-3.5 w-3.5" />
+                    Unduh Invoice
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
 

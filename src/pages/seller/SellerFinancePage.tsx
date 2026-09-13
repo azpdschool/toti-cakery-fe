@@ -156,18 +156,52 @@ export default function SellerFinancePage() {
       const sd = startDate || undefined;
       const ed = endDate || undefined;
 
-      const [statsData, analyticsData, categoriesData, expensesData] = await Promise.all([
+      const [statsRes, analyticsRes, categoriesRes, expensesRes] = await Promise.allSettled([
         getFinanceStats(sd, ed),
         getAnalyticsSummary(sd, ed),
         getExpenseCategories(sd, ed),
         getExpenseList({ start_date: sd, end_date: ed })
       ]);
-      setStats(statsData);
-      setAnalytics(analyticsData);
-      setExpenseCategories(categoriesData);
-      setExpenses(expensesData);
+
+      let anySuccess = false;
+
+      if (statsRes.status === 'fulfilled') {
+        setStats(statsRes.value);
+        anySuccess = true;
+      } else {
+        console.error('Failed to load finance stats:', statsRes.reason);
+        setStats(null); // Explicitly set to null if failed
+      }
+
+      if (analyticsRes.status === 'fulfilled') {
+        setAnalytics(analyticsRes.value);
+        anySuccess = true;
+      } else {
+        console.error('Failed to load analytics:', analyticsRes.reason);
+        setAnalytics(null);
+      }
+
+      if (categoriesRes.status === 'fulfilled') {
+        setExpenseCategories(categoriesRes.value);
+        anySuccess = true;
+      } else {
+        console.error('Failed to load expense categories:', categoriesRes.reason);
+        setExpenseCategories([]);
+      }
+
+      if (expensesRes.status === 'fulfilled') {
+        setExpenses(expensesRes.value);
+        anySuccess = true;
+      } else {
+        console.error('Failed to load expenses list:', expensesRes.reason);
+        setExpenses([]);
+      }
+
+      if (!anySuccess) {
+        setError(t('finance.error'));
+      }
     } catch (err) {
-      console.error('Failed to load finance data:', err);
+      console.error('Unexpected error in loadData:', err);
       setError(t('finance.error'));
     } finally {
       setLoading(false);

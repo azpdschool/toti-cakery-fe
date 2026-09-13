@@ -38,9 +38,9 @@ npm install
 ### 3. (Opsional) Buat File Environment
 Buat file `.env` di root folder jika ingin mengubah nomor WhatsApp default:
 ```env
-VITE_WHATSAPP_NUMBER=6281234567890
+VITE_WHATSAPP_NUMBER=6282283088019
 ```
-> Jika tidak dibuat, aplikasi akan menggunakan nomor fallback `6281234567890`.
+> Jika tidak dibuat, aplikasi akan menggunakan nomor fallback `6282283088019`.
 
 ### 4. Jalankan Development Server
 ```bash

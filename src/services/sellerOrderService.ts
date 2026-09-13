@@ -286,7 +286,7 @@ export function mapOrderResponse(o: any): Order {
       hour: '2-digit', minute: '2-digit'
     }),
     method: o.metode_pengiriman === 'pickup' ? 'Pickup' : 'Delivery Toko',
-    paymentMethod: o.payment_method_preference === 'full' ? 'LUNAS' : 'DP',
+    paymentMethod: ['full', 'lunas'].includes(o.payment_method_preference) ? 'LUNAS' : 'DP',
     dueDate: o.due_date ? new Date(o.due_date).toLocaleDateString('id-ID') : '-',
     status: o.status,
     items: o.order_items?.map((item: any) => ({
@@ -451,7 +451,7 @@ export async function addOrder(orderData: any): Promise<Order> {
         hour: '2-digit', minute: '2-digit'
       }),
       method: o.metode_pengiriman === 'pickup' ? 'Pickup' : 'Delivery Toko',
-      paymentMethod: o.payment_method_preference === 'full' ? 'LUNAS' : 'DP',
+      paymentMethod: ['full', 'lunas'].includes(o.payment_method_preference) ? 'LUNAS' : 'DP',
       dueDate: o.due_date ? new Date(o.due_date).toLocaleDateString('id-ID') : '-',
       status: o.status,
       items: [],

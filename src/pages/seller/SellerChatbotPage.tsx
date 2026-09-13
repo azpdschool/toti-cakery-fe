@@ -20,10 +20,8 @@ import {
   updateFaq,
   deleteFaq,
   toggleFaqStatus,
-  getFaqCategories,
   type Faq,
   type FaqStatus,
-  type FaqCategory,
 } from '@/services/sellerChatbotService';
 import { hasPermission } from '@/services/rbacService';
 import { useAuth } from '@/hooks/useAuth';
@@ -65,14 +63,12 @@ interface FaqModalProps {
   onClose: () => void;
   onSave: (data: any) => void;
   initialData?: Faq | null;
-  categories: string[];
 }
 
-function FaqModal({ isOpen, onClose, onSave, initialData, categories }: FaqModalProps) {
+function FaqModal({ isOpen, onClose, onSave, initialData }: FaqModalProps) {
   const [formData, setFormData] = useState({
     question: '',
     answer: '',
-    category: categories[0] || 'Umum',
     status: 'active' as FaqStatus,
   });
 
@@ -81,18 +77,16 @@ function FaqModal({ isOpen, onClose, onSave, initialData, categories }: FaqModal
       setFormData({
         question: initialData.question,
         answer: initialData.answer,
-        category: initialData.category,
         status: initialData.status,
       });
     } else {
       setFormData({
         question: '',
         answer: '',
-        category: categories[0] || 'Umum',
         status: 'active',
       });
     }
-  }, [initialData, categories, isOpen]);
+  }, [initialData, isOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -144,23 +138,6 @@ function FaqModal({ isOpen, onClose, onSave, initialData, categories }: FaqModal
                 onChange={(e) => setFormData({ ...formData, answer: e.target.value })}
                 className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
               />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-[#4b2417]">Kategori</label>
-              <select
-                value={formData.category}
-                onChange={(e) =>
-                  setFormData({ ...formData, category: e.target.value as FaqCategory })
-                }
-                className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
-              >
-                {categories.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
-                  </option>
-                ))}
-              </select>
             </div>
 
             <div>
@@ -231,10 +208,8 @@ export default function SellerChatbotPage() {
     inactivePercentage: number;
     usedInChatbot: number;
   } | null>(null);
-  const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterCategory, setFilterCategory] = useState('Semua Kategori');
   const [filterStatus, setFilterStatus] = useState('Semua Status');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
@@ -245,17 +220,15 @@ export default function SellerChatbotPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [faqsData, statsData, categoriesData] = await Promise.all([
+      const [faqsData, statsData] = await Promise.all([
         getChatbotFaqs(),
         getChatbotStats(),
-        getFaqCategories(),
       ]);
 
       const sorted = [...faqsData].sort((a, b) => a.order - b.order);
 
       setFaqs(sorted);
       setStats(statsData);
-      setCategories(['Semua Kategori', ...categoriesData]);
     } catch (error) {
       console.error('Gagal memuat data FAQ:', error);
       alert('Gagal memuat data FAQ dari backend.');
@@ -276,18 +249,14 @@ export default function SellerChatbotPage() {
       result = result.filter(
         (f) =>
           f.question.toLowerCase().includes(q) ||
-          f.answer.toLowerCase().includes(q) ||
-          f.category.toLowerCase().includes(q)
+          f.answer.toLowerCase().includes(q)
       );
-    }
-    if (filterCategory !== 'Semua Kategori') {
-      result = result.filter((f) => f.category === filterCategory);
     }
     if (filterStatus !== 'Semua Status') {
       result = result.filter((f) => f.status === filterStatus);
     }
     return result;
-  }, [faqs, searchQuery, filterCategory, filterStatus]);
+  }, [faqs, searchQuery, filterStatus]);
 
   const totalPages = Math.ceil(filteredFaqs.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -366,10 +335,13 @@ export default function SellerChatbotPage() {
     );
   }
 
-  const categoryOptions = categories.filter((c) => c !== 'Semua Kategori');
-
   return (
     <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-black text-[#4b2417]">Manajemen FAQ</h1>
+        <p className="mt-1 text-sm text-[#6f5448]">Kelola pertanyaan yang sering ditanyakan untuk ditampilkan di Chatbot Customer</p>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total FAQ"
@@ -414,18 +386,6 @@ export default function SellerChatbotPage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <select
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-            className="rounded-lg border border-[#d0bfaf] px-3 py-2 text-sm outline-none focus:border-[#d85b30]"
-          >
-            {categories.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
-          </select>
-
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
@@ -569,7 +529,6 @@ export default function SellerChatbotPage() {
           onClose={closeModal}
           onSave={editingFaq ? handleEdit : handleAdd}
           initialData={editingFaq}
-          categories={categoryOptions}
         />
       )}
     </div>

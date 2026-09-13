@@ -67,6 +67,8 @@ export interface Product {
 
   isActive: boolean;
   isAvailable: boolean;
+  stockQuantity: number;
+  isInStock: boolean;
 
   rasa: string | null;
   ukuranAtauIsi: string | null;
@@ -115,13 +117,14 @@ export interface SimpleProduct {
 
   isActive: boolean;
   isAvailable: boolean;
+  stockQuantity: number;
+  isInStock: boolean;
 
   rasa: string | null;
   ukuranAtauIsi: string | null;
   parentCategory: string | null;
   minimumOrder?: number;
 
-  stock: number;
   status: 'active' | 'inactive';
 
   createdAt: string | null;

@@ -10,14 +10,15 @@ import {
   X,
   ChevronDown,
   Calendar,
-  MessageCircle,
   DollarSign,
   Truck,
   CheckCircle,
   Clock,
   AlertCircle,
+  Download,
 } from 'lucide-react';
 import { formatRupiah } from '@/services/productService';
+import { downloadInvoice } from '@/services/invoiceService';
 import {
   getOrders,
   getOrderStats,
@@ -411,6 +412,19 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
   const [error, setError] = useState('');
   const [updating, setUpdating] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus | ''>('');
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownloadInvoice = async () => {
+    if (!orderId) return;
+    setIsDownloading(true);
+    try {
+      await downloadInvoice(orderId);
+    } catch (err: any) {
+      alert(err.message || 'Gagal mengunduh invoice.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   useEffect(() => {
     if (isOpen && orderId) {
@@ -455,7 +469,28 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
         <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-2xl font-black text-[#4b2417]">Detail Pesanan</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-black text-[#4b2417]">Detail Pesanan</h2>
+            {order && (
+              <button
+                onClick={handleDownloadInvoice}
+                disabled={isDownloading}
+                className="flex items-center gap-1.5 rounded-lg border border-[#d85b30] bg-white px-3 py-1.5 text-xs font-semibold text-[#d85b30] transition hover:bg-[#fff9f6] disabled:opacity-50"
+              >
+                {isDownloading ? (
+                  <>
+                    <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#d85b30] border-t-transparent" />
+                    Mengunduh...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-3.5 w-3.5" />
+                    Unduh Invoice
+                  </>
+                )}
+              </button>
+            )}
+          </div>
           <button onClick={onClose} className="rounded-full p-1 hover:bg-gray-100">
             <X className="h-6 w-6" />
           </button>
@@ -494,6 +529,18 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
               <div>
                 <p className="text-gray-500">Preferensi Pembayaran</p>
                 <p className="font-semibold">{order.paymentMethod}</p>
+              </div>
+              <div>
+                <p className="text-gray-500">Status Pembayaran</p>
+                <p className="font-semibold">
+                  {order.amountPaid !== undefined
+                    ? order.amountDue === 0 
+                      ? 'Lunas' 
+                      : order.amountPaid > 0 
+                        ? 'DP' 
+                        : 'Belum Dibayar'
+                    : 'Belum Dibayar'}
+                </p>
               </div>
               <div>
                 <p className="text-gray-500">Catatan</p>
@@ -592,6 +639,19 @@ export default function SellerOrdersPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedDetailOrderId, setSelectedDetailOrderId] = useState<string | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [downloadingRowId, setDownloadingRowId] = useState<string | null>(null);
+
+  const handleQuickDownload = async (orderId: string) => {
+    if (downloadingRowId) return; // Prevent double click or multiple simultaneous downloads
+    setDownloadingRowId(orderId);
+    try {
+      await downloadInvoice(orderId);
+    } catch (err: any) {
+      alert(err.message || 'Gagal mengunduh invoice.');
+    } finally {
+      setDownloadingRowId(null);
+    }
+  };
 
   useEffect(() => {
     async function loadData() {
@@ -832,8 +892,17 @@ export default function SellerOrdersPage() {
                               <button onClick={() => { setSelectedDetailOrderId(order.id); setShowDetailModal(true); }} className="rounded p-1 text-[#6f5448] hover:bg-gray-100">
                                 <Edit className="h-4 w-4" />
                               </button>
-                              <button className="rounded p-1 text-[#25D366] hover:bg-green-50">
-                                <MessageCircle className="h-4 w-4" />
+                              <button
+                                onClick={() => handleQuickDownload(order.id)}
+                                disabled={downloadingRowId === order.id}
+                                title="Unduh Invoice"
+                                className="rounded p-1 text-[#d85b30] hover:bg-[#fff9f6] disabled:opacity-50"
+                              >
+                                {downloadingRowId === order.id ? (
+                                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#d85b30] border-t-transparent" />
+                                ) : (
+                                  <Download className="h-4 w-4" />
+                                )}
                               </button>
                             </>
                           )}

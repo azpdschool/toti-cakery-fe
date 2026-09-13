@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, Loader2, AlertCircle, CheckCircle, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Loader2, AlertCircle, CheckCircle, Pencil, Trash2, FileText } from 'lucide-react'
+import RecipeManagementModal from './RecipeManagementModal'
 import { useAuth } from '@/hooks/useAuth'
 import {
   createProduct,
@@ -28,6 +29,9 @@ export default function SellerProductsPage() {
   const [success, setSuccess] = useState<string | null>(null)
 
   const [editId, setEditId] = useState<number | null>(null)
+  const [editIsAvailable, setEditIsAvailable] = useState<boolean | null>(null)
+  const [recipeModalProduct, setRecipeModalProduct] = useState<{id: number, name: string} | null>(null)
+
 
   const defaultFormState: ProductCreate = {
     nama_produk: '',
@@ -67,6 +71,7 @@ export default function SellerProductsPage() {
 
   const handleAddClick = () => {
     setEditId(null)
+    setEditIsAvailable(null)
     setFormData(defaultFormState)
     setIsFormOpen(!isFormOpen)
     setError(null)
@@ -75,6 +80,7 @@ export default function SellerProductsPage() {
 
   const handleEditClick = (product: SimpleProduct) => {
     setEditId(product.backendId)
+    setEditIsAvailable(product.isAvailable)
     setFormData({
       nama_produk: product.name,
       deskripsi: product.description || '',
@@ -147,6 +153,7 @@ export default function SellerProductsPage() {
       setIsFormOpen(false)
       setFormData(defaultFormState)
       setEditId(null)
+      setEditIsAvailable(null)
       fetchProducts()
     } catch (err) {
       console.error(err)
@@ -289,12 +296,38 @@ export default function SellerProductsPage() {
                   </label>
                 </div>
               </div>
+
+              {editId && editIsAvailable !== null && (
+                <div>
+                  <label className="mb-1 block text-sm font-semibold text-[#4b2417]">
+                    Ketersediaan
+                  </label>
+                  <div className="mt-2 flex items-center gap-1.5">
+                    {editIsAvailable ? (
+                      <>
+                        <span className="text-green-500 text-sm">🟢</span>
+                        <span className="text-sm font-medium text-gray-700">Dapat Dipesan</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-red-500 text-sm">🔴</span>
+                        <span className="text-sm font-medium text-gray-700">Tidak Tersedia</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="mt-6 flex justify-end gap-3 border-t border-[#ead8ca] pt-4">
               <button
                 type="button"
-                onClick={() => setIsFormOpen(false)}
+                onClick={() => {
+                  setIsFormOpen(false)
+                  setEditId(null)
+                  setEditIsAvailable(null)
+                  setFormData(defaultFormState)
+                }}
                 className="rounded-xl px-4 py-2 text-sm font-semibold text-[#6f5448] transition hover:bg-gray-100"
               >
                 {t('products.cancel_button')}
@@ -335,6 +368,7 @@ export default function SellerProductsPage() {
                     <th className="px-4 py-3 font-semibold">{t('products.col_price')}</th>
                     <th className="px-4 py-3 font-semibold">{t('products.col_min_order')}</th>
                     <th className="px-4 py-3 font-semibold">{t('products.col_status')}</th>
+                    <th className="px-4 py-3 font-semibold">Ketersediaan</th>
                     <th className="px-4 py-3 font-semibold rounded-tr-xl text-center">{t('products.col_actions')}</th>
                   </tr>
                 </thead>
@@ -354,10 +388,32 @@ export default function SellerProductsPage() {
                           {product.isActive ? t('products.status_active') : t('products.status_inactive')}
                         </span>
                       </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1.5">
+                          {product.isAvailable ? (
+                            <>
+                              <span className="text-green-500 text-sm">🟢</span>
+                              <span className="text-sm font-medium text-gray-700">Dapat Dipesan</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-red-500 text-sm">🔴</span>
+                              <span className="text-sm font-medium text-gray-700">Tidak Tersedia</span>
+                            </>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-2">
                           {canManageProducts && (
                             <>
+                              <button
+                                onClick={() => setRecipeModalProduct({id: product.backendId, name: product.name})}
+                                className="rounded-lg p-2 text-blue-600 hover:bg-blue-50 transition-colors"
+                                title="Kelola Resep"
+                              >
+                                <FileText className="h-4 w-4" />
+                              </button>
                               <button
                                 onClick={() => handleEditClick(product)}
                                 className="rounded-lg p-2 text-[#d85b30] hover:bg-[#f8eee5] transition-colors"
@@ -383,6 +439,17 @@ export default function SellerProductsPage() {
             </div>
           )}
         </div>
+      )}
+
+      {recipeModalProduct && (
+        <RecipeManagementModal
+          productId={recipeModalProduct.id}
+          productName={recipeModalProduct.name}
+          onClose={() => {
+            setRecipeModalProduct(null)
+            fetchProducts()
+          }}
+        />
       )}
     </div>
   )
