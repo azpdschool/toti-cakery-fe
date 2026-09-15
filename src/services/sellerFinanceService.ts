@@ -11,6 +11,8 @@ import type { ExpenseDetailResponse, ExpenseCreate } from '@/types/expense';
 export interface FinanceStats {
   totalRevenue: number;
   totalExpenses: number;
+  totalHppCost: number;
+  grossProfit: number;
   netProfit: number;
 }
 
@@ -44,6 +46,8 @@ export async function getFinanceStats(startDate?: string, endDate?: string): Pro
   return {
     totalRevenue: data.total_revenue,
     totalExpenses: data.total_expenses,
+    totalHppCost: data.total_hpp_cost,
+    grossProfit: data.gross_profit,
     netProfit: data.net_profit,
   };
 }

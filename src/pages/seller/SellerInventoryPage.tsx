@@ -13,6 +13,7 @@ import {
   Eye,
   Trash2,
   X,
+  DollarSign,
 } from 'lucide-react';
 import {
   getInventoryItems,
@@ -92,7 +93,7 @@ function normalizeDecimalInput(value: string): number {
 
 interface StatCardProps {
   title: string;
-  value: number;
+  value: string | number;
   subtitle: string;
   icon: React.ElementType;
   color: string;
@@ -650,17 +651,17 @@ export default function SellerInventoryPage() {
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
           title="Total Item"
           value={stats?.totalItems || 0}
-          subtitle="Semua bahan & kemasan"
+          subtitle={`${stats?.totalItems || 0} jenis bahan`}
           icon={Package}
           color="bg-blue-50 text-blue-700"
         />
 
         <StatCard
-          title="Aman"
+          title="Stok Aman"
           value={stats?.safeStock || 0}
           subtitle={`${stats?.safeStock || 0} bahan`}
           icon={CheckCircle}
@@ -668,7 +669,7 @@ export default function SellerInventoryPage() {
         />
 
         <StatCard
-          title="Stok Rendah"
+          title="Stok Menipis"
           value={stats?.lowStock || 0}
           subtitle={`${stats?.lowStock || 0} bahan`}
           icon={AlertTriangle}
@@ -681,6 +682,14 @@ export default function SellerInventoryPage() {
           subtitle={`${stats?.emptyStock || 0} bahan`}
           icon={XCircle}
           color="bg-red-50 text-red-700"
+        />
+
+        <StatCard
+          title="Nilai Persediaan"
+          value={formatRupiah(stats?.totalValue || 0)}
+          subtitle="Estimasi Total Value"
+          icon={DollarSign}
+          color="bg-emerald-50 text-emerald-700"
         />
       </div>
 

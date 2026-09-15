@@ -7,7 +7,6 @@ import {
   DollarSign,
   TrendingUp,
   TrendingDown,
-  FileText,
   AlertCircle,
   Plus,
   Calendar,
@@ -16,13 +15,11 @@ import {
 import { formatRupiah } from '@/services/productService';
 import {
   getFinanceStats,
-  getAnalyticsSummary,
   getExpenseCategories,
   getExpenseList,
   addExpense,
   type FinanceStats,
   type ExpenseCategory,
-  type AnalyticsSummary
 } from '@/services/sellerFinanceService';
 import type { ExpenseDetailResponse } from '@/types/expense';
 import { hasPermission } from '@/services/rbacService';
@@ -126,7 +123,6 @@ export default function SellerFinancePage() {
 
   // States
   const [stats, setStats] = useState<FinanceStats | null>(null);
-  const [analytics, setAnalytics] = useState<AnalyticsSummary | null>(null);
   const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
   const [expenses, setExpenses] = useState<ExpenseDetailResponse[]>([]);
 
@@ -156,9 +152,8 @@ export default function SellerFinancePage() {
       const sd = startDate || undefined;
       const ed = endDate || undefined;
 
-      const [statsRes, analyticsRes, categoriesRes, expensesRes] = await Promise.allSettled([
+      const [statsRes, categoriesRes, expensesRes] = await Promise.allSettled([
         getFinanceStats(sd, ed),
-        getAnalyticsSummary(sd, ed),
         getExpenseCategories(sd, ed),
         getExpenseList({ start_date: sd, end_date: ed })
       ]);
@@ -171,14 +166,6 @@ export default function SellerFinancePage() {
       } else {
         console.error('Failed to load finance stats:', statsRes.reason);
         setStats(null); // Explicitly set to null if failed
-      }
-
-      if (analyticsRes.status === 'fulfilled') {
-        setAnalytics(analyticsRes.value);
-        anySuccess = true;
-      } else {
-        console.error('Failed to load analytics:', analyticsRes.reason);
-        setAnalytics(null);
       }
 
       if (categoriesRes.status === 'fulfilled') {
@@ -298,32 +285,36 @@ export default function SellerFinancePage() {
       </div>
 
       {/* STAT CARDS */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
-          title={t('finance.revenue')}
+          title="Cash Received"
           value={formatRupiah(stats?.totalRevenue || 0)}
           icon={DollarSign}
           color="bg-green-50 text-green-700"
         />
         <StatCard
-          title={t('finance.cogs')}
-          value={formatRupiah(stats?.totalExpenses || 0)}
+          title="HPP / COGS"
+          value={formatRupiah(stats?.totalHppCost || 0)}
           icon={TrendingDown}
           color="bg-red-50 text-red-700"
         />
         <StatCard
-          title={t('finance.net_profit')}
-          value={formatRupiah(stats?.netProfit || 0)}
+          title="Gross Profit"
+          value={formatRupiah(stats?.grossProfit || 0)}
           icon={TrendingUp}
           color="bg-blue-50 text-blue-700"
         />
-        {/* We replace unpaid invoices with Analytics Total Customers because backend doesn't provide unpaid invoices summary */}
         <StatCard
-          title="Total Customers"
-          value={analytics?.totalCustomers.toString() || "0"}
-          subtitle="Analytics"
-          icon={FileText}
+          title="Expenses"
+          value={formatRupiah(stats?.totalExpenses || 0)}
+          icon={TrendingDown}
           color="bg-orange-50 text-orange-700"
+        />
+        <StatCard
+          title="Net Profit"
+          value={formatRupiah(stats?.netProfit || 0)}
+          icon={TrendingUp}
+          color="bg-emerald-50 text-emerald-700"
         />
       </div>
 

@@ -60,6 +60,7 @@ export interface InventoryStats {
   safeStock: number;
   lowStock: number;
   emptyStock: number;
+  totalValue: number;
 }
 
 export interface InventoryOption {
@@ -174,12 +175,15 @@ export async function getInventoryStats(): Promise<InventoryStats> {
     (item) => item.stock <= item.minStock && item.stock > 0
   ).length;
   const emptyStock = items.filter((item) => item.stock === 0).length;
+  
+  const totalValue = items.reduce((sum, item) => sum + (item.stock * item.pricePerUnit), 0);
 
   return {
     totalItems,
     safeStock,
     lowStock,
     emptyStock,
+    totalValue,
   };
 }
 
