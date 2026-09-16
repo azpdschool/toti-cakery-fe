@@ -10,7 +10,8 @@ import {
   AlertCircle,
   Plus,
   Calendar,
-  X
+  X,
+  Download
 } from 'lucide-react';
 import { formatRupiah } from '@/services/productService';
 import {
@@ -127,8 +128,14 @@ export default function SellerFinancePage() {
   const [expenses, setExpenses] = useState<ExpenseDetailResponse[]>([]);
 
   // Filters
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(() => {
+    const today = new Date();
+    return new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+  });
+  const [endDate, setEndDate] = useState(() => {
+    const today = new Date();
+    return new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
+  });
 
   // Modal Add Expense
   const [showAddExpense, setShowAddExpense] = useState(false);
@@ -198,6 +205,63 @@ export default function SellerFinancePage() {
   const handleApplyFilter = () => {
     loadData();
   };
+
+  const handleExportCSV = () => {
+    if (!stats) return;
+
+    const lines = [];
+    lines.push('LAPORAN KEUANGAN');
+    lines.push(`Periode,${startDate || '-'} sd ${endDate || '-'}`);
+    lines.push('');
+    
+    lines.push('RINGKASAN KAS');
+    lines.push(`Cash Received,${stats.cashReceived}`);
+    lines.push(`Cash Refunded,${stats.cashRefunded}`);
+    lines.push(`Net Cash Flow,${stats.netCashFlow}`);
+    lines.push('');
+    
+    lines.push('RINGKASAN LABA/RUGI');
+    lines.push(`Revenue,${stats.totalRevenue}`);
+    lines.push(`HPP/COGS,${stats.totalHppCost}`);
+    lines.push(`Gross Profit,${stats.grossProfit}`);
+    lines.push(`Expenses,${stats.totalExpenses}`);
+    lines.push(`Net Profit,${stats.netProfit}`);
+    lines.push('');
+    
+    lines.push('LAIN-LAIN');
+    lines.push(`Outstanding Payments,${stats.outstandingPayments}`);
+    lines.push(`Other Income (Termasuk DP Non-Refundable),${stats.nonRefundableDpIncome + stats.otherIncome}`);
+    lines.push('');
+
+    if (stats.productProfitability && stats.productProfitability.length > 0) {
+      lines.push('PROFITABILITAS PRODUK');
+      lines.push('Nama Produk,Qty Terjual,Revenue,HPP,Gross Profit,Margin (%)');
+      stats.productProfitability.forEach(p => {
+        lines.push(`"${p.nama_produk}",${p.qty_sold},${p.total_revenue},${p.total_hpp},${p.gross_profit},${p.margin_percentage}`);
+      });
+      lines.push('');
+    }
+
+    if (stats.supplierSpending && stats.supplierSpending.length > 0) {
+      lines.push('PENGELUARAN SUPPLIER');
+      lines.push('Nama Supplier,Purchase Count,Total Spending');
+      stats.supplierSpending.forEach(s => {
+        lines.push(`"${s.nama_supplier}",${s.purchase_count},${s.total_spending}`);
+      });
+      lines.push('');
+    }
+
+    const csvContent = lines.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Laporan-Finance-${startDate || 'all'}-to-${endDate || 'all'}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
 
   const handleAddExpense = async (e: FormEvent) => {
     e.preventDefault();
@@ -275,28 +339,66 @@ export default function SellerFinancePage() {
               />
             </div>
           </div>
-          <button 
-            onClick={handleApplyFilter}
-            className="mt-5 rounded-md bg-gray-100 px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-200"
-          >
-            {t('finance.apply_filter')}
-          </button>
+          <div className="mt-5 flex gap-2">
+            <button 
+              onClick={handleApplyFilter}
+              className="rounded-md bg-gray-100 px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-200"
+            >
+              {t('finance.apply_filter')}
+            </button>
+            <button 
+              onClick={handleExportCSV}
+              className="flex items-center gap-2 rounded-md bg-[#d85b30] px-4 py-1.5 text-sm font-medium text-white hover:bg-[#c04e28]"
+              disabled={!stats}
+            >
+              <Download className="h-4 w-4" />
+              Export CSV
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* STAT CARDS */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      {/* CASH FLOW CARDS */}
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-lg font-bold text-[#4b2417]">Cash Flow (Arus Kas)</h2>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-3 mb-6">
         <StatCard
           title="Cash Received"
-          value={formatRupiah(stats?.totalRevenue || 0)}
+          value={formatRupiah(stats?.cashReceived || 0)}
           icon={DollarSign}
           color="bg-green-50 text-green-700"
+        />
+        <StatCard
+          title="Cash Refunded"
+          value={formatRupiah(stats?.cashRefunded || 0)}
+          icon={TrendingDown}
+          color="bg-red-50 text-red-700"
+        />
+        <StatCard
+          title="Net Cash Flow"
+          value={formatRupiah(stats?.netCashFlow || 0)}
+          icon={DollarSign}
+          color="bg-emerald-50 text-emerald-700"
+        />
+      </div>
+
+      {/* PROFIT & LOSS CARDS */}
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-lg font-bold text-[#4b2417]">Profit & Loss (Laba Rugi)</h2>
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5 mb-6">
+        <StatCard
+          title="Revenue"
+          value={formatRupiah(stats?.totalRevenue || 0)}
+          icon={TrendingUp}
+          color="bg-blue-50 text-blue-700"
         />
         <StatCard
           title="HPP / COGS"
           value={formatRupiah(stats?.totalHppCost || 0)}
           icon={TrendingDown}
-          color="bg-red-50 text-red-700"
+          color="bg-orange-50 text-orange-700"
         />
         <StatCard
           title="Gross Profit"
@@ -308,13 +410,28 @@ export default function SellerFinancePage() {
           title="Expenses"
           value={formatRupiah(stats?.totalExpenses || 0)}
           icon={TrendingDown}
-          color="bg-orange-50 text-orange-700"
+          color="bg-red-50 text-red-700"
         />
         <StatCard
           title="Net Profit"
           value={formatRupiah(stats?.netProfit || 0)}
           icon={TrendingUp}
           color="bg-emerald-50 text-emerald-700"
+        />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2 mb-6">
+        <StatCard
+          title="Outstanding Payments"
+          value={formatRupiah(stats?.outstandingPayments || 0)}
+          icon={AlertCircle}
+          color="bg-yellow-50 text-yellow-700"
+        />
+        <StatCard
+          title="Other Income (DP Non-Refundable, etc)"
+          value={formatRupiah((stats?.nonRefundableDpIncome || 0) + (stats?.otherIncome || 0))}
+          icon={Plus}
+          color="bg-purple-50 text-purple-700"
         />
       </div>
 
@@ -331,15 +448,73 @@ export default function SellerFinancePage() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <NotAvailableCard 
-          title={t('finance.payment_summary')} 
-          message={t('finance.feature_not_available')} 
-        />
-        <NotAvailableCard 
-          title={t('finance.invoice_list')} 
-          message={t('finance.feature_not_available')} 
-        />
+      {/* PRODUCT PROFITABILITY & SUPPLIER SPENDING */}
+      <div className="grid gap-6 lg:grid-cols-2 mb-6">
+        <div className="rounded-xl bg-white p-5 shadow-sm">
+          <h3 className="text-sm font-bold text-[#4b2417] mb-4">Product Profitability</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 text-left text-xs font-semibold uppercase text-[#6f5448]">
+                  <th className="pb-2 pr-4">Produk</th>
+                  <th className="pb-2 pr-4 text-right">Qty</th>
+                  <th className="pb-2 pr-4 text-right">Revenue</th>
+                  <th className="pb-2 pr-4 text-right">HPP</th>
+                  <th className="pb-2 pr-4 text-right">Gross Profit</th>
+                  <th className="pb-2 pr-4 text-right">Margin</th>
+                </tr>
+              </thead>
+              <tbody>
+                {!stats?.productProfitability?.length ? (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-sm text-[#6f5448]">Belum ada data penjualan</td>
+                  </tr>
+                ) : (
+                  stats.productProfitability.map((item, idx) => (
+                    <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-3 pr-4 font-medium text-[#4b2417] truncate max-w-[120px]">{item.nama_produk}</td>
+                      <td className="py-3 pr-4 text-right text-[#6f5448]">{item.qty_sold}</td>
+                      <td className="py-3 pr-4 text-right font-semibold text-[#d85b30]">{formatRupiah(item.total_revenue)}</td>
+                      <td className="py-3 pr-4 text-right text-orange-600">{formatRupiah(item.total_hpp)}</td>
+                      <td className="py-3 pr-4 text-right font-medium text-blue-600">{formatRupiah(item.gross_profit)}</td>
+                      <td className="py-3 pr-4 text-right text-emerald-600 font-medium">{item.margin_percentage}%</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="rounded-xl bg-white p-5 shadow-sm">
+          <h3 className="text-sm font-bold text-[#4b2417] mb-4">Supplier Spending</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 text-left text-xs font-semibold uppercase text-[#6f5448]">
+                  <th className="pb-2 pr-4">Supplier</th>
+                  <th className="pb-2 pr-4 text-center">Trx</th>
+                  <th className="pb-2 pr-4 text-right">Total Spending</th>
+                </tr>
+              </thead>
+              <tbody>
+                {!stats?.supplierSpending?.length ? (
+                  <tr>
+                    <td colSpan={3} className="py-8 text-center text-sm text-[#6f5448]">Belum ada data supplier</td>
+                  </tr>
+                ) : (
+                  stats.supplierSpending.map((item, idx) => (
+                    <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="py-3 pr-4 font-medium text-[#4b2417] truncate max-w-[150px]">{item.nama_supplier}</td>
+                      <td className="py-3 pr-4 text-center text-[#6f5448]">{item.purchase_count}</td>
+                      <td className="py-3 pr-4 text-right font-semibold text-red-600">{formatRupiah(item.total_spending)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       {/* EXPENSE MANAGEMENT SECTION */}

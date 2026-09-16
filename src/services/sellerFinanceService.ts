@@ -1,19 +1,27 @@
-// src/services/sellerFinanceService.ts
-
 import { fetchFinancialReport, fetchAnalyticsReport } from '@/api/reports';
 import { getExpensesSummary, getExpenses, createExpense } from '@/api/expenses';
 import type { ExpenseDetailResponse, ExpenseCreate } from '@/types/expense';
+import type { ProductProfitabilityItem, SupplierSpendingItem } from '@/types/finance';
 
 // ============================================================
 // TYPES
 // ============================================================
 
 export interface FinanceStats {
+  revenue: number;
   totalRevenue: number;
-  totalExpenses: number;
+  cashReceived: number;
+  cashRefunded: number;
+  netCashFlow: number;
   totalHppCost: number;
   grossProfit: number;
+  totalExpenses: number;
   netProfit: number;
+  outstandingPayments: number;
+  nonRefundableDpIncome: number;
+  otherIncome: number;
+  productProfitability: ProductProfitabilityItem[];
+  supplierSpending: SupplierSpendingItem[];
 }
 
 export interface PaymentSummary {
@@ -44,11 +52,20 @@ export interface AnalyticsSummary {
 export async function getFinanceStats(startDate?: string, endDate?: string): Promise<FinanceStats> {
   const data = await fetchFinancialReport(startDate, endDate);
   return {
-    totalRevenue: data.total_revenue,
-    totalExpenses: data.total_expenses,
-    totalHppCost: data.total_hpp_cost,
-    grossProfit: data.gross_profit,
-    netProfit: data.net_profit,
+    revenue: Number(data.revenue || 0),
+    totalRevenue: Number(data.total_revenue || 0),
+    cashReceived: Number(data.cash_received || 0),
+    cashRefunded: Number(data.cash_refunded || 0),
+    netCashFlow: Number(data.net_cash_flow || 0),
+    totalHppCost: Number(data.total_hpp_cost || 0),
+    grossProfit: Number(data.gross_profit || 0),
+    totalExpenses: Number(data.total_expenses || 0),
+    netProfit: Number(data.net_profit || 0),
+    outstandingPayments: Number(data.outstanding_payments || 0),
+    nonRefundableDpIncome: Number(data.non_refundable_dp_income || 0),
+    otherIncome: Number(data.other_income || 0),
+    productProfitability: data.product_profitability || [],
+    supplierSpending: data.supplier_spending || [],
   };
 }
 
