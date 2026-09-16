@@ -155,7 +155,12 @@ export default function CheckoutPage() {
       setStep('payment');
     } catch (err: any) {
       if (err.response?.status === 400) {
-        setError('Mohon maaf, beberapa produk di keranjang Anda sudah tidak tersedia atau stok tidak mencukupi. Silakan kembali ke keranjang untuk memperbarui pesanan Anda.');
+        const detailMessage = err.response?.data?.detail;
+        if (typeof detailMessage === 'string' && detailMessage.trim() !== '') {
+          setError(`${detailMessage} Silakan kembali ke keranjang dan sesuaikan pesanan Anda.`);
+        } else {
+          setError('Pesanan tidak dapat diproses. Silakan periksa kembali isi keranjang Anda.');
+        }
         // Refresh availability on error
         try {
           const { getProductByBackendId } = await import('@/services/productService');
