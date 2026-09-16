@@ -53,8 +53,51 @@ export function CartProvider({ children }: { children: ReactNode }) {
     // The prompt says: "Jangan menyimpan isAvailable sebagai cache permanen yang bisa stale tanpa refresh."
     // So we map it out before saving.
     const itemsToStore = items.map(({ isAvailable, isInStock, stockQuantity, ...rest }) => rest);
-    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(itemsToStore));
+    const serialized = JSON.stringify(itemsToStore);
+    
+    // Avoid redundant writes to prevent infinite loops across tabs
+    if (localStorage.getItem(CART_STORAGE_KEY) !== serialized) {
+      localStorage.setItem(CART_STORAGE_KEY, serialized);
+    }
   }, [items]);
+
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === CART_STORAGE_KEY) {
+        if (!e.newValue) {
+          setItems([]);
+          return;
+        }
+
+        try {
+          const parsed = JSON.parse(e.newValue);
+          setItems((prev) => {
+            return parsed.map((newItem: CartItem) => {
+              const existing = prev.find(
+                (i) => i.productId === newItem.productId && i.variantId === newItem.variantId
+              );
+
+              // Preserve volatile stock data if it already exists in the current tab's state
+              if (existing) {
+                return {
+                  ...newItem,
+                  isAvailable: existing.isAvailable,
+                  isInStock: existing.isInStock,
+                  stockQuantity: existing.stockQuantity,
+                };
+              }
+              return newItem;
+            });
+          });
+        } catch {
+          setItems([]);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
 
   const addItem = (item: Omit<CartItem, 'quantity' | 'isAvailable'> & { quantity?: number }) => {
     setItems((prev) => {
