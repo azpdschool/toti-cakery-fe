@@ -23,6 +23,8 @@ import {
   getOrders,
   getOrderStats,
   addOrder,
+  getOrderById,
+  updateOrderStatus,
   type Order,
   type OrderStatus,
   type PaymentMethod,
@@ -430,19 +432,17 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
     if (isOpen && orderId) {
       setLoading(true);
       setError('');
-      import('@/services/sellerOrderService').then(({ getOrderById }) => {
-        getOrderById(orderId)
-          .then(data => {
-            setOrder(data);
-            setSelectedStatus(data.status);
-            setLoading(false);
-          })
-          .catch(err => {
-            console.error(err);
-            setError('Gagal memuat detail pesanan');
-            setLoading(false);
-          });
-      });
+      getOrderById(orderId)
+        .then(data => {
+          setOrder(data);
+          setSelectedStatus(data.status);
+          setLoading(false);
+        })
+        .catch(err => {
+          console.error(err);
+          setError('Gagal memuat detail pesanan');
+          setLoading(false);
+        });
     }
   }, [isOpen, orderId]);
 
@@ -450,7 +450,6 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
     if (!orderId || !selectedStatus || selectedStatus === order?.status) return;
     setUpdating(true);
     try {
-      const { updateOrderStatus } = await import('@/services/sellerOrderService');
       const updated = await updateOrderStatus(orderId, selectedStatus as OrderStatus);
       setOrder(updated);
       onStatusUpdated(updated);
