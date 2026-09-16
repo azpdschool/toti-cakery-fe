@@ -57,6 +57,11 @@ const statusMap: Record<
     icon: XCircle,
     color: 'text-red-600 bg-red-50',
   },
+  refunded: {
+    label: 'Dikembalikan',
+    icon: XCircle,
+    color: 'text-red-600 bg-red-50',
+  },
 }
 
 const methodMap: Record<

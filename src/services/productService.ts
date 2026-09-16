@@ -416,7 +416,8 @@ export async function getProductReviews(
   _limit?: number
 ): Promise<(ProductReview & { productId: string; productName: string })[]> {
   void _limit;
-  // Backend review produk belum tersedia.
+  // BE GAP: aggregate/latest review endpoint belum tersedia.
+  // Tidak feasible memanggil /reviews/product/{id} untuk seluruh produk secara berulang (N+1 issue).
   return [];
 }
 

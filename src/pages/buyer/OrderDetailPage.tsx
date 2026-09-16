@@ -64,6 +64,11 @@ const statusMap: Record<
     icon: XCircle,
     color: 'text-red-600 bg-red-50',
   },
+  refunded: {
+    label: 'Dikembalikan',
+    icon: XCircle,
+    color: 'text-red-600 bg-red-50',
+  },
 }
 
 const methodMap: Record<
@@ -457,14 +462,18 @@ export default function OrderDetailPage() {
                           ? 'text-green-600'
                           : order.paymentStatus === 'partial'
                             ? 'text-yellow-600'
-                            : 'text-red-600'
+                            : order.paymentStatus === 'refunded'
+                              ? 'text-gray-500'
+                              : 'text-red-600'
                       }`}
                     >
                       {order.paymentStatus === 'paid'
                         ? 'Lunas'
                         : order.paymentStatus === 'partial'
                           ? 'DP Dibayar'
-                          : 'Belum Dibayar'}
+                          : order.paymentStatus === 'refunded'
+                            ? 'Dikembalikan'
+                            : 'Belum Dibayar'}
                     </span>
                   </div>
 
@@ -797,6 +806,20 @@ export default function OrderDetailPage() {
                       <div>
                         <p className="text-sm font-medium text-[#4b2417]">
                           Pesanan Dibatalkan
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {order.status === 'refunded' && (
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100">
+                        <XCircle className="h-4 w-4 text-red-600" />
+                      </div>
+
+                      <div>
+                        <p className="text-sm font-medium text-[#4b2417]">
+                          Pesanan Dikembalikan
                         </p>
                       </div>
                     </div>

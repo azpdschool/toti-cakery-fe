@@ -10,8 +10,9 @@ export type OrderStatus =
   | 'shipped'
   | 'completed'
   | 'cancelled'
+  | 'refunded'
 
-export type PaymentStatus = 'unpaid' | 'partial' | 'paid'
+export type PaymentStatus = 'unpaid' | 'partial' | 'paid' | 'refunded'
 export type DeliveryMethod = 'pickup' | 'delivery_toko' | 'delivery_third_party'
 
 export interface BuyerOrderItem {
@@ -253,6 +254,13 @@ function normalizeStatus(status?: string): OrderStatus {
     return 'cancelled'
   }
 
+  if (
+    value === 'refunded' ||
+    value === 'dikembalikan'
+  ) {
+    return 'refunded'
+  }
+
   return 'pending'
 }
 
@@ -261,6 +269,7 @@ function normalizePaymentStatus(status?: string): PaymentStatus {
 
   if (value === 'paid' || value === 'lunas' || value === 'success') return 'paid'
   if (value === 'partial' || value === 'dp') return 'partial'
+  if (value === 'refunded' || value === 'dikembalikan') return 'refunded'
 
   return 'unpaid'
 }

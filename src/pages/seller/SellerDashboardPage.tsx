@@ -11,12 +11,11 @@ export default function SellerDashboardPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   
-  // Dashboard mock data - realistically this would come from an API
-  const [stats] = useState({
-    totalProducts: 120,
-    activeProducts: 105,
-    totalSales: 5400000,
-    recentOrders: 12,
+  const [stats, setStats] = useState({
+    totalProducts: 0,
+    activeProducts: 0,
+    totalSales: 'BE GAP' as string | number,
+    recentOrders: 'BE GAP' as string | number,
   })
 
   const [stockItems, setStockItems] = useState<StockOut[]>([])
@@ -24,20 +23,33 @@ export default function SellerDashboardPage() {
   const [stockError, setStockError] = useState(false)
 
   useEffect(() => {
-    const fetchStock = async () => {
+    const fetchDashboardData = async () => {
       try {
         setStockLoading(true)
-        const data = await getStockItems()
-        setStockItems(data)
+        
+        // Parallel requests using existing API
+        const [stockData, allProducts, activeProducts] = await Promise.all([
+          getStockItems().catch(() => []),
+          import('@/api/product').then(m => m.getAllProducts(false)).catch(() => []),
+          import('@/api/product').then(m => m.getAllProducts(true)).catch(() => [])
+        ])
+
+        setStockItems(stockData)
+        setStats({
+          totalProducts: allProducts.length,
+          activeProducts: activeProducts.length,
+          totalSales: 'BE GAP',
+          recentOrders: 'BE GAP',
+        })
         setStockError(false)
       } catch (err) {
-        console.error('Failed to fetch stock items:', err)
+        console.error('Failed to fetch dashboard data:', err)
         setStockError(true)
       } finally {
         setStockLoading(false)
       }
     }
-    fetchStock()
+    fetchDashboardData()
   }, [])
 
   const emptyStock = stockItems.filter(item => Number(item.stok_tersedia) <= 0);
@@ -152,7 +164,7 @@ export default function SellerDashboardPage() {
             </div>
           </div>
           <p className="mt-4 text-2xl font-black text-[#4b2417]">
-            Rp {stats.totalSales.toLocaleString('id-ID')}
+            {stats.totalSales === 'BE GAP' ? 'BE GAP' : `Rp ${Number(stats.totalSales).toLocaleString('id-ID')}`}
           </p>
           <p className="mt-1 text-sm text-[#6f5448]">{t('dashboard.total_sales')}</p>
         </div>

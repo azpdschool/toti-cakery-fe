@@ -415,6 +415,7 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
   const [updating, setUpdating] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus | ''>('');
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showRefundConfirm, setShowRefundConfirm] = useState(false);
 
   const handleDownloadInvoice = async () => {
     if (!orderId) return;
@@ -432,6 +433,7 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
     if (isOpen && orderId) {
       setLoading(true);
       setError('');
+      setShowRefundConfirm(false);
       getOrderById(orderId)
         .then(data => {
           setOrder(data);
@@ -446,9 +448,10 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
     }
   }, [isOpen, orderId]);
 
-  const handleUpdateStatus = async () => {
+  const executeStatusUpdate = async () => {
     if (!orderId || !selectedStatus || selectedStatus === order?.status) return;
     setUpdating(true);
+    setShowRefundConfirm(false);
     try {
       const updated = await updateOrderStatus(orderId, selectedStatus as OrderStatus);
       setOrder(updated);
@@ -459,6 +462,14 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
       alert('Gagal memperbarui status');
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handleUpdateStatus = () => {
+    if (selectedStatus === 'refunded' && order?.status !== 'refunded') {
+      setShowRefundConfirm(true);
+    } else {
+      executeStatusUpdate();
     }
   };
 
@@ -596,7 +607,9 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
                     <option value="ready">Ready</option>
                     <option value="delivered">Delivered</option>
                     <option value="picked_up">Picked Up</option>
+                    <option value="completed">Completed</option>
                     <option value="cancelled">Cancelled</option>
+                    <option value="refunded">Refunded</option>
                   </select>
                 </div>
                 <button
@@ -610,6 +623,34 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
             )}
           </div>
         ) : null}
+
+        {/* Refund Confirmation Modal */}
+        {showRefundConfirm && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+              <h3 className="mb-4 text-xl font-bold text-[#4b2417]">Konfirmasi Pengembalian Dana</h3>
+              <p className="mb-6 text-sm text-gray-600 leading-relaxed">
+                Pesanan ini akan ditandai sebagai dikembalikan. Status invoice dan pembayaran akan ikut diperbarui. Tindakan ini tidak dapat dibatalkan melalui alur status biasa.
+              </p>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setShowRefundConfirm(false)}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                  disabled={updating}
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={executeStatusUpdate}
+                  className="rounded-lg bg-[#d85b30] px-4 py-2 text-sm font-semibold text-white hover:bg-[#c04e28]"
+                  disabled={updating}
+                >
+                  {updating ? 'Memproses...' : 'Ya, Tandai sebagai Dikembalikan'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -692,7 +733,9 @@ export default function SellerOrdersPage() {
         ready: 'Ready',
         delivered: 'Delivered',
         picked_up: 'Picked Up',
+        completed: 'Selesai',
         cancelled: 'Cancelled',
+        refunded: 'Dikembalikan',
       };
       result = result.filter((o) => statusMap[o.status as string] === filterStatus);
     }
@@ -721,7 +764,9 @@ export default function SellerOrdersPage() {
       ready: { label: 'Ready', className: 'bg-purple-100 text-purple-700' },
       delivered: { label: 'Delivered', className: 'bg-green-100 text-green-700' },
       picked_up: { label: 'Picked Up', className: 'bg-green-100 text-green-700' },
+      completed: { label: 'Selesai', className: 'bg-green-100 text-green-700' },
       cancelled: { label: 'Cancelled', className: 'bg-red-100 text-red-700' },
+      refunded: { label: 'Dikembalikan', className: 'bg-red-100 text-red-700' },
     };
     return map[status as string] || { label: status, className: 'bg-gray-100 text-gray-700' };
   };
@@ -802,6 +847,7 @@ export default function SellerOrdersPage() {
             <option value="Siap Dikirim">Siap Dikirim</option>
             <option value="Selesai">Selesai</option>
             <option value="Dibatalkan">Dibatalkan</option>
+            <option value="Dikembalikan">Dikembalikan</option>
           </select>
 
           <select
