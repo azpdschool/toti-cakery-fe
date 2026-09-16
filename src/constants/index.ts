@@ -1,6 +1,7 @@
 // src/constants/index.ts
 
 export const API_BASE_URL = '/api'
+export const LOGO_URL = 'https://res.cloudinary.com/mrje22up/image/upload/v1789575238/logo-toti.png'
 
 export const WHATSAPP_NUMBER =
   import.meta.env.VITE_WHATSAPP_NUMBER ?? '6282283088019'

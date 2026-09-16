@@ -12,7 +12,7 @@ import {
   User,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
-import { ROUTES } from '@/constants'
+import { ROUTES, LOGO_URL } from '@/constants'
 import { loginSeller, mapSellerLoginResponseToUser } from '@/api/auth'
 
 export default function SellerLoginPage() {
@@ -91,18 +91,14 @@ export default function SellerLoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#fdf6f0] to-[#f4ebdf] px-4 py-8">
       <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          <img
-            src="/src/assets/logo.png"
-            alt={t('app.name')}
-            className="mx-auto h-12 w-auto object-contain"
-          />
-          <p className="mt-1 text-sm text-[#6f5448]">
-            {t('auth.seller_login')}
-          </p>
-        </div>
-
         <div className="rounded-2xl border border-[#ead8ca] bg-white/90 p-8 shadow-xl backdrop-blur-sm">
+          <div className="mb-6 text-center">
+            <img
+              src={LOGO_URL}
+              alt={t('app.name')}
+              className="mx-auto w-48 sm:w-60 h-auto max-w-full object-contain"
+            />
+          </div>
           <h1 className="text-2xl font-black text-[#4b2417]">
             {t('auth.seller_login_title')}
           </h1>

@@ -17,7 +17,7 @@ import {
 
 import { useCart } from '@/context/CartContext'
 import { useAuth } from '@/hooks/useAuth'
-import { LANG_KEY, ROUTES } from '@/constants'
+import { LANG_KEY, ROUTES, LOGO_URL } from '@/constants'
 
 const languages = [
   {
@@ -82,9 +82,9 @@ export function BuyerNavbar() {
         <div className="flex min-w-0 shrink-0 items-center gap-6 xl:gap-7">
           <Link to={ROUTES.HOME} className="ml-6 flex shrink-0 items-center">
             <img
-              src="/src/assets/logo.png"
+              src={LOGO_URL}
               alt="Toti Cakery"
-              className="h-12 w-auto object-contain"
+              className="h-10 w-auto object-contain"
             />
           </Link>
 

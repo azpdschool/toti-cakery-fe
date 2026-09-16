@@ -10,7 +10,7 @@ import {
   Settings,
   LogOut,
 } from 'lucide-react'
-import { ROUTES } from '@/constants'
+import { ROUTES, LOGO_URL } from '@/constants'
 import { useAuth } from '@/hooks/useAuth'
 import { hasPermission } from '@/services/rbacService'
 import { roleLabel } from '@/lib/roles'
@@ -77,15 +77,14 @@ export function SellerSidebar() {
   })
 
   return (
-    <aside className="sticky top-0 flex h-screen w-64 flex-col overflow-y-auto bg-[#3A1F16]">
+    <aside className="sticky top-0 flex h-screen w-64 flex-col overflow-y-auto bg-[#F6EDDE]">
       <div className="flex flex-1 flex-col p-4">
-        <div className="mb-8 flex items-center gap-2">
+        <div className="mb-8 flex items-center justify-center">
           <img
-            src="/src/assets/logo.png"
+            src={LOGO_URL}
             alt="Toti Cakery"
-            className="h-8 w-auto"
+            className="w-40 h-auto object-contain"
           />
-          <span className="text-xl font-black text-white">TOTI</span>
         </div>
 
         <nav className="flex-1 space-y-1">
@@ -97,7 +96,7 @@ export function SellerSidebar() {
                 `flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
                   isActive
                     ? 'bg-[#E0A04E] text-[#3A1F16]'
-                    : 'text-white/80 hover:bg-white/10 hover:text-white'
+                    : 'text-[#4b2417]/80 hover:bg-[#4b2417]/5 hover:text-[#4b2417]'
                 }`
               }
             >
@@ -107,18 +106,18 @@ export function SellerSidebar() {
           ))}
         </nav>
 
-        <div className="mt-auto border-t border-white/10 pt-4">
-          <div className="flex items-center gap-3 rounded-lg bg-white/5 p-3">
+        <div className="mt-auto border-t border-[#4b2417]/10 pt-4">
+          <div className="flex items-center gap-3 rounded-lg bg-[#4b2417]/5 p-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#E0A04E] text-sm font-black uppercase text-[#3A1F16]">
               {initial}
             </div>
 
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-white">
+              <p className="truncate text-sm font-semibold text-[#4b2417]">
                 {user?.name || user?.username || 'User'}
               </p>
 
-              <p className="text-xs capitalize text-white/60">
+              <p className="text-xs capitalize text-[#4b2417]/60">
                 {roleLabel(user?.role)}
               </p>
             </div>
@@ -126,7 +125,7 @@ export function SellerSidebar() {
             <button
               type="button"
               onClick={handleLogout}
-              className="rounded-full p-1.5 text-white/60 hover:bg-white/10 hover:text-white"
+              className="rounded-full p-1.5 text-[#4b2417]/60 hover:bg-[#4b2417]/10 hover:text-[#4b2417]"
               title="Logout"
             >
               <LogOut className="h-4 w-4" />

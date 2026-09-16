@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import instagramIcon from '@/assets/instagram.png'
 import whatsappIcon from '@/assets/whatsapp.png'
-import { WHATSAPP_URL, WHATSAPP_NUMBER_DISPLAY } from '@/constants'
+import { WHATSAPP_URL, WHATSAPP_NUMBER_DISPLAY, LOGO_URL } from '@/constants'
 
 export function BuyerFooter() {
   return (
@@ -13,13 +13,10 @@ export function BuyerFooter() {
           <div>
             <div className="flex items-center gap-2">
               <img
-                src="src/assets/logo.png" // ganti dengan path logo utama
+                src={LOGO_URL}
                 alt="Toti Cakery"
-                className="h-10 w-auto"
+                className="h-10 w-auto object-contain"
               />
-              {/* Atau pakai teks jika belum ada logo */}
-              {/* <span className="text-2xl font-black text-[#d85b30]">TOTI</span>
-              <span className="text-lg font-black text-[#4b2417]">CAKERY</span> */}
             </div>
             <p className="mt-3 text-xs text-[#6f5448]">
               Kue berkualitas untuk setiap momen spesial Anda.

@@ -16,7 +16,7 @@ import {
   MessageCircle,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
-import { ROUTES } from '@/constants'
+import { ROUTES, LOGO_URL } from '@/constants'
 import {
   loginBuyer,
   loginBuyerPhone,
@@ -385,6 +385,13 @@ export default function BuyerLoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#fff7f0] px-4 py-10">
       <div className="w-full max-w-md rounded-2xl border border-[#ead8ca] bg-white p-8 shadow-sm">
+        <div className="mb-6 text-center">
+          <img
+            src={LOGO_URL}
+            alt="Toti Cakery"
+            className="mx-auto w-48 sm:w-60 h-auto max-w-full object-contain"
+          />
+        </div>
         <h1 className="text-2xl font-black text-[#4b2417]">
           {mode === 'wa-verification-pending'
             ? 'Verifikasi WhatsApp'

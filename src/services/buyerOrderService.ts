@@ -239,6 +239,7 @@ function normalizeStatus(status?: string): OrderStatus {
     value === 'completed' ||
     value === 'done' ||
     value === 'delivered' ||
+    value === 'picked_up' ||
     value === 'selesai'
   ) {
     return 'completed'
