@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { ROUTES } from '@/constants'
+import { useCart } from '@/context/CartContext'
 import {
   getActiveProducts,
   getProductReviews,
@@ -61,6 +62,7 @@ const PRODUCTS_PER_PAGE = 4
 const REVIEWS_PER_PAGE = 3
 
 export default function HomePage() {
+  const { addItem } = useCart()
   const [products, setProducts] = useState<SimpleProduct[]>([])
   const [reviews, setReviews] = useState<
     {
@@ -90,6 +92,28 @@ export default function HomePage() {
     }
     loadData()
   }, [])
+
+
+  const handleAddToCart = (product: SimpleProduct) => {
+    const isPurchasable = product.isAvailable && product.isInStock && product.stockQuantity > 0;
+    if (!isPurchasable) {
+      alert('Produk tidak tersedia atau stok habis.');
+      return;
+    }
+    
+    addItem({
+      productId: product.id,
+      variantId: `${product.id}-default`,
+      name: product.name,
+      variantName: 'Default',
+      price: product.price,
+      image: product.image,
+      minOrder: product.minimumOrder || 1,
+      step: 1,
+      quantity: product.minimumOrder || 1,
+    });
+    alert(`1x ${product.name} ditambahkan ke keranjang!`);
+  };
 
   const productTotalPages = Math.ceil(products.length / PRODUCTS_PER_PAGE)
   const currentProducts = products.slice(
@@ -287,7 +311,12 @@ export default function HomePage() {
                 </p>
                 <button
                   type="button"
-                  className="mt-3 flex h-8 w-full items-center justify-center gap-2 rounded-md border border-[#ef8b67] bg-white text-xs font-black text-[#d85b30] transition hover:bg-[#d85b30] hover:text-white"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleAddToCart(product);
+                  }}
+                  disabled={!product.isAvailable || !product.isInStock || product.stockQuantity <= 0}
+                  className="mt-3 flex h-8 w-full items-center justify-center gap-2 rounded-md border border-[#ef8b67] bg-white text-xs font-black text-[#d85b30] transition hover:bg-[#d85b30] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-[#d85b30]"
                 >
                   <ShoppingCart className="h-3.5 w-3.5" />
                   Tambah ke Keranjang
