@@ -1,5 +1,5 @@
 // src/components/common/AuthProvider.tsx
-import { createContext, useEffect, useMemo, useState, useCallback, type ReactNode } from 'react'
+import { createContext, useEffect, useMemo, useState, useCallback, useRef, type ReactNode } from 'react'
 import type { AuthState, SellerRole, User, UserRole } from '@/types'
 import { TOKEN_KEY, USER_KEY } from '@/constants'
 
@@ -82,6 +82,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
+  // Sync auth state across multiple tabs (e.g., if logged out in another tab)
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === TOKEN_KEY && !e.newValue) {
+        setAuth({
+          user: null,
+          accessToken: null,
+          isAuthenticated: false,
+        })
+      }
+    }
+    window.addEventListener('storage', handleStorage)
+    return () => window.removeEventListener('storage', handleStorage)
+  }, [])
+
+  // 401 Unauthorized handling
   useEffect(() => {
     const handleUnauthorized = () => {
       logout()
@@ -93,6 +109,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('auth:unauthorized', handleUnauthorized)
     }
   }, [logout])
+
+  // Idle Timeout Mechanism (60 minutes)
+  const lastActivity = useRef<number>(Date.now())
+
+  useEffect(() => {
+    if (!auth.isAuthenticated) return
+
+    const IDLE_TIMEOUT_MS = 60 * 60 * 1000 // 60 minutes
+    const ACTIVITY_KEY = 'last_activity'
+    
+    lastActivity.current = Date.now()
+    localStorage.setItem(ACTIVITY_KEY, lastActivity.current.toString())
+
+    let throttleTimer: number | null = null
+    const updateActivity = () => {
+      lastActivity.current = Date.now()
+      
+      // Throttle writing to localStorage to prevent performance issues on high frequency events
+      if (!throttleTimer) {
+        throttleTimer = window.setTimeout(() => {
+          localStorage.setItem(ACTIVITY_KEY, Date.now().toString())
+          throttleTimer = null
+        }, 5000)
+      }
+    }
+
+    const events = ['mousemove', 'keydown', 'click', 'touchstart']
+    events.forEach((event) => {
+      window.addEventListener(event, updateActivity, { passive: true })
+    })
+
+    const intervalId = setInterval(() => {
+      const globalLastActivityStr = localStorage.getItem(ACTIVITY_KEY)
+      const globalLastActivity = globalLastActivityStr ? parseInt(globalLastActivityStr, 10) : lastActivity.current
+      
+      // Use the most recent timestamp between the local tab and localStorage (other tabs)
+      const mostRecentActivity = Math.max(lastActivity.current, globalLastActivity)
+
+      if (Date.now() - mostRecentActivity >= IDLE_TIMEOUT_MS) {
+        logout()
+        alert('Anda telah logout otomatis karena tidak ada aktivitas selama 1 jam.')
+      }
+    }, 10000) // Check every 10 seconds
+
+    return () => {
+      events.forEach((event) => {
+        window.removeEventListener(event, updateActivity)
+      })
+      if (throttleTimer) clearTimeout(throttleTimer)
+      clearInterval(intervalId)
+    }
+  }, [auth.isAuthenticated, logout])
 
   const value = useMemo<AuthContextType>(() => {
     const role = auth.user?.role
