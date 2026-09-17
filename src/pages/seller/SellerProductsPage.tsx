@@ -4,12 +4,13 @@ import { Plus, Loader2, AlertCircle, CheckCircle, Pencil, Trash2, FileText } fro
 import RecipeManagementModal from './RecipeManagementModal'
 import { useAuth } from '@/hooks/useAuth'
 import {
-  createProduct,
   getAllProducts,
   updateProduct,
   deleteProduct,
   formatRupiah,
-  type SimpleProduct
+  type SimpleProduct,
+  createProductWithOptionalPrice,
+  uploadProductImage
 } from '@/services/productService'
 import type { ProductCreate, ProductUpdate } from '@/api/product'
 
@@ -29,7 +30,6 @@ export default function SellerProductsPage() {
   const [success, setSuccess] = useState<string | null>(null)
 
   const [editId, setEditId] = useState<number | null>(null)
-  const [editIsAvailable, setEditIsAvailable] = useState<boolean | null>(null)
   const [recipeModalProduct, setRecipeModalProduct] = useState<{id: number, name: string} | null>(null)
 
 
@@ -40,9 +40,12 @@ export default function SellerProductsPage() {
     harga_jual: '',
     minimum_order: 1,
     is_active: true,
+    is_available: true,
   }
 
   const [formData, setFormData] = useState<ProductCreate>(defaultFormState)
+  const [selectedImage, setSelectedImage] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
 
   const fetchProducts = useCallback(async () => {
     setIsFetching(true)
@@ -71,16 +74,19 @@ export default function SellerProductsPage() {
 
   const handleAddClick = () => {
     setEditId(null)
-    setEditIsAvailable(null)
+    
     setFormData(defaultFormState)
     setIsFormOpen(!isFormOpen)
     setError(null)
     setSuccess(null)
+    setSelectedImage(null)
+    if (imagePreview && imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
+    setImagePreview(null)
   }
 
   const handleEditClick = (product: SimpleProduct) => {
     setEditId(product.backendId)
-    setEditIsAvailable(product.isAvailable)
+    
     setFormData({
       nama_produk: product.name,
       deskripsi: product.description || '',
@@ -88,7 +94,11 @@ export default function SellerProductsPage() {
       harga_jual: product.price,
       minimum_order: product.minimumOrder,
       is_active: product.isActive,
+      is_available: product.isAvailable,
     })
+    setSelectedImage(null)
+    if (imagePreview && imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
+    setImagePreview(product.image || null)
     setIsFormOpen(true)
     setError(null)
     setSuccess(null)
@@ -111,6 +121,33 @@ export default function SellerProductsPage() {
     }
   }
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) {
+      setSelectedImage(null)
+      if (imagePreview && imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
+      setImagePreview(null)
+      return
+    }
+
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp']
+    if (!validTypes.includes(file.type)) {
+      setError('Format file tidak didukung. Gunakan JPG, PNG, atau WEBP.')
+      e.target.value = ''
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Ukuran file maksimal 5MB.')
+      e.target.value = ''
+      return
+    }
+
+    setError(null)
+    setSelectedImage(file)
+    if (imagePreview && imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
+    setImagePreview(URL.createObjectURL(file))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -127,6 +164,7 @@ export default function SellerProductsPage() {
     }
 
     setIsLoading(true)
+    let isProductCreatedOrUpdated = false
     try {
       const harga_jual = formData.harga_jual ? Number(formData.harga_jual) : null
       const minimum_order = formData.minimum_order ? Number(formData.minimum_order) : 1
@@ -137,27 +175,72 @@ export default function SellerProductsPage() {
           harga_jual,
           minimum_order,
           is_active: formData.is_active,
+          is_available: formData.is_available,
         }
         await updateProduct(editId, updatePayload)
-        setSuccess(t('products.success_edit'))
+        isProductCreatedOrUpdated = true
+        
+        if (selectedImage) {
+          try {
+            await uploadProductImage(editId, selectedImage)
+            setSuccess(t('products.success_edit'))
+          } catch (imgErr) {
+            console.error(imgErr)
+            setError('Produk berhasil diperbarui, tetapi foto gagal di-upload. Silakan ulangi upload foto.')
+          }
+        } else {
+          setSuccess(t('products.success_edit'))
+        }
       } else {
         const createPayload: ProductCreate = {
           ...formData,
+          // harga_jual is handled by createProductWithOptionalPrice if we pass it, but createPayload also accepts it.
+          // Since createProductWithOptionalPrice calls createProductApi and then setPrice, passing harga_jual in payload is fine,
+          // it will just be set on create and potentially updated.
           harga_jual,
           minimum_order,
         }
-        await createProduct(createPayload)
-        setSuccess(t('products.success_add'))
+        
+        // Use createProductWithOptionalPrice to ensure create + price set happens first,
+        // so we can isolate image upload errors.
+        const created = await createProductWithOptionalPrice(createPayload, harga_jual)
+        isProductCreatedOrUpdated = true
+        
+        if (selectedImage) {
+          try {
+            await uploadProductImage(created.backendId, selectedImage)
+            setSuccess(t('products.success_add'))
+          } catch (imgErr) {
+            console.error(imgErr)
+            setError('Produk berhasil dibuat, tetapi foto gagal di-upload. Silakan tambahkan foto melalui Edit Product.')
+          }
+        } else {
+          setSuccess(t('products.success_add'))
+        }
       }
       
-      setIsFormOpen(false)
-      setFormData(defaultFormState)
-      setEditId(null)
-      setEditIsAvailable(null)
-      fetchProducts()
+      if (!error && isProductCreatedOrUpdated) {
+        setIsFormOpen(false)
+        setFormData(defaultFormState)
+        setEditId(null)
+        
+        setSelectedImage(null)
+        if (imagePreview && imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
+        setImagePreview(null)
+      }
+      
+      // Always refresh if product was created/updated, even if image upload failed
+      if (isProductCreatedOrUpdated) {
+        fetchProducts()
+      }
+      
     } catch (err) {
       console.error(err)
-      setError(editId ? t('products.error_edit') : t('products.error_add'))
+      // Only set error if product hasn't been created/updated yet.
+      // If it was created but something else failed, the try-catch for image handles it.
+      if (!isProductCreatedOrUpdated) {
+        setError(editId ? t('products.error_edit') : t('products.error_add'))
+      }
     } finally {
       setIsLoading(false)
     }
@@ -297,26 +380,52 @@ export default function SellerProductsPage() {
                 </div>
               </div>
 
-              {editId && editIsAvailable !== null && (
-                <div>
-                  <label className="mb-1 block text-sm font-semibold text-[#4b2417]">
-                    Ketersediaan
+              <div className="flex flex-col">
+                <label className="mb-1 block text-sm font-semibold text-[#4b2417]">
+                  Produk Tersedia
+                </label>
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    name="is_available"
+                    id="is_available"
+                    checked={formData.is_available ?? true}
+                    onChange={handleInputChange}
+                    className="h-4 w-4 rounded border-[#d0bfaf] text-[#d85b30] focus:ring-[#c95b31]"
+                  />
+                  <label htmlFor="is_available" className="text-sm text-[#4b2417]">
+                    {formData.is_available ? 'Dapat Dipesan' : 'Tidak Tersedia'}
                   </label>
-                  <div className="mt-2 flex items-center gap-1.5">
-                    {editIsAvailable ? (
-                      <>
-                        <span className="text-green-500 text-sm">🟢</span>
-                        <span className="text-sm font-medium text-gray-700">Dapat Dipesan</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-red-500 text-sm">🔴</span>
-                        <span className="text-sm font-medium text-gray-700">Tidak Tersedia</span>
-                      </>
-                    )}
+                </div>
+              </div>
+              
+              <div className="sm:col-span-2">
+                <label className="mb-1 block text-sm font-semibold text-[#4b2417]">
+                  Foto Produk
+                </label>
+                <div className="mt-2 flex items-center gap-4">
+                  {imagePreview ? (
+                    <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-[#d0bfaf]">
+                      <img src={imagePreview} alt="Preview" className="h-full w-full object-cover" />
+                    </div>
+                  ) : (
+                    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl border border-dashed border-[#d0bfaf] bg-gray-50">
+                      <span className="text-xs text-gray-400">No Image</span>
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <input
+                      type="file"
+                      accept="image/png, image/jpeg, image/webp"
+                      onChange={handleImageChange}
+                      className="block w-full text-sm text-gray-500 file:mr-4 file:rounded-full file:border-0 file:bg-[#f8eee5] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[#d85b30] hover:file:bg-[#f0e0d0] focus:outline-none"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">
+                      Format JPG, PNG, WEBP. Maks 5MB. Opsional.
+                    </p>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
 
             <div className="mt-6 flex justify-end gap-3 border-t border-[#ead8ca] pt-4">
@@ -325,8 +434,13 @@ export default function SellerProductsPage() {
                 onClick={() => {
                   setIsFormOpen(false)
                   setEditId(null)
-                  setEditIsAvailable(null)
+                  
                   setFormData(defaultFormState)
+                  setSelectedImage(null)
+                  if (imagePreview && imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
+                  setImagePreview(null)
+                  setError(null)
+                  setSuccess(null)
                 }}
                 className="rounded-xl px-4 py-2 text-sm font-semibold text-[#6f5448] transition hover:bg-gray-100"
               >

@@ -18,11 +18,8 @@ export interface ProductOut {
 
   /**
    * PENTING:
-   * Backend mengirim path relatif, contoh:
-   * "/static/products/12.jpg"
-   *
-   * Jangan simpan URL absolute seperti:
-   * "http://localhost:8000/static/products/12.jpg"
+   * Backend menggunakan Cloudinary dan mengembalikan URL absolute HTTPS.
+   * Contoh: "https://res.cloudinary.com/..."
    */
   image_url: string | null;
 
@@ -59,7 +56,7 @@ export interface RecipeOutEmbedded {
 
 /**
  * ProductCreate — mirrors backend ProductCreate schema exactly.
- * Backend fields: nama_produk, deskripsi, kategori, harga_jual, is_active, minimum_order
+ * Backend fields: nama_produk, deskripsi, kategori, harga_jual, is_active, is_available, minimum_order
  */
 export interface ProductCreate {
   nama_produk: string;
@@ -67,18 +64,20 @@ export interface ProductCreate {
   kategori?: string | null;
   harga_jual?: number | string | null;
   is_active?: boolean;
+  is_available?: boolean;
   minimum_order?: number;
 }
 
 /**
  * ProductUpdate — mirrors backend ProductUpdate schema exactly.
- * Backend fields: deskripsi, harga_jual, is_active, image_url, minimum_order
+ * Backend fields: deskripsi, harga_jual, is_active, is_available, image_url, minimum_order
  * NOTE: nama_produk and kategori are NOT updatable via PUT /products/{id}
  */
 export interface ProductUpdate {
   deskripsi?: string | null;
   harga_jual?: number | string | null;
   is_active?: boolean | null;
+  is_available?: boolean | null;
   image_url?: string | null;
   minimum_order?: number | null;
 }
@@ -183,8 +182,8 @@ export async function deleteProduct(
  *
  * BE akan:
  * - validasi jpeg/png/webp <= 5MB
- * - simpan ke static/products/{product_id}.{ext}
- * - set products.image_url = "/static/products/{product_id}.{ext}"
+ * - simpan ke Cloudinary
+ * - set products.image_url = "https://res.cloudinary.com/..."
  * - return ProductOut terbaru
  */
 export async function uploadProductImage(
