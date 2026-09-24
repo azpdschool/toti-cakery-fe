@@ -1,12 +1,13 @@
-import { WHATSAPP_URL } from '@/constants'
+import { useWhatsApp } from '@/context/WhatsAppContext'
 import { useTranslation } from 'react-i18next'
 
 export function WhatsAppButton() {
+  const { whatsappUrl } = useWhatsApp()
   const { t } = useTranslation()
 
   return (
     <a
-      href={WHATSAPP_URL}
+      href={whatsappUrl || '#'}
       target="_blank"
       rel="noopener noreferrer"
       aria-label={t('whatsapp.chat')}

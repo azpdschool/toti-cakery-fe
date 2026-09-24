@@ -24,14 +24,24 @@ export interface FaqUpdatePayload {
   is_active?: boolean
 }
 
+const activeFaqsRequests = new Map<string, Promise<FaqOut[]>>();
+
 export async function getAllFaqs(
   onlyActive: boolean = false,
 ): Promise<FaqOut[]> {
-  const response = await apiClient.get<FaqOut[]>('/faq', {
+  const key = String(onlyActive);
+  if (activeFaqsRequests.has(key)) return activeFaqsRequests.get(key)!;
+
+  const promise = apiClient.get<FaqOut[]>('/faq', {
     params: { only_active: onlyActive },
   })
+    .then(response => response.data)
+    .finally(() => {
+      activeFaqsRequests.delete(key);
+    });
 
-  return response.data
+  activeFaqsRequests.set(key, promise);
+  return promise;
 }
 
 export async function getFaqById(id: number): Promise<FaqOut> {

@@ -33,7 +33,7 @@ const languages = [
 ] as const
 
 export function BuyerNavbar() {
-  const { i18n } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [isLanguageOpen, setIsLanguageOpen] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const { totalItems } = useCart()
@@ -91,12 +91,12 @@ export function BuyerNavbar() {
           <nav className="hidden items-center gap-6 whitespace-nowrap xl:gap-7 md:flex">
             <NavLink to={ROUTES.HOME} className={navLinkClass}>
               <Home className="h-4 w-4" />
-              <span>Beranda</span>
+              <span>{t('nav.home', 'Beranda')}</span>
             </NavLink>
 
             <NavLink to={ROUTES.CATALOG} className={navLinkClass}>
               <ShoppingBag className="h-4 w-4" />
-              <span>Produk</span>
+              <span>{t('nav.catalog', 'Produk')}</span>
             </NavLink>
           </nav>
         </div>
@@ -107,7 +107,7 @@ export function BuyerNavbar() {
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6f5448]" />
             <input
               type="text"
-              placeholder="Cari dessert favorit kamu.."
+              placeholder={t('nav.search', 'Cari dessert favorit kamu..')}
               className="h-10 w-full rounded-full border border-[#6f5448]/45 bg-white/75 pl-11 pr-5 text-xs font-medium text-[#4b2417] outline-none placeholder:text-[#8b7166] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
             />
           </div>
@@ -126,12 +126,12 @@ export function BuyerNavbar() {
               )}
             </div>
 
-            <span>Keranjang</span>
+            <span>{t('nav.cart', 'Keranjang')}</span>
           </NavLink>
 
           <NavLink to={ROUTES.ORDERS} className={navLinkClass}>
             <ClipboardList className="h-4 w-4" />
-            <span>Pesanan Saya</span>
+            <span>{t('nav.orders', 'Pesanan Saya')}</span>
           </NavLink>
         </nav>
 
@@ -166,7 +166,7 @@ export function BuyerNavbar() {
           </div>
 
 
-          {user ? (
+          {user && user.role === 'buyer' ? (
             <Link
               to="/profile"
               className="flex min-w-0 items-center gap-2 text-sm font-semibold text-[#3f1f16] transition-colors hover:text-[#c95b31]"
@@ -184,7 +184,7 @@ export function BuyerNavbar() {
               )}
 
               <span className="max-w-[150px] truncate text-sm">
-                {user.name?.split(' ')[0] || 'Profil'}
+                {user.name?.split(' ')[0] || t('nav.profile', 'Profil')}
               </span>
             </Link>
           ) : (
@@ -193,7 +193,7 @@ export function BuyerNavbar() {
               className="hidden h-10 min-w-[154px] items-center justify-center gap-2 rounded-lg border border-[#3f1f16]/80 bg-white/45 px-4 text-xs font-semibold text-[#3f1f16] transition-colors hover:bg-white md:flex"
             >
               <User className="h-4 w-4" />
-              Masuk / Daftar
+              {t('nav.login_register', 'Masuk / Daftar')}
             </Link>
           )}
         </div>
@@ -218,7 +218,7 @@ export function BuyerNavbar() {
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6f5448]" />
             <input
               type="text"
-              placeholder="Cari dessert favorit kamu.."
+              placeholder={t('nav.search', 'Cari dessert favorit kamu..')}
               className="h-10 w-full rounded-full border border-[#6f5448]/40 bg-white pl-11 pr-4 text-xs text-[#4b2417] outline-none"
             />
           </div>
@@ -230,7 +230,7 @@ export function BuyerNavbar() {
               className="flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-[#3f1f16]"
             >
               <Home className="h-4 w-4" />
-              Beranda
+              {t('nav.home', 'Beranda')}
             </Link>
 
             <Link
@@ -239,7 +239,7 @@ export function BuyerNavbar() {
               className="flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-[#3f1f16]"
             >
               <ShoppingBag className="h-4 w-4" />
-              Produk
+              {t('nav.catalog', 'Produk')}
             </Link>
 
             <Link
@@ -257,7 +257,7 @@ export function BuyerNavbar() {
                 )}
               </div>
 
-              <span>Keranjang</span>
+              <span>{t('nav.cart', 'Keranjang')}</span>
             </Link>
 
             <Link
@@ -266,10 +266,10 @@ export function BuyerNavbar() {
               className="flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-[#3f1f16]"
             >
               <ClipboardList className="h-4 w-4" />
-              Pesanan Saya
+              {t('nav.orders', 'Pesanan Saya')}
             </Link>
 
-            {user ? (
+            {user && user.role === 'buyer' ? (
               <Link
                 to="/profile"
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -287,7 +287,7 @@ export function BuyerNavbar() {
                   </div>
                 )}
 
-                {user.name || 'Profil'}
+                {user.name || t('nav.profile', 'Profil')}
               </Link>
             ) : (
               <Link
@@ -296,7 +296,7 @@ export function BuyerNavbar() {
                 className="flex items-center gap-2 rounded-xl bg-[#d85b30] px-4 py-3 text-sm font-semibold text-white"
               >
                 <User className="h-4 w-4" />
-                Masuk / Daftar
+                {t('nav.login_register', 'Masuk / Daftar')}
               </Link>
             )}
 

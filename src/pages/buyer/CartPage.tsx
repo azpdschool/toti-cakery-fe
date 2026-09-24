@@ -1,11 +1,13 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useCart } from '@/context/CartContext'
+import { useTranslation } from 'react-i18next'
 import { formatRupiah, getProductByBackendId } from '@/services/productService'
 import { ROUTES } from '@/constants'
 import { Trash2, Minus, Plus, ShoppingBag, AlertTriangle, Loader2, RefreshCw } from 'lucide-react'
 
 export default function CartPage() {
+  const { t } = useTranslation()
   const { items, removeItem, updateQuantity, clearCart, totalPrice, updateMultipleAvailability } = useCart()
   const [isValidating, setIsValidating] = useState(true)
   
@@ -86,7 +88,7 @@ export default function CartPage() {
     return (
       <div className="mx-auto max-w-4xl px-4 py-16 text-center">
         <ShoppingBag className="mx-auto h-16 w-16 text-gray-300" />
-        <h2 className="mt-4 text-xl font-semibold text-gray-700">Keranjang Kosong</h2>
+        <h2 className="mt-4 text-xl font-semibold text-gray-700">{t('cart.empty_title', 'Keranjang Kosong')}</h2>
         <p className="mt-2 text-gray-500">Yuk, mulai belanja kue favoritmu!</p>
         <Link
           to={ROUTES.CATALOG}
@@ -123,7 +125,7 @@ export default function CartPage() {
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 shrink-0" />
             <p className="text-sm">
-              Gagal memvalidasi ketersediaan beberapa produk. Silakan coba lagi.
+              {t('cart.validation_error')}
             </p>
           </div>
           <button
@@ -164,7 +166,7 @@ export default function CartPage() {
                   {isExceedingStock && !isValidating && (
                     <p className="mt-1 text-xs font-bold text-orange-600 flex items-center gap-1">
                       <AlertTriangle className="h-3 w-3" />
-                      Stok hanya tersisa {item.stockQuantity} pcs
+                      {t('cart.stock_remaining', { count: item.stockQuantity })}
                     </p>
                   )}
                   {isUnknown && !isValidating && (
@@ -204,7 +206,7 @@ export default function CartPage() {
                 <button
                   onClick={() => removeItem(item.productId, item.variantId)}
                   className="text-red-500 hover:text-red-700 p-1"
-                  title="Hapus item"
+                  title={t('cart.delete_item', 'Hapus item')}
                 >
                   <Trash2 className="h-5 w-5" />
                 </button>
@@ -216,7 +218,7 @@ export default function CartPage() {
 
       <div className="mt-8 border-t border-gray-200 pt-6">
         <div className="flex justify-between text-lg font-bold">
-          <span>Total</span>
+          <span>{t('cart.total', 'Total')}</span>
           <span className="text-amber-700">{formatRupiah(totalPrice)}</span>
         </div>
         <div className="mt-4 flex flex-wrap gap-3">
@@ -224,7 +226,7 @@ export default function CartPage() {
             onClick={clearCart}
             className="rounded border border-red-300 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
           >
-            Kosongkan Keranjang
+            {t('cart.empty_cart')}
           </button>
           
           <Link

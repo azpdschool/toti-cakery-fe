@@ -1,4 +1,5 @@
 // src/pages/buyer/OrdersPage.tsx
+import { useTranslation } from 'react-i18next'
 import { useState, useEffect, useMemo } from 'react'
 import type React from 'react'
 import { Link, Navigate } from 'react-router-dom'
@@ -76,6 +77,7 @@ const methodMap: Record<
 export default function OrdersPage() {
   const { user, isAuthenticated } = useAuth()
 
+  const { t } = useTranslation()
   const [orders, setOrders] = useState<BuyerOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -92,7 +94,7 @@ export default function OrdersPage() {
         setOrders(data)
       } catch (err) {
         console.error('Gagal memuat pesanan:', err)
-        setError('Gagal memuat pesanan. Silakan coba lagi.')
+        setError(t('orders.failed_load_retry'))
       } finally {
         setLoading(false)
       }
@@ -212,7 +214,7 @@ export default function OrdersPage() {
 
           <input
             type="text"
-            placeholder="Cari ID pesanan atau produk..."
+            placeholder="{t('orders.search')}"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full rounded-lg border border-[#d0bfaf] py-2 pl-9 pr-4 text-sm outline-none focus:border-[#d85b30]"
@@ -224,13 +226,13 @@ export default function OrdersPage() {
           onChange={(e) => setFilterStatus(e.target.value)}
           className="rounded-lg border border-[#d0bfaf] px-3 py-2 text-sm outline-none focus:border-[#d85b30]"
         >
-          <option value="Semua Status">Semua Status</option>
-          <option value="Menunggu">Menunggu</option>
-          <option value="Diproses">Diproses</option>
-          <option value="Siap">Siap</option>
-          <option value="Dikirim">Dikirim</option>
-          <option value="Selesai">Selesai</option>
-          <option value="Dibatalkan">Dibatalkan</option>
+          <option value="Semua Status">{t('orders.all_status', 'Semua Status')}</option>
+          <option value="Menunggu">{t('orders.status_waiting', 'Menunggu')}</option>
+          <option value="Diproses">{t('orders.status_processing', 'Diproses')}</option>
+          <option value="Siap">{t('orders.status_ready', 'Siap')}</option>
+          <option value="Dikirim">{t('orders.status_shipped', 'Dikirim')}</option>
+          <option value="Selesai">{t('orders.status_completed', 'Selesai')}</option>
+          <option value="Dibatalkan">{t('orders.status_cancelled', 'Dibatalkan')}</option>
         </select>
       </div>
 
@@ -321,7 +323,7 @@ export default function OrdersPage() {
 
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[#ead8ca] pt-4">
                   <div className="text-sm">
-                    <span className="text-[#6f5448]">Total </span>
+                    <span className="text-[#6f5448]">{t('orders.total', 'Total')} </span>
 
                     <span className="font-bold text-[#d85b30]">
                       {formatRupiah(order.total)}

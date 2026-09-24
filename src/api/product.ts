@@ -124,10 +124,15 @@ export interface PriceHistoryOut {
   created_at: string | null;
 }
 
+const activeProductsRequests = new Map<string, Promise<ProductOut[]>>();
+
 export async function getAllProducts(
   onlyActive: boolean = true,
   kategori?: string
 ): Promise<ProductOut[]> {
+  const key = JSON.stringify({ onlyActive, kategori });
+  if (activeProductsRequests.has(key)) return activeProductsRequests.get(key)!;
+
   const params: Record<string, boolean | string> = {
     only_active: onlyActive,
   };
@@ -136,11 +141,14 @@ export async function getAllProducts(
     params.kategori = kategori;
   }
 
-  const response = await apiClient.get<ProductOut[]>('/products/', {
-    params,
-  });
+  // We omit the signal from the actual network call to prevent StrictMode
+  // unmounts from aborting the shared Promise for the other concurrent caller.
+  const promise = apiClient.get<ProductOut[]>('/products/', { params })
+    .then(response => response.data)
+    .finally(() => activeProductsRequests.delete(key));
 
-  return response.data;
+  activeProductsRequests.set(key, promise);
+  return promise;
 }
 
 export async function getProductById(id: number): Promise<ProductOut> {
@@ -262,4 +270,57 @@ export function formatRupiah(amount: number | string | null): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(num);
+}
+
+export interface CategoryResponse {
+  id: number;
+  name: string;
+  description: string | null;
+  created_at: string | null;
+}
+
+export interface CategoryCreate {
+  name: string;
+  description?: string | null;
+}
+
+export interface CategoryUpdate {
+  name?: string | null;
+  description?: string | null;
+}
+
+let categoriesPromise: Promise<CategoryResponse[]> | null = null;
+
+export function invalidateCategoriesCache(): void {
+  categoriesPromise = null;
+}
+
+export async function getBackendCategories(signal?: AbortSignal): Promise<CategoryResponse[]> {
+  if (!categoriesPromise) {
+    categoriesPromise = apiClient
+      .get<CategoryResponse[]>('/products/categories', { signal })
+      .then((res) => res.data)
+      .catch((err) => {
+        categoriesPromise = null;
+        throw err;
+      });
+  }
+  return categoriesPromise;
+}
+
+export async function createBackendCategory(data: CategoryCreate): Promise<CategoryResponse> {
+  invalidateCategoriesCache();
+  const response = await apiClient.post<CategoryResponse>('/products/categories', data);
+  return response.data;
+}
+
+export async function updateBackendCategory(id: number, data: CategoryUpdate): Promise<CategoryResponse> {
+  invalidateCategoriesCache();
+  const response = await apiClient.patch<CategoryResponse>(`/products/categories/${id}`, data);
+  return response.data;
+}
+
+export async function deleteBackendCategory(id: number): Promise<void> {
+  invalidateCategoriesCache();
+  await apiClient.delete(`/products/categories/${id}`);
 }

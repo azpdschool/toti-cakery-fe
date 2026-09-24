@@ -1,8 +1,9 @@
-// src/App.tsx
 import { Suspense } from 'react'
 import { RouterProvider } from 'react-router-dom'
 import { AuthProvider } from '@/components/common/AuthProvider'
 import { CartProvider } from '@/context/CartContext'
+import { WhatsAppProvider } from '@/context/WhatsAppContext'
+import { ToastProvider } from '@/components/ui/Toast'
 import { router } from '@/router'
 import '@/lib/i18n'
 
@@ -16,12 +17,16 @@ function Loading() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <CartProvider>
-        <Suspense fallback={<Loading />}>
-          <RouterProvider router={router} />
-        </Suspense>
-      </CartProvider>
-    </AuthProvider>
+    <ToastProvider>
+      <AuthProvider>
+        <CartProvider>
+          <WhatsAppProvider>
+          <Suspense fallback={<Loading />}>
+            <RouterProvider router={router} />
+          </Suspense>
+        </WhatsAppProvider>
+        </CartProvider>
+      </AuthProvider>
+    </ToastProvider>
   )
 }

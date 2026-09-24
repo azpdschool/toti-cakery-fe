@@ -14,6 +14,7 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { ROUTES } from '@/constants'
 import { useCart } from '@/context/CartContext'
+import { useTranslation } from 'react-i18next'
 import {
   getActiveProducts,
   getProductReviews,
@@ -33,36 +34,37 @@ interface Stat {
   icon: LucideIcon
 }
 
-const benefits: Benefit[] = [
-  {
-    title: 'Bahan Pilihan Berkualitas',
-    description: 'Dibuat dari bahan terbaik untuk rasa yang istimewa.',
-    icon: Leaf,
-  },
-  {
-    title: 'Dibuat Segar Setiap Hari',
-    description: 'Fresh dari dapur kami agar selalu nikmat.',
-    icon: ShieldCheck,
-  },
-  {
-    title: 'Pengiriman Cepat & Aman',
-    description: 'Pesanan dikemas rapi sampai tujuan.',
-    icon: Truck,
-  },
-]
-
-const stats: Stat[] = [
-  { value: '500+', label: 'Pelanggan Puas', icon: Smile },
-  { value: '100+', label: 'Varian Kue', icon: CakeSlice },
-  { value: '4.9/5', label: 'Rating Pelanggan', icon: Star },
-  { value: '100%', label: 'Dibuat dengan Cinta', icon: Heart },
-]
-
 const PRODUCTS_PER_PAGE = 4
 const REVIEWS_PER_PAGE = 3
 
 export default function HomePage() {
   const { addItem } = useCart()
+  const { t } = useTranslation()
+
+  const benefits: Benefit[] = [
+    {
+      title: t('home.benefit_1_title'),
+      description: t('home.benefit_1_desc'),
+      icon: Leaf,
+    },
+    {
+      title: t('home.benefit_2_title'),
+      description: t('home.benefit_2_desc'),
+      icon: ShieldCheck,
+    },
+    {
+      title: t('home.benefit_3_title'),
+      description: t('home.benefit_3_desc'),
+      icon: Truck,
+    },
+  ]
+
+  const stats: Stat[] = [
+    { value: t('home.stat_1_value'), label: t('home.stat_1_label'), icon: Smile },
+    { value: t('home.stat_2_value'), label: t('home.stat_2_label'), icon: CakeSlice },
+    { value: t('home.stat_3_value'), label: t('home.stat_3_label'), icon: Star },
+    { value: t('home.stat_4_value'), label: t('home.stat_4_label'), icon: Heart },
+  ]
   const [products, setProducts] = useState<SimpleProduct[]>([])
   const [reviews, setReviews] = useState<
     {
@@ -97,7 +99,7 @@ export default function HomePage() {
   const handleAddToCart = (product: SimpleProduct) => {
     const isPurchasable = product.isAvailable && product.isInStock && product.stockQuantity > 0;
     if (!isPurchasable) {
-      alert('Produk tidak tersedia atau stok habis.');
+      alert(t('home.alert_out_of_stock'));
       return;
     }
     
@@ -112,7 +114,7 @@ export default function HomePage() {
       step: 1,
       quantity: product.minimumOrder || 1,
     });
-    alert(`1x ${product.name} ditambahkan ke keranjang!`);
+    alert(t('home.alert_added_to_cart', { productName: product.name }));
   };
 
   const productTotalPages = Math.ceil(products.length / PRODUCTS_PER_PAGE)
@@ -165,12 +167,12 @@ export default function HomePage() {
           <div className="absolute inset-0 bg-gradient-to-r from-[#f8eee5] via-[#f8eee5]/80 to-transparent" />
           <div className="relative z-10 px-8 py-10 lg:px-12 lg:py-16 max-w-2xl">
             <h1 className="max-w-xl text-4xl font-black leading-tight tracking-tight text-[#4b2417] md:text-5xl lg:text-6xl">
-              Kue Lezat,
+              {t('home.hero_title_1')}
               <br />
-              Momen Berkesan
+              {t('home.hero_title_2')}
             </h1>
             <p className="mt-5 max-w-md text-base leading-7 text-[#6f5448]">
-              Toti Cakery hadir dengan kue berkualitas, dibuat dari bahan pilihan untuk setiap momen spesial Anda.
+              {t('home.hero_desc')}
             </p>
             <div className="mt-8 grid max-w-xl gap-4 sm:grid-cols-3">
               {benefits.map((benefit) => {
@@ -206,19 +208,18 @@ export default function HomePage() {
                 scrolling="yes"
                 referrerPolicy="strict-origin-when-cross-origin"
                 className="w-full h-full"
-                title="Lokasi Toti Cakery"
+                title={t('home.map_title')}
               />
             </div>
             <div>
               <div className="max-w-3xl">
                 <h2 className="text-2xl font-black text-[#4b2417]">
-                  Tentang Toti Cakery
+                  {t('home.about_title')}
                 </h2>
                 <p className="mt-3 text-sm leading-6 text-[#6f5448]">
-                  Toti Cakery adalah toko kue rumahan yang berdedikasi
-                  menghadirkan kue lezat dengan cita rasa istimewa. Setiap kue
-                  kami dibuat dengan penuh cinta dan perhatian pada detail,
-                  menggunakan bahan berkualitas terbaik.
+                  {t('home.about_desc_1')}
+                  {t('home.made_with_love')}
+                  {t('home.about_desc_2')}
                 </p>
               </div>
               <div className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -249,13 +250,14 @@ export default function HomePage() {
       {/* SEMUA PRODUK */}
       <section className="mx-auto max-w-7xl px-4 pt-10 lg:px-8">
         <div className="mb-5 flex items-center justify-between px-1">
-          <h2 className="text-2xl font-black text-[#4b2417]">Produk Kami</h2>
+          <h2 className="text-2xl font-black text-[#4b2417]">{t('home.our_products')}</h2>
           <div className="flex items-center gap-2">
             {productTotalPages > 1 && (
               <>
                 <button
                   type="button"
                   onClick={handleProductPrev}
+                  aria-label={t('common.prev')}
                   className="flex h-8 w-8 items-center justify-center rounded-full bg-[#fff1e7] text-[#c95b31] transition hover:bg-[#f3d7c7]"
                 >
                   ‹
@@ -263,6 +265,7 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={handleProductNext}
+                  aria-label={t('common.next')}
                   className="flex h-8 w-8 items-center justify-center rounded-full bg-[#fff1e7] text-[#c95b31] transition hover:bg-[#f3d7c7]"
                 >
                   ›
@@ -273,7 +276,7 @@ export default function HomePage() {
               to={ROUTES.CATALOG}
               className="text-xs font-black text-[#d85b30] hover:text-[#b74725]"
             >
-              Lihat Semua
+              {t('home.view_all')}
             </Link>
           </div>
         </div>
@@ -319,7 +322,7 @@ export default function HomePage() {
                   className="mt-3 flex h-8 w-full items-center justify-center gap-2 rounded-md border border-[#ef8b67] bg-white text-xs font-black text-[#d85b30] transition hover:bg-[#d85b30] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-[#d85b30]"
                 >
                   <ShoppingCart className="h-3.5 w-3.5" />
-                  Tambah ke Keranjang
+                  {t('home.add_to_cart')}
                 </button>
               </div>
             </article>
@@ -332,6 +335,7 @@ export default function HomePage() {
               <button
                 key={idx}
                 onClick={() => setProductIndex(idx)}
+                aria-label={`${t('common.page')} ${idx + 1}`}
                 className={`h-2 w-2 rounded-full transition ${
                   idx === productIndex ? 'bg-[#d85b30]' : 'bg-[#f3d7c7]'
                 }`}
@@ -346,12 +350,13 @@ export default function HomePage() {
         <div className="rounded-xl bg-white px-6 py-7 shadow-sm">
           <div className="mb-5 flex items-center justify-between">
             <h2 className="text-2xl font-black text-[#4b2417]">
-              Testimoni Pelanggan
+              {t('home.testimonials_title')}
             </h2>
             <div className="hidden items-center gap-2 sm:flex">
               <button
                 type="button"
                 onClick={handleReviewPrev}
+                aria-label={t('common.prev')}
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-[#fff1e7] text-[#c95b31] transition hover:bg-[#f3d7c7]"
               >
                 ‹
@@ -359,6 +364,7 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={handleReviewNext}
+                aria-label={t('common.next')}
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-[#fff1e7] text-[#c95b31] transition hover:bg-[#f3d7c7]"
               >
                 ›
@@ -367,7 +373,7 @@ export default function HomePage() {
           </div>
 
           {currentReviews.length === 0 ? (
-            <p className="text-center text-sm text-[#6f5448]">Belum ada testimoni.</p>
+            <p className="text-center text-sm text-[#6f5448]">{t('home.no_testimonials')}</p>
           ) : (
             <>
               <div className="grid gap-5 lg:grid-cols-3">
@@ -387,7 +393,7 @@ export default function HomePage() {
                         {review.customerName}
                       </p>
                       <p className="mt-1 text-xs font-semibold text-[#6f5448]">
-                        Membeli: {review.purchasedProductName}
+                        {t('home.bought')}{review.purchasedProductName}
                       </p>
                       <div className="mt-2 flex items-center gap-0.5 text-[#ff8a00]">
                         {Array.from({ length: 5 }).map((_, index) => (
@@ -411,6 +417,7 @@ export default function HomePage() {
                     <button
                       key={idx}
                       onClick={() => setReviewIndex(idx)}
+                      aria-label={`${t('common.page')} ${idx + 1}`}
                       className={`h-2 w-2 rounded-full transition ${
                         idx === reviewIndex ? 'bg-[#d85b30]' : 'bg-[#f3d7c7]'
                       }`}

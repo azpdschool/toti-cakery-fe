@@ -1,7 +1,7 @@
-// src/pages/auth/BuyerForgotPasswordPage.tsx
 import { useState } from 'react'
 import type React from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   AlertCircle,
   CheckCircle,
@@ -11,18 +11,13 @@ import {
   Loader2,
   Lock,
   Mail,
-  MessageCircle,
-  Phone,
 } from 'lucide-react'
-import { ROUTES } from '@/constants'
+import { ROUTES, LOGO_URL } from '@/constants'
 import {
-  resetBuyerPassword,
-  startWAVerification,
-  getWAVerificationStatus,
+  requestBuyerForgotPassword,
+  resetBuyerPasswordEmail,
 } from '@/api/auth'
-import { formatPhoneNumber } from '@/utils/phone'
 
-type ResetMethod = 'email' | 'whatsapp'
 type ResetStep = 'input' | 'otp' | 'reset'
 
 function parseApiError(error: unknown, fallback: string): string {
@@ -31,417 +26,242 @@ function parseApiError(error: unknown, fallback: string): string {
     const detail = err.response?.data?.detail
 
     if (typeof detail === 'string') return detail
-
     if (Array.isArray(detail)) {
-      return detail
-        .map((item) => item?.msg)
-        .filter(Boolean)
-        .join(', ')
+      return detail.map((item) => item?.msg).filter(Boolean).join(', ')
     }
-
-    if (err.response?.status === 404) {
-      return 'Akun buyer tidak ditemukan'
-    }
-
-    if (err.response?.status === 400) {
-      return 'OTP atau data tidak valid'
-    }
+    if (err.response?.status === 404) return 'Akun buyer tidak ditemukan'
+    if (err.response?.status === 400) return 'OTP atau data tidak valid'
   }
-
   return fallback
 }
 
 export default function BuyerForgotPasswordPage() {
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
-  const [method] = useState<ResetMethod>('email')
   const [step, setStep] = useState<ResetStep>('input')
-
-  const [identifier, setIdentifier] = useState('')
-  const [otpId, setOtpId] = useState('')
-  const [verifyToken, setVerifyToken] = useState('')
-
+  const [email, setEmail] = useState('')
+  const [otpCode, setOtpCode] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
-  const handleSendOtp = async (e: React.FormEvent) => {
-    e.preventDefault()
-
+  const resetMessage = () => {
     setError(null)
     setSuccess(null)
+  }
 
-    const normalizedIdentifier = formatPhoneNumber(identifier)
+  const handleSendEmailOtp = async (e: React.FormEvent) => {
+    e.preventDefault()
+    resetMessage()
 
-    if (!normalizedIdentifier) {
-      setError('Nomor WhatsApp wajib diisi dengan benar')
+    if (!email.trim()) {
+      setError(t('auth.email_required', 'Email wajib diisi'))
       return
     }
 
     setIsLoading(true)
-
     try {
-      const response = await startWAVerification({
-        phone_number: normalizedIdentifier,
-      })
-
-      if (response.mock_mode && response.verify_token) {
-        setVerifyToken(response.verify_token)
-        setSuccess('Verifikasi WhatsApp berhasil. Silakan masukkan password baru.')
-        setStep('reset')
-      } else if (response.nonce) {
-        setOtpId(response.nonce)
-        if (response.deeplink) {
-          window.open(response.deeplink, '_blank')
-        }
-        setSuccess('Silakan kirim pesan verifikasi di WhatsApp. Memeriksa status...')
-        setStep('otp')
-      }
+      await requestBuyerForgotPassword(email.trim())
+      setSuccess(t('auth.otp_sent', 'OTP berhasil dikirim ke email Anda. Periksa kotak masuk atau spam.'))
+      setStep('otp')
     } catch (err) {
-      setError(parseApiError(err, 'Gagal memulai verifikasi WhatsApp.'))
+      setError(parseApiError(err, 'Gagal mengirim OTP ke email.'))
     } finally {
       setIsLoading(false)
     }
   }
-
-  const handleVerifyOtp = async (e: React.FormEvent) => {
+  
+  const handleVerifyOtpAndReset = async (e: React.FormEvent) => {
     e.preventDefault()
+    resetMessage()
 
-    setError(null)
-    setSuccess(null)
-
-    if (!otpId) {
-      setError('Nonce verifikasi tidak ditemukan. Silakan coba lagi.')
-      setStep('input')
-      return
-    }
-
-    setIsLoading(true)
-
-    try {
-      const response = await getWAVerificationStatus(otpId)
-
-      if (response.status === 'verified' && response.verify_token) {
-        setVerifyToken(response.verify_token)
-        setSuccess('Verifikasi berhasil. Silakan buat password baru.')
-        setStep('reset')
-      } else {
-        setError('Verifikasi WhatsApp belum selesai. Silakan kirim pesan WhatsApp terlebih dahulu.')
-      }
-    } catch (err) {
-      setError(parseApiError(err, 'Gagal memeriksa status verifikasi WhatsApp.'))
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    setError(null)
-    setSuccess(null)
-
-    if (!verifyToken) {
-      setError('Token verifikasi tidak ditemukan. Silakan ulangi proses.')
-      setStep('input')
+    if (otpCode.length !== 6) {
+      setError(t('auth.error_otp_length', 'OTP harus 6 digit'))
       return
     }
 
     if (newPassword.length < 6) {
-      setError('Password minimal 6 karakter')
+      setError(t('auth.error_password_length', 'Password minimal 6 karakter'))
       return
     }
 
     if (newPassword !== confirmPassword) {
-      setError('Password dan konfirmasi tidak cocok')
+      setError(t('auth.error_password_match', 'Password tidak cocok'))
       return
     }
 
     setIsLoading(true)
-
     try {
-      await resetBuyerPassword({
-        verify_token: verifyToken,
+      await resetBuyerPasswordEmail({
+        email: email.trim(),
+        otp: otpCode,
         new_password: newPassword,
       })
 
-      setSuccess('Password berhasil direset! Silakan login.')
-
-      setTimeout(() => {
-        navigate(ROUTES.AUTH_BUYER, { replace: true })
-      }, 1200)
+      setSuccess(t('auth.reset_success', 'Password berhasil diubah. Mengalihkan...'))
+      setTimeout(() => navigate(ROUTES.AUTH_BUYER, { replace: true }), 2000)
     } catch (err) {
-      setError(parseApiError(err, 'Gagal mereset password. Silakan coba lagi.'))
+      setError(parseApiError(err, t('auth.error_generic', 'Gagal reset password')))
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#fdf6f0] to-[#f4ebdf] px-4 py-8">
-      <div className="w-full max-w-md">
-        <button
-          type="button"
-          onClick={() => navigate(ROUTES.AUTH_BUYER)}
-          className="mb-6 flex items-center gap-1 text-sm font-medium text-[#6f5448] transition hover:text-[#4b2417]"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          Kembali ke Login
-        </button>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#fffaf5] px-4 py-12">
+      <div className="w-full max-w-md rounded-2xl border border-[#ead8ca] bg-white p-6 shadow-sm sm:p-8">
+        <div className="relative mb-6 text-center flex flex-col items-center">
+          <button
+            onClick={() => {
+              if (step === 'input') {
+                navigate(ROUTES.AUTH_BUYER)
+              } else {
+                setStep('input')
+                setOtpCode('')
+                setNewPassword('')
+                setConfirmPassword('')
+                resetMessage()
+              }
+            }}
+            className="absolute left-0 top-0 flex items-center text-sm font-bold text-[#8b7166] hover:text-[#d85b30] transition"
+          >
+            <ChevronLeft className="mr-1 h-5 w-5" />
+            {t('auth.cancel', 'Batal')}
+          </button>
 
-        <div className="rounded-2xl border border-[#ead8ca] bg-white/90 p-8 shadow-xl backdrop-blur-sm">
-          <h1 className="text-2xl font-black text-[#4b2417]">
-            Lupa Password Buyer
-          </h1>
-
+          <Link to={ROUTES.HOME} className="inline-block mt-8 mb-6">
+            <img src={LOGO_URL} alt="Toti Cakery" className="mx-auto w-48 sm:w-60 h-auto max-w-full object-contain" />
+          </Link>
+          <h1 className="text-2xl font-black text-[#4b2417]">{t('auth.buyer_forgot_title', 'Lupa Password')}</h1>
           <p className="mt-1 text-sm text-[#6f5448]">
-            {step === 'input' && 'Pilih metode untuk menerima kode OTP'}
-            {step === 'otp' && 'Masukkan kode OTP yang dikirim'}
-            {step === 'reset' && 'Buat password baru untuk akun Anda'}
+            {step === 'input' 
+              ? t('auth.buyer_forgot_subtitle', 'Masukkan email akun Anda untuk mendapatkan kode OTP reset password.') 
+              : 'Masukkan kode OTP dan password baru Anda.'}
           </p>
+        </div>
 
-          {step === 'input' && (
-            <>
-              <div className="mt-5 flex gap-2">
+        {error && (
+          <div className="mb-6 flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <p>{error}</p>
+          </div>
+        )}
+
+        {success && (
+          <div className="mb-6 flex items-center gap-2 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-600">
+            <CheckCircle className="h-4 w-4 shrink-0" />
+            <p>{success}</p>
+          </div>
+        )}
+
+        {step === 'input' && (
+          <form onSubmit={handleSendEmailOtp} className="space-y-4">
+            <div className="relative">
+              <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b7166]" />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder={t('auth.email_placeholder', 'Email')}
+                className="w-full rounded-xl border border-[#d0bfaf] py-3 pl-11 pr-4 text-sm outline-none focus:border-[#d85b30] focus:ring-1 focus:ring-[#d85b30]"
+                required
+              />
+            </div>
+            
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="mt-2 flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white hover:bg-[#c04e28] disabled:opacity-60 transition"
+            >
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : t('auth.send_otp', 'Kirim OTP')}
+            </button>
+          </form>
+        )}
+
+        {step === 'otp' && (
+          <form onSubmit={handleVerifyOtpAndReset} className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-[#4b2417] mb-1.5">
+                Kode OTP (6 digit)
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
+                placeholder="000000"
+                className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 px-4 py-3 text-center text-xl font-bold text-[#4b2417] outline-none transition focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
+                autoFocus
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-[#4b2417] mb-1.5">
+                Password Baru
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b7166]" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder={t('auth.new_password', 'Password Baru')}
+                  className="w-full rounded-xl border border-[#d0bfaf] py-3 pl-11 pr-12 text-sm outline-none focus:border-[#d85b30] focus:ring-1 focus:ring-[#d85b30]"
+                  required
+                />
                 <button
                   type="button"
-                  className="flex-1 rounded-lg border-2 border-[#25D366] bg-[#25D366]/10 px-4 py-3 text-sm font-semibold text-[#25D366] transition"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166]"
                 >
-                  <MessageCircle className="mx-auto mb-1 h-5 w-5" />
-                  WhatsApp
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+            </div>
 
-              <form onSubmit={handleSendOtp} className="mt-6 space-y-4">
-                <div>
-                  <label
-                    htmlFor="identifier"
-                    className="block text-sm font-semibold text-[#4b2417]"
-                  >
-                    {method === 'email' ? 'Email' : 'Nomor WhatsApp'}
-                  </label>
-
-                  <div className="relative mt-1.5">
-                    <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8b7166]">
-                      {method === 'email' ? (
-                        <Mail className="h-4 w-4" />
-                      ) : (
-                        <Phone className="h-4 w-4" />
-                      )}
-                    </div>
-
-                    <input
-                      id="identifier"
-                      type={method === 'email' ? 'email' : 'tel'}
-                      value={identifier}
-                      onChange={(e) => setIdentifier(e.target.value)}
-                      placeholder={
-                        method === 'email'
-                          ? 'email@domain.com'
-                          : 'contoh: 081234567890'
-                      }
-                      className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-4 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
-                    />
-                  </div>
-                </div>
-
-                {error && (
-                  <div className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
-                    <AlertCircle className="h-4 w-4 shrink-0" />
-                    {error}
-                  </div>
-                )}
-
-                {success && (
-                  <div className="flex items-center gap-2 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-600">
-                    <CheckCircle className="h-4 w-4 shrink-0" />
-                    {success}
-                  </div>
-                )}
-
+            <div>
+              <label className="block text-sm font-semibold text-[#4b2417] mb-1.5">
+                Konfirmasi Password Baru
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b7166]" />
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder={t('auth.confirm_password_placeholder', 'Konfirmasi Password')}
+                  className="w-full rounded-xl border border-[#d0bfaf] py-3 pl-11 pr-12 text-sm outline-none focus:border-[#d85b30] focus:ring-1 focus:ring-[#d85b30]"
+                  required
+                />
                 <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white transition hover:bg-[#c04e28] disabled:opacity-60"
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166]"
                 >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Mengirim OTP...
-                    </>
-                  ) : (
-                    'Kirim OTP'
-                  )}
+                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
-              </form>
-            </>
-          )}
-
-          {step === 'otp' && (
-            <form onSubmit={handleVerifyOtp} className="mt-6 space-y-4">
-              <div className="text-center">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#e8f9ee] mb-4">
-                  <MessageCircle className="h-8 w-8 text-[#25D366]" />
-                </div>
-                <p className="text-sm text-[#6f5448]">
-                  Silakan periksa WhatsApp Anda dan ikuti instruksi yang dikirimkan.
-                  Klik tombol di bawah jika Anda sudah menyelesaikannya.
-                </p>
               </div>
+            </div>
 
-              {error && (
-                <div className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                  {error}
-                </div>
-              )}
-
-              {success && (
-                <div className="flex items-center gap-2 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-600">
-                  <CheckCircle className="h-4 w-4 shrink-0" />
-                  {success}
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white transition hover:bg-[#c04e28] disabled:opacity-60"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Memverifikasi...
-                  </>
-                ) : (
-                  'Cek Status Verifikasi'
-                )}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setOtpId('')
-                  setStep('input')
-                }}
-                className="w-full text-sm font-medium text-[#d85b30] hover:text-[#c04e28]"
-              >
-                Kirim ulang OTP
-              </button>
-            </form>
-          )}
-
-          {step === 'reset' && (
-            <form onSubmit={handleResetPassword} className="mt-6 space-y-4">
-              <div>
-                <label
-                  htmlFor="new-password"
-                  className="block text-sm font-semibold text-[#4b2417]"
-                >
-                  Password Baru
-                </label>
-
-                <div className="relative mt-1.5">
-                  <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8b7166]">
-                    <Lock className="h-4 w-4" />
-                  </div>
-
-                  <input
-                    id="new-password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Minimal 6 karakter"
-                    className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-12 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166] hover:text-[#4b2417]"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="confirm-password"
-                  className="block text-sm font-semibold text-[#4b2417]"
-                >
-                  Konfirmasi Password
-                </label>
-
-                <div className="relative mt-1.5">
-                  <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8b7166]">
-                    <Lock className="h-4 w-4" />
-                  </div>
-
-                  <input
-                    id="confirm-password"
-                    type={showPassword ? 'text' : 'password'}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Ulangi password baru"
-                    className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-12 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166] hover:text-[#4b2417]"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {error && (
-                <div className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                  {error}
-                </div>
-              )}
-
-              {success && (
-                <div className="flex items-center gap-2 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-600">
-                  <CheckCircle className="h-4 w-4 shrink-0" />
-                  {success}
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white transition hover:bg-[#c04e28] disabled:opacity-60"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Mereset Password...
-                  </>
-                ) : (
-                  'Reset Password'
-                )}
-              </button>
-            </form>
-          )}
-        </div>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="mt-2 flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white hover:bg-[#c04e28] disabled:opacity-60 transition"
+            >
+              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : t('auth.reset_btn', 'Ubah Password')}
+            </button>
+          </form>
+        )}
       </div>
     </div>
   )

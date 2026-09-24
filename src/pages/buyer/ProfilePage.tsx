@@ -18,18 +18,14 @@ import {
   ShoppingBag,
   Home,
   X,
+  Heart,
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/hooks/useAuth'
 import { ROUTES } from '@/constants'
-import {
-  resetBuyerPassword,
-  startWAVerification,
-  getWAVerificationStatus,
-} from '@/api/auth'
+import { changeBuyerPassword, changeBuyerPhone } from '@/api/auth'
 import { InternationalPhoneInput } from '@/components/common/PhoneInput'
 import { formatPhoneNumber } from '@/utils/phone'
-
-type PasswordStep = 'idle' | 'otp' | 'reset'
 
 function parseApiError(error: unknown, fallback: string): string {
   if (error && typeof error === 'object' && 'response' in error) {
@@ -60,6 +56,7 @@ function parseApiError(error: unknown, fallback: string): string {
 
 export default function ProfilePage() {
   const { user, logout, updateUser, isAuthenticated } = useAuth()
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -71,24 +68,24 @@ export default function ProfilePage() {
   // Phone Modal State
   const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false)
   const [newPhone, setNewPhone] = useState('')
+  const [phoneCurrentPassword, setPhoneCurrentPassword] = useState('')
+  const [showPhoneCurrentPassword, setShowPhoneCurrentPassword] = useState(false)
   const [phoneLoading, setPhoneLoading] = useState(false)
   const [phoneError, setPhoneError] = useState<string | null>(null)
   const [phoneSuccess, setPhoneSuccess] = useState<string | null>(null)
 
-  const [passwordStep, setPasswordStep] = useState<PasswordStep>('idle')
-  const [otpId, setOtpId] = useState('')
-  const [otpCode, setOtpCode] = useState('')
-  const [verifyToken, setVerifyToken] = useState('')
-
+  // Password State
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [passwordData, setPasswordData] = useState({
+    current: '',
     new: '',
     confirm: '',
   })
 
   const [passwordError, setPasswordError] = useState<string | null>(null)
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null)
-  const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [passwordLoading, setPasswordLoading] = useState(false)
 
   if (!isAuthenticated || !user || user.role !== 'buyer') {
     return <Navigate to={ROUTES.AUTH_BUYER} replace />
@@ -133,126 +130,53 @@ export default function ProfilePage() {
     setAvatarLoading(true)
     setAvatarError(null)
     try {
-      // Backend does not currently support profile image upload
       throw new Error('Backend persistence is not yet supported. Frontend UI is ready.')
     } catch (err: unknown) {
-      setAvatarError(err instanceof Error ? err.message : 'Gagal menyimpan foto profil.')
+      setAvatarError(err instanceof Error ? err.message : t('profile.upload_error'))
     } finally {
       setAvatarLoading(false)
     }
   }
 
-  const handleRequestPasswordOtp = async () => {
-    setPasswordError(null)
-    setPasswordSuccess(null)
-
-    const targetPhone = formatPhoneNumber(user.phone || '')
-
-    if (!targetPhone) {
-      setPasswordError('Nomor WhatsApp tidak tersedia di akun Anda.')
-      return
-    }
-
-    setIsChangingPassword(true)
-
-    try {
-      const response = await startWAVerification({
-        phone_number: targetPhone,
-      })
-
-      if (response.mock_mode && response.verify_token) {
-        setVerifyToken(response.verify_token)
-        setPasswordSuccess('Verifikasi WhatsApp berhasil. Silakan buat password baru.')
-        setPasswordStep('reset')
-      } else if (response.nonce) {
-        setOtpId(response.nonce)
-        if (response.deeplink) {
-          window.open(response.deeplink, '_blank')
-        }
-        setPasswordSuccess('Silakan kirim pesan verifikasi di WhatsApp. Memeriksa status...')
-        setPasswordStep('otp')
-      }
-    } catch (err) {
-      setPasswordError(parseApiError(err, 'Gagal memulai verifikasi WhatsApp.'))
-    } finally {
-      setIsChangingPassword(false)
-    }
-  }
-
-  const handleVerifyOtp = async (e: React.FormEvent) => {
+  const handleSavePassword = async (e: React.FormEvent) => {
     e.preventDefault()
 
     setPasswordError(null)
     setPasswordSuccess(null)
 
-    if (!otpId) {
-      setPasswordError('Nonce verifikasi tidak ditemukan.')
-      setPasswordStep('idle')
-      return
-    }
-
-    setIsChangingPassword(true)
-
-    try {
-      const response = await getWAVerificationStatus(otpId)
-
-      if (response.status === 'verified' && response.verify_token) {
-        setVerifyToken(response.verify_token)
-        setPasswordSuccess('Verifikasi WhatsApp berhasil. Silakan buat password baru.')
-        setPasswordStep('reset')
-      } else {
-        setPasswordError('Verifikasi WhatsApp belum selesai. Kirim pesan WhatsApp terlebih dahulu.')
-      }
-    } catch (err) {
-      setPasswordError(parseApiError(err, 'Gagal memeriksa status verifikasi.'))
-    } finally {
-      setIsChangingPassword(false)
-    }
-  }
-
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    setPasswordError(null)
-    setPasswordSuccess(null)
-
-    if (!verifyToken) {
-      setPasswordError('Token verifikasi tidak ditemukan.')
-      setPasswordStep('idle')
+    if (!passwordData.current) {
+      setPasswordError('Password saat ini wajib diisi.')
       return
     }
 
     if (passwordData.new.length < 6) {
-      setPasswordError('Password minimal 6 karakter.')
+      setPasswordError('Password baru minimal 6 karakter.')
       return
     }
 
     if (passwordData.new !== passwordData.confirm) {
-      setPasswordError('Password dan konfirmasi tidak cocok.')
+      setPasswordError('Password baru dan konfirmasi tidak cocok.')
       return
     }
 
-    setIsChangingPassword(true)
+    setPasswordLoading(true)
 
     try {
-      await resetBuyerPassword({
-        verify_token: verifyToken,
+      await changeBuyerPassword({
+        current_password: passwordData.current,
         new_password: passwordData.new,
       })
 
       setPasswordSuccess('Password berhasil diganti.')
-      setPasswordStep('idle')
-      setOtpId('')
-      setOtpCode('')
-      setVerifyToken('')
-      setPasswordData({
-        new: '',
-        confirm: '',
-      })
+      setPasswordData({ current: '', new: '', confirm: '' })
+      setTimeout(() => {
+        setIsChangingPassword(false)
+        setPasswordSuccess(null)
+      }, 2000)
     } catch (err) {
       setPasswordError(parseApiError(err, 'Gagal mengganti password.'))
     } finally {
-      setIsChangingPassword(false)
+      setPasswordLoading(false)
     }
   }
 
@@ -267,16 +191,26 @@ export default function ProfilePage() {
       return
     }
 
+    if (!phoneCurrentPassword) {
+      setPhoneError('Password saat ini wajib diisi.')
+      return
+    }
+
     setPhoneLoading(true)
 
     try {
-      // Simulate/apply phone update
-      updateUser({ phone: cleanedPhone })
+      const response = await changeBuyerPhone({ 
+        current_password: phoneCurrentPassword,
+        phone: cleanedPhone 
+      })
+      
+      updateUser({ phone: response.phone })
       setPhoneSuccess('Nomor WhatsApp berhasil diperbarui!')
+      
       setTimeout(() => {
         setIsPhoneModalOpen(false)
         setPhoneSuccess(null)
-      }, 1200)
+      }, 1500)
     } catch (err) {
       setPhoneError(parseApiError(err, 'Gagal memperbarui nomor WhatsApp.'))
     } finally {
@@ -349,7 +283,7 @@ export default function ProfilePage() {
             )}
 
             <h1 className="mt-4 text-xl font-black text-[#4b2417]">
-              {user.name || 'Buyer'}
+              {user.name || t('profile.buyer', 'Buyer')}
             </h1>
 
             <p className="mt-1 text-sm text-[#6f5448]">
@@ -376,7 +310,15 @@ export default function ProfilePage() {
               className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-[#6f5448] transition hover:bg-[#fff4ed] hover:text-[#4b2417]"
             >
               <ShoppingBag className="h-4 w-4" />
-              Pesanan Saya
+              {t('profile.my_orders')}
+            </Link>
+
+            <Link
+              to={ROUTES.WISHLIST}
+              className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-[#6f5448] transition hover:bg-[#fff4ed] hover:text-[#4b2417]"
+            >
+              <Heart className="h-4 w-4" />
+              Wishlist
             </Link>
 
             <button
@@ -395,7 +337,7 @@ export default function ProfilePage() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-xl font-black text-[#4b2417]">
-                  Informasi Profil
+                  {t('profile.profile_info')}
                 </h2>
 
                 <p className="mt-1 text-sm text-[#6f5448]">
@@ -442,6 +384,7 @@ export default function ProfilePage() {
                       type="button"
                       onClick={() => {
                         setNewPhone(user.phone || '')
+                        setPhoneCurrentPassword('')
                         setPhoneError(null)
                         setPhoneSuccess(null)
                         setIsPhoneModalOpen(true)
@@ -477,7 +420,7 @@ export default function ProfilePage() {
             </h2>
 
             <p className="mt-1 text-sm text-[#6f5448]">
-              Ganti password menggunakan OTP dari backend.
+              Ganti password dengan memasukkan password Anda saat ini.
             </p>
 
             {passwordError && (
@@ -494,164 +437,76 @@ export default function ProfilePage() {
               </div>
             )}
 
-            {passwordStep === 'idle' && (
+            {!isChangingPassword ? (
               <button
                 type="button"
-                onClick={handleRequestPasswordOtp}
-                disabled={isChangingPassword}
-                className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-[#d85b30] px-5 text-sm font-black text-white transition hover:bg-[#c04e28] disabled:opacity-60"
+                onClick={() => setIsChangingPassword(true)}
+                className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-[#d85b30] px-5 text-sm font-black text-white transition hover:bg-[#c04e28]"
               >
-                {isChangingPassword ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Mengirim OTP...
-                  </>
-                ) : (
-                  <>
-                    <Lock className="mr-2 h-4 w-4" />
-                    Ganti Password
-                  </>
-                )}
+                <Lock className="mr-2 h-4 w-4" />
+                Ganti Password
               </button>
-            )}
-
-            {passwordStep === 'otp' && (
-              <form onSubmit={handleVerifyOtp} className="mt-5 max-w-md space-y-4">
+            ) : (
+              <form onSubmit={handleSavePassword} className="mt-5 max-w-md space-y-4">
                 <div>
                   <label className="block text-sm font-semibold text-[#4b2417]">
-                    Kode OTP
+                    Password Saat Ini
                   </label>
-
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={6}
-                    value={otpCode}
-                    onChange={(e) =>
-                      setOtpCode(e.target.value.replace(/\D/g, ''))
-                    }
-                    placeholder="Masukkan OTP"
-                    className="mt-1.5 w-full rounded-xl border border-[#d0bfaf] bg-white/70 px-4 py-3 text-center text-xl font-bold text-[#4b2417] outline-none transition placeholder:text-sm placeholder:font-normal placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
-                    autoFocus
-                  />
-
-                  <p className="mt-2 text-xs text-[#8b7166]">
-                    Untuk development gunakan kode{' '}
-                    <span className="font-mono font-bold">7777</span>.
-                  </p>
+                  <div className="relative mt-1.5">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={passwordData.current}
+                      onChange={(e) => setPasswordData(prev => ({ ...prev, current: e.target.value }))}
+                      placeholder="Masukkan password saat ini"
+                      className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-4 pr-12 text-sm text-[#4b2417] outline-none transition focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(prev => !prev)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166] hover:text-[#4b2417]"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
 
-                <div className="flex gap-2">
-                  <button
-                    type="submit"
-                    disabled={isChangingPassword}
-                    className="inline-flex h-11 items-center justify-center rounded-xl bg-[#d85b30] px-5 text-sm font-black text-white transition hover:bg-[#c04e28] disabled:opacity-60"
-                  >
-                    {isChangingPassword ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Verifikasi...
-                      </>
-                    ) : (
-                      'Verifikasi OTP'
-                    )}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPasswordStep('idle')
-                      setOtpId('')
-                      setOtpCode('')
-                    }}
-                    className="inline-flex h-11 items-center justify-center rounded-xl border border-[#d0bfaf] px-5 text-sm font-bold text-[#4b2417] transition hover:bg-[#fff4ed]"
-                  >
-                    Batal
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {passwordStep === 'reset' && (
-              <form
-                onSubmit={handleResetPassword}
-                className="mt-5 max-w-md space-y-4"
-              >
                 <div>
                   <label className="block text-sm font-semibold text-[#4b2417]">
                     Password Baru
                   </label>
-
                   <div className="relative mt-1.5">
                     <input
                       type={showPassword ? 'text' : 'password'}
                       value={passwordData.new}
-                      onChange={(e) =>
-                        setPasswordData((prev) => ({
-                          ...prev,
-                          new: e.target.value,
-                        }))
-                      }
+                      onChange={(e) => setPasswordData(prev => ({ ...prev, new: e.target.value }))}
                       placeholder="Minimal 6 karakter"
-                      className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-4 pr-12 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
+                      className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-4 pr-12 text-sm text-[#4b2417] outline-none transition focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
                     />
-
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((prev) => !prev)}
-                      aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166] hover:text-[#4b2417]"
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </button>
                   </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-[#4b2417]">
-                    Konfirmasi Password
+                    Konfirmasi Password Baru
                   </label>
-
                   <div className="relative mt-1.5">
                     <input
                       type={showPassword ? 'text' : 'password'}
                       value={passwordData.confirm}
-                      onChange={(e) =>
-                        setPasswordData((prev) => ({
-                          ...prev,
-                          confirm: e.target.value,
-                        }))
-                      }
+                      onChange={(e) => setPasswordData(prev => ({ ...prev, confirm: e.target.value }))}
                       placeholder="Ulangi password baru"
-                      className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-4 pr-12 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
+                      className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-4 pr-12 text-sm text-[#4b2417] outline-none transition focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((prev) => !prev)}
-                      aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166] hover:text-[#4b2417]"
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </button>
                   </div>
                 </div>
 
                 <div className="flex gap-2">
                   <button
                     type="submit"
-                    disabled={isChangingPassword}
+                    disabled={passwordLoading}
                     className="inline-flex h-11 items-center justify-center rounded-xl bg-[#d85b30] px-5 text-sm font-black text-white transition hover:bg-[#c04e28] disabled:opacity-60"
                   >
-                    {isChangingPassword ? (
+                    {passwordLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                         Menyimpan...
@@ -664,12 +519,9 @@ export default function ProfilePage() {
                   <button
                     type="button"
                     onClick={() => {
-                      setPasswordStep('idle')
-                      setVerifyToken('')
-                      setPasswordData({
-                        new: '',
-                        confirm: '',
-                      })
+                      setIsChangingPassword(false)
+                      setPasswordData({ current: '', new: '', confirm: '' })
+                      setPasswordError(null)
                     }}
                     className="inline-flex h-11 items-center justify-center rounded-xl border border-[#d0bfaf] px-5 text-sm font-bold text-[#4b2417] transition hover:bg-[#fff4ed]"
                   >
@@ -722,12 +574,34 @@ export default function ProfilePage() {
                 required
                 error={phoneError}
               />
-
               <p className="text-xs text-[#8b7166]">
-                Pilih kode negara via dropdown dan ketik nomor tanpa angka 0 di depan. Format otomatis tersimpan dalam standar E.164.
+                Pilih kode negara via dropdown dan ketik nomor tanpa angka 0 di depan.
               </p>
 
-              <div className="flex justify-end gap-2 border-t border-gray-100 pt-3">
+              <div>
+                <label className="block text-sm font-semibold text-[#4b2417] mb-1">
+                  Password Saat Ini
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPhoneCurrentPassword ? 'text' : 'password'}
+                    value={phoneCurrentPassword}
+                    onChange={(e) => setPhoneCurrentPassword(e.target.value)}
+                    placeholder="Masukkan password Anda"
+                    className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-2.5 pl-4 pr-10 text-sm text-[#4b2417] outline-none transition focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPhoneCurrentPassword(prev => !prev)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166]"
+                  >
+                    {showPhoneCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 border-t border-gray-100 pt-4 mt-2">
                 <button
                   type="button"
                   onClick={() => setIsPhoneModalOpen(false)}

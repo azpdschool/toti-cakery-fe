@@ -125,7 +125,7 @@ export interface SimpleProduct {
   parentCategory: string | null;
   minimumOrder?: number;
 
-  status: 'active' | 'inactive';
+  status: 'active' | 'archived';
 
   createdAt: string | null;
   updatedAt: string | null;

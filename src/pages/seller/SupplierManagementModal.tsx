@@ -1,6 +1,7 @@
+import { SellerModal } from '@/components/ui/SellerModal';
 import { useEffect, useState } from 'react';
 import type React from 'react';
-import { X, Plus, Edit, Trash2 } from 'lucide-react';
+import { Plus, Edit, Trash2 } from 'lucide-react';
 import { supplierService } from '@/services/supplierService';
 import type { SupplierOut } from '@/api/supplier';
 
@@ -44,8 +45,6 @@ export default function SupplierManagementModal({ isOpen, onClose }: SupplierMan
       void loadSuppliers();
     }
   }, [isOpen]);
-
-  if (!isOpen) return null;
 
   const handleAdd = () => {
     setFormData({ nama_supplier: '', kontak_person: '', nomor_telepon: '', email: '' });
@@ -108,154 +107,148 @@ export default function SupplierManagementModal({ isOpen, onClose }: SupplierMan
     }
   };
 
+  const title = mode === 'list' ? 'Supplier Management' : mode === 'add' ? 'Add Supplier' : 'Edit Supplier';
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-2xl rounded-2xl border border-[#ead8ca] bg-white p-6 shadow-xl">
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-2xl font-black text-[#4b2417]">
-            {mode === 'list' ? 'Manajemen Supplier' : mode === 'add' ? 'Tambah Supplier' : 'Edit Supplier'}
-          </h2>
-          <button type="button" onClick={onClose} className="rounded-full p-1 hover:bg-gray-100">
-            <X className="h-6 w-6 text-gray-500" />
-          </button>
+    <SellerModal isOpen={isOpen} onClose={onClose} title={title} size="2xl">
+      {error && (
+        <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
+          {error}
         </div>
+      )}
 
-        {error && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-            {error}
+      {mode === 'list' && (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <button
+              onClick={handleAdd}
+              className="flex items-center gap-2 rounded-xl bg-[#d85b30] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#c04e28]"
+            >
+              <Plus className="h-4 w-4" />
+              Add Supplier
+            </button>
           </div>
-        )}
 
-        {mode === 'list' && (
-          <div className="space-y-4">
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={handleAdd}
-                className="flex items-center gap-1 rounded-lg bg-[#d85b30] px-4 py-2 text-sm font-semibold text-white hover:bg-[#c04e28]"
-              >
-                <Plus className="h-4 w-4" /> Tambah
-              </button>
+          {loading ? (
+            <div className="py-8 text-center text-sm text-gray-500">Loading...</div>
+          ) : suppliers.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-gray-300 py-12 text-center text-sm text-gray-500">
+              No suppliers found.
             </div>
-
-            {loading ? (
-              <div className="py-8 text-center text-gray-500">Memuat...</div>
-            ) : suppliers.length === 0 ? (
-              <div className="py-8 text-center text-gray-500">Tidak ada supplier.</div>
-            ) : (
-              <div className="max-h-96 overflow-y-auto rounded-lg border border-gray-200">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left font-medium text-gray-700">Supplier</th>
-                      <th className="px-4 py-3 text-left font-medium text-gray-700">Kontak</th>
-                      <th className="px-4 py-3 text-right font-medium text-gray-700">Aksi</th>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-[#ead8ca]">
+              <table className="w-full text-left text-sm text-[#4b2417]">
+                <thead className="bg-[#f8eee5] text-[#6f5448]">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">Name</th>
+                    <th className="px-4 py-3 font-semibold">Contact</th>
+                    <th className="px-4 py-3 font-semibold">Phone</th>
+                    <th className="px-4 py-3 font-semibold">Email</th>
+                    <th className="px-4 py-3 font-semibold text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#ead8ca]">
+                  {suppliers.map(supplier => (
+                    <tr key={supplier.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-medium">{supplier.nama_supplier}</td>
+                      <td className="px-4 py-3">{supplier.kontak_person || '-'}</td>
+                      <td className="px-4 py-3">{supplier.nomor_telepon || '-'}</td>
+                      <td className="px-4 py-3">{supplier.email || '-'}</td>
+                      <td className="px-4 py-3 text-center">
+                        <div className="flex justify-center gap-2">
+                          <button
+                            onClick={() => handleEdit(supplier)}
+                            className="rounded p-1 text-[#d85b30] hover:bg-orange-50 transition"
+                            title="Edit"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(supplier.id, supplier.nama_supplier)}
+                            className="rounded p-1 text-red-600 hover:bg-red-50 transition"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {suppliers.map(supplier => (
-                      <tr key={supplier.id} className="border-t border-gray-100">
-                        <td className="px-4 py-3">
-                          <p className="font-bold text-gray-800">{supplier.nama_supplier}</p>
-                          {supplier.email && <p className="text-xs text-gray-500">{supplier.email}</p>}
-                        </td>
-                        <td className="px-4 py-3 text-gray-800">
-                          {supplier.kontak_person ? <p>{supplier.kontak_person}</p> : <span className="text-gray-400">-</span>}
-                          {supplier.nomor_telepon && <p className="text-xs text-gray-500">{supplier.nomor_telepon}</p>}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex justify-end gap-2">
-                            <button
-                              onClick={() => handleEdit(supplier)}
-                              className="rounded p-1 text-gray-500 hover:bg-gray-100"
-                              title="Edit"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(supplier.id, supplier.nama_supplier)}
-                              className="rounded p-1 text-red-500 hover:bg-red-50"
-                              title="Hapus"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {(mode === 'add' || mode === 'edit') && (
+        <form onSubmit={handleSubmit} className="space-y-4" id="supplier-form">
+          <div>
+            <label className="block text-sm font-semibold text-[#4b2417]">Supplier Name <span className="text-red-500">*</span></label>
+            <input
+              type="text"
+              required
+              value={formData.nama_supplier}
+              onChange={e => setFormData({ ...formData, nama_supplier: e.target.value })}
+              className="mt-1 w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-sm outline-none focus:border-[#d85b30]"
+              placeholder="Enter supplier name"
+            />
           </div>
-        )}
 
-        {(mode === 'add' || mode === 'edit') && (
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-semibold text-[#4b2417]">Nama Supplier</label>
-              <input
-                type="text"
-                value={formData.nama_supplier}
-                onChange={e => setFormData({ ...formData, nama_supplier: e.target.value })}
-                className="mt-1 w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-sm outline-none focus:border-[#d85b30]"
-                placeholder="Masukkan nama supplier"
-                autoFocus
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-semibold text-[#4b2417]">Contact Person</label>
+            <input
+              type="text"
+              value={formData.kontak_person}
+              onChange={e => setFormData({ ...formData, kontak_person: e.target.value })}
+              className="mt-1 w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-sm outline-none focus:border-[#d85b30]"
+              placeholder="Enter contact name"
+            />
+          </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-[#4b2417]">Nama Kontak Person</label>
-              <input
-                type="text"
-                value={formData.kontak_person}
-                onChange={e => setFormData({ ...formData, kontak_person: e.target.value })}
-                className="mt-1 w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-sm outline-none focus:border-[#d85b30]"
-                placeholder="Masukkan nama kontak"
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-semibold text-[#4b2417]">Phone Number</label>
+            <input
+              type="tel"
+              value={formData.nomor_telepon}
+              onChange={e => setFormData({ ...formData, nomor_telepon: e.target.value })}
+              className="mt-1 w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-sm outline-none focus:border-[#d85b30]"
+              placeholder="Enter phone number"
+            />
+          </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-[#4b2417]">Nomor Telepon</label>
-              <input
-                type="tel"
-                value={formData.nomor_telepon}
-                onChange={e => setFormData({ ...formData, nomor_telepon: e.target.value })}
-                className="mt-1 w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-sm outline-none focus:border-[#d85b30]"
-                placeholder="Masukkan nomor telepon"
-              />
-            </div>
+          <div>
+            <label className="block text-sm font-semibold text-[#4b2417]">Email Address</label>
+            <input
+              type="email"
+              value={formData.email}
+              onChange={e => setFormData({ ...formData, email: e.target.value })}
+              className="mt-1 w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-sm outline-none focus:border-[#d85b30]"
+              placeholder="Enter email address"
+            />
+          </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-[#4b2417]">Email</label>
-              <input
-                type="email"
-                value={formData.email}
-                onChange={e => setFormData({ ...formData, email: e.target.value })}
-                className="mt-1 w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-sm outline-none focus:border-[#d85b30]"
-                placeholder="Masukkan alamat email"
-              />
-            </div>
-            
-            <div className="flex justify-end gap-3 pt-4">
-              <button
-                type="button"
-                onClick={() => setMode('list')}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-              >
-                Batal
-              </button>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="rounded-lg bg-[#d85b30] px-4 py-2 text-sm font-semibold text-white hover:bg-[#c04e28] disabled:opacity-60"
-              >
-                {submitting ? 'Menyimpan...' : 'Simpan'}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>
+          <div className="mt-6 flex justify-end gap-3 border-t border-[#ead8ca] pt-4">
+            <button
+              type="button"
+              onClick={() => {
+                setMode('list');
+                setError(null);
+              }}
+              className="rounded-xl px-4 py-2 text-sm font-semibold text-[#6f5448] transition hover:bg-gray-100"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex items-center gap-2 rounded-xl bg-[#d85b30] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#c04e28] disabled:opacity-60"
+            >
+              {submitting ? 'Saving...' : 'Save Supplier'}
+            </button>
+          </div>
+        </form>
+      )}
+    </SellerModal>
   );
 }

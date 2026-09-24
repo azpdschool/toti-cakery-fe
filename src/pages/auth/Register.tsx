@@ -1,359 +1,335 @@
-// src/pages/auth/Register.tsx
-import React, { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react'
+import type React from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
-  User as UserIcon,
-  Mail,
-  Lock,
-  Eye,
-  EyeOff,
   AlertCircle,
   CheckCircle,
+  Eye,
+  EyeOff,
+  ExternalLink,
   Loader2,
+  Lock,
+  Mail,
+  User as UserIcon,
   MessageCircle,
-  ArrowLeft,
-} from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import { useAuth } from '@/hooks/useAuth';
-import { ROUTES } from '@/constants';
+} from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
+import { ROUTES, LOGO_URL } from '@/constants'
 import {
+  registerBuyer,
   startWAVerification,
   getWAVerificationStatus,
-  registerBuyer,
   mapBuyerAuthResponseToUser,
-} from '@/api/auth';
-import { InternationalPhoneInput } from '@/components/common/PhoneInput';
-import { formatPhoneNumber } from '@/utils/phone';
+} from '@/api/auth'
+import { InternationalPhoneInput } from '@/components/common/PhoneInput'
+import { formatPhoneNumber } from '@/utils/phone'
 
-function parseApiError(error: unknown, fallback: string): string {
-  if (error && typeof error === 'object' && 'response' in error) {
-    const err = error as { response?: { data?: { detail?: unknown; message?: string }; status?: number } };
-    const detail = err.response?.data?.detail;
+export default function Register() {
+  const navigate = useNavigate()
+  const { login } = useAuth()
+  const { t } = useTranslation()
 
-    if (err.response?.status === 409) return 'Nomor HP atau email sudah terdaftar';
-    if (typeof detail === 'string') return detail;
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
-    if (Array.isArray(detail)) {
-      return detail
-        .map((item: { msg?: string }) => item?.msg)
-        .filter(Boolean)
-        .join(', ');
-    }
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
 
-    if (err.response?.data?.message) {
-      return err.response.data.message;
-    }
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+
+  // WA Verification State
+  const [waMode, setWaMode] = useState(false)
+  const [waNonce, setWaNonce] = useState<string | null>(null)
+  const [waDeeplink, setWaDeeplink] = useState<string>('')
+  
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const pollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  const stopPolling = () => {
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
+    if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current)
+    pollIntervalRef.current = null
+    pollTimeoutRef.current = null
   }
 
-  return fallback;
-}
-
-export const Register: React.FC = () => {
-  const { t } = useTranslation();
-  const { login, isAuthenticated } = useAuth();
-  const navigate = useNavigate();
-
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-
-  // WA Verification state
-  const [waMode, setWaMode] = useState(false);
-  const [waNonce, setWaNonce] = useState('');
-  const [waDeeplink, setWaDeeplink] = useState('');
-  const pollingRef = useRef<number | null>(null);
-
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate(ROUTES.HOME, { replace: true });
-    }
-    return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
-    };
-  }, [isAuthenticated, navigate]);
+    return () => stopPolling()
+  }, [])
 
-  const startStatusPolling = (nonce: string) => {
-    if (pollingRef.current) clearInterval(pollingRef.current);
+  const resetMessage = () => {
+    setError(null)
+    setSuccess(null)
+  }
 
-    pollingRef.current = window.setInterval(async () => {
+  const goHome = () => {
+    setTimeout(() => {
+      navigate(ROUTES.HOME, { replace: true })
+    }, 1000)
+  }
+
+  const startStatusPolling = (nonce: string, regData: any) => {
+    stopPolling()
+
+    pollTimeoutRef.current = setTimeout(() => {
+      stopPolling()
+      setError(t('auth.wa_expired'))
+      setWaMode(false)
+    }, 300000)
+
+    pollIntervalRef.current = setInterval(async () => {
       try {
-        const res = await getWAVerificationStatus(nonce);
+        const res = await getWAVerificationStatus(nonce)
         if (res.status === 'verified' && res.verify_token) {
-          if (pollingRef.current) clearInterval(pollingRef.current);
-
-          const response = await registerBuyer({
-            name: name.trim(),
-            email: email.trim(),
-            phone: formatPhoneNumber(phone),
-            password,
-            verify_token: res.verify_token,
-          });
-
-          login(response.access_token, mapBuyerAuthResponseToUser(response));
-          setSuccess(t('common.success', 'Registrasi berhasil!'));
-          setTimeout(() => navigate(ROUTES.HOME, { replace: true }), 1000);
+          stopPolling()
+          setLoading(true)
+          try {
+            const response = await registerBuyer({
+              name: regData.name,
+              email: regData.email,
+              phone: regData.phone,
+              password: regData.password,
+              verify_token: res.verify_token,
+            })
+            login(response.access_token, mapBuyerAuthResponseToUser(response))
+            setSuccess(t('auth.login_success'))
+            goHome()
+          } catch (err: any) {
+            setError(err.response?.data?.detail || err.message || t('auth.error_generic'))
+            setWaMode(false)
+          } finally {
+            setLoading(false)
+          }
+        } else if (res.status === 'expired' || res.status === 'failed') {
+          stopPolling()
+          setError(t('auth.wa_expired'))
+          setWaMode(false)
         }
       } catch {
-        // Continue polling until timeout or verified
+        // Continue polling
       }
-    }, 3000);
-  };
+    }, 3000)
+  }
 
   const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setSuccess(null);
+    e.preventDefault()
+    resetMessage()
 
-    const trimmedName = name.trim();
-    const trimmedEmail = email.trim();
-    const trimmedPhone = formatPhoneNumber(phone);
+    const trimmedName = name.trim()
+    const trimmedEmail = email.trim()
+    const trimmedPhone = formatPhoneNumber(phone)
 
     if (!trimmedName || !trimmedEmail || !trimmedPhone) {
-      setError('Nama, email, dan nomor HP wajib diisi');
-      return;
+      setError(t('auth.phone_required'))
+      return
     }
 
     if (password.length < 6) {
-      setError('Password minimal 6 karakter');
-      return;
+      setError(t('auth.error_password_length'))
+      return
     }
 
     if (password !== confirmPassword) {
-      setError('Password dan konfirmasi password tidak cocok');
-      return;
+      setError(t('auth.error_password_match'))
+      return
     }
 
-    setLoading(true);
-
+    setLoading(true)
     try {
-      const startRes = await startWAVerification({
-        phone_number: trimmedPhone,
-      });
-
-      // MOCK MODE Handling
-      if (startRes.mock_mode && startRes.verify_token) {
-        const response = await registerBuyer({
-          name: trimmedName,
-          email: trimmedEmail,
-          phone: trimmedPhone,
-          password,
-          verify_token: startRes.verify_token,
-        });
-
-        login(response.access_token, mapBuyerAuthResponseToUser(response));
-        setSuccess('Registrasi berhasil! Mengalihkan...');
-        setTimeout(() => navigate(ROUTES.HOME, { replace: true }), 1000);
-        return;
+      const startRes = await startWAVerification({ phone_number: trimmedPhone })
+      const regData = {
+        name: trimmedName,
+        email: trimmedEmail,
+        phone: trimmedPhone,
+        password: password,
       }
 
-      // REAL MODE: WA Deeplink and polling
-      setWaNonce(startRes.nonce);
-      setWaDeeplink(startRes.deeplink);
-      setWaMode(true);
-      startStatusPolling(startRes.nonce);
-    } catch (err) {
-      setError(parseApiError(err, 'Gagal memulai verifikasi WhatsApp'));
+      if (startRes.mock_mode && startRes.verify_token) {
+        const response = await registerBuyer({
+          ...regData,
+          verify_token: startRes.verify_token,
+        })
+        login(response.access_token, mapBuyerAuthResponseToUser(response))
+        setSuccess(t('auth.login_success'))
+        goHome()
+        return
+      }
+
+      setWaNonce(startRes.nonce)
+      setWaDeeplink(startRes.deeplink)
+      setWaMode(true)
+      startStatusPolling(startRes.nonce, regData)
+    } catch (err: any) {
+      setError(err.response?.data?.detail || err.message || t('auth.error_generic'))
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#fffaf5] px-4 py-12">
-      <div className="w-full max-w-md rounded-2xl border border-[#ead8ca] bg-white p-8 shadow-sm">
-        <div className="text-center">
-          <Link
-            to={ROUTES.HOME}
-            className="mb-4 inline-flex items-center gap-1 text-xs font-semibold text-[#8b7166] hover:text-[#d85b30]"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Kembali ke Beranda
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#fffaf5] px-4 py-12">
+      <div className="w-full max-w-md rounded-2xl border border-[#ead8ca] bg-white p-6 shadow-sm sm:p-8">
+        <div className="mb-6 text-center flex flex-col items-center">
+          <Link to={ROUTES.HOME} className="inline-block mb-6">
+            <img src={LOGO_URL} alt="Toti Cakery" className="mx-auto w-48 sm:w-60 h-auto max-w-full object-contain" />
           </Link>
-          <h1 className="text-2xl font-black text-[#4b2417]">Daftar Akun Baru</h1>
-          <p className="mt-1 text-sm text-[#6f5448]">
-            Lengkapi data di bawah untuk membuat akun di Toti Cakery
-          </p>
+          <h1 className="text-2xl font-black text-[#4b2417]">{t('auth.buyer_register_title')}</h1>
+          <p className="mt-1 text-sm text-[#6f5448]">{t('auth.buyer_register_subtitle')}</p>
         </div>
 
         {error && (
-          <div className="mt-4 flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+          <div className="mb-6 flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
             <AlertCircle className="h-4 w-4 shrink-0" />
-            {error}
+            <p>{error}</p>
           </div>
         )}
 
         {success && (
-          <div className="mt-4 flex items-center gap-2 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-600">
+          <div className="mb-6 flex items-center gap-2 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-600">
             <CheckCircle className="h-4 w-4 shrink-0" />
-            {success}
+            <p>{success}</p>
           </div>
         )}
 
         {!waMode ? (
-          <form onSubmit={handleRegister} className="mt-6 space-y-4">
-            <div>
-              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-[#6f5448]">
-                Nama Lengkap
-              </label>
-              <div className="relative flex items-center rounded-xl border border-[#d0bfaf] bg-white transition-all focus-within:border-[#d85b30] focus-within:ring-2 focus-within:ring-[#d85b30]/20">
-                <UserIcon className="ml-3.5 h-4 w-4 text-[#8b7166]" />
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Nama lengkap Anda"
-                  className="w-full bg-transparent px-3 py-3 text-sm font-medium text-[#4b2417] placeholder:text-[#9c8478] outline-none"
-                  required
-                />
-              </div>
+          <form onSubmit={handleRegister} className="space-y-4">
+            <div className="relative">
+              <UserIcon className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b7166]" />
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t('auth.name_placeholder')}
+                className="w-full rounded-xl border border-[#d0bfaf] py-3 pl-11 pr-4 text-sm outline-none focus:border-[#d85b30] focus:ring-1 focus:ring-[#d85b30]"
+                required
+              />
             </div>
 
-            <div>
-              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-[#6f5448]">
-                Email
-              </label>
-              <div className="relative flex items-center rounded-xl border border-[#d0bfaf] bg-white transition-all focus-within:border-[#d85b30] focus-within:ring-2 focus-within:ring-[#d85b30]/20">
-                <Mail className="ml-3.5 h-4 w-4 text-[#8b7166]" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="email@domain.com"
-                  className="w-full bg-transparent px-3 py-3 text-sm font-medium text-[#4b2417] placeholder:text-[#9c8478] outline-none"
-                  required
-                />
-              </div>
+            <div className="relative">
+              <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b7166]" />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder={t('auth.email_placeholder')}
+                className="w-full rounded-xl border border-[#d0bfaf] py-3 pl-11 pr-4 text-sm outline-none focus:border-[#d85b30] focus:ring-1 focus:ring-[#d85b30]"
+                required
+              />
             </div>
 
             <InternationalPhoneInput
-              label="Nomor WhatsApp"
               value={phone}
               onChange={setPhone}
-              placeholder="812 3456 7890"
+              placeholder={t('auth.phone_placeholder')}
               required
             />
 
-            <div>
-              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-[#6f5448]">
-                Password
-              </label>
-              <div className="relative flex items-center rounded-xl border border-[#d0bfaf] bg-white transition-all focus-within:border-[#d85b30] focus-within:ring-2 focus-within:ring-[#d85b30]/20">
-                <Lock className="ml-3.5 h-4 w-4 text-[#8b7166]" />
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Minimal 6 karakter"
-                  className="w-full bg-transparent px-3 py-3 text-sm font-medium text-[#4b2417] placeholder:text-[#9c8478] outline-none"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
-                  className="mr-3 text-[#8b7166] hover:text-[#4b2417]"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
+            <div className="relative">
+              <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b7166]" />
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder={t('auth.password_min_length')}
+                className="w-full rounded-xl border border-[#d0bfaf] py-3 pl-11 pr-12 text-sm outline-none focus:border-[#d85b30] focus:ring-1 focus:ring-[#d85b30]"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166]"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
             </div>
 
-            <div>
-              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-[#6f5448]">
-                Konfirmasi Password
-              </label>
-              <div className="relative flex items-center rounded-xl border border-[#d0bfaf] bg-white transition-all focus-within:border-[#d85b30] focus-within:ring-2 focus-within:ring-[#d85b30]/20">
-                <Lock className="ml-3.5 h-4 w-4 text-[#8b7166]" />
-                <input
-                  type={showConfirmPassword ? 'text' : 'password'}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Ulangi password"
-                  className="w-full bg-transparent px-3 py-3 text-sm font-medium text-[#4b2417] placeholder:text-[#9c8478] outline-none"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  aria-label={showConfirmPassword ? 'Sembunyikan password' : 'Tampilkan password'}
-                  className="mr-3 text-[#8b7166] hover:text-[#4b2417]"
-                >
-                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
+            <div className="relative">
+              <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b7166]" />
+              <input
+                type={showConfirmPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder={t('auth.confirm_password_placeholder')}
+                className="w-full rounded-xl border border-[#d0bfaf] py-3 pl-11 pr-12 text-sm outline-none focus:border-[#d85b30] focus:ring-1 focus:ring-[#d85b30]"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166]"
+              >
+                {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white hover:bg-[#c04e28] disabled:opacity-60 transition"
+              className="mt-2 flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white hover:bg-[#c04e28] disabled:opacity-60 transition"
             >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Daftar Sekarang'}
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : t('auth.register_btn')}
             </button>
           </form>
         ) : (
-          <div className="mt-6 text-center space-y-5">
+          <div className="text-center space-y-5">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[#e8f9ee]">
               <MessageCircle className="h-8 w-8 text-[#25D366]" />
             </div>
-
             <div className="space-y-2">
-              <p className="text-sm text-[#6f5448]">
-                Silakan klik tombol di bawah untuk membuka WhatsApp dan mengirim pesan konfirmasi verifikasi.
-              </p>
+              <p className="text-sm text-[#6f5448]">{t('auth.wa_instruction')}</p>
               {waNonce && (
                 <p className="text-xs text-gray-500 font-mono">
-                  Kode Verifikasi: <span className="font-bold">{waNonce}</span>
+                  {t('auth.wa_verification_code')} <span className="font-bold">{waNonce}</span>
                 </p>
               )}
             </div>
-
             {waDeeplink && (
               <a
                 href={waDeeplink}
                 target="_blank"
-                rel="noreferrer"
-                className="inline-flex h-11 w-full items-center justify-center rounded-xl bg-[#25D366] text-sm font-black text-white hover:bg-[#20bd5a]"
+                rel="noopener noreferrer"
+                className="flex h-12 w-full items-center justify-center rounded-xl bg-[#25D366] text-sm font-bold text-white shadow hover:bg-[#20bd5a] transition"
               >
-                Buka WhatsApp
+                <MessageCircle className="mr-2 h-5 w-5" />
+                {t('auth.open_wa_btn')}
+                <ExternalLink className="ml-2 h-4 w-4" />
               </a>
             )}
-
-            <div className="flex items-center justify-center gap-2 text-xs text-[#8b7166]">
+            <div className="flex items-center justify-center gap-2 rounded-xl bg-[#fff7f0] border border-[#ead8ca] py-3 text-xs text-[#8b7166]">
               <Loader2 className="h-4 w-4 animate-spin text-[#d85b30]" />
-              Menunggu verifikasi WhatsApp...
+              <span>{t('auth.wa_waiting')}</span>
             </div>
-
             <button
               type="button"
               onClick={() => {
-                if (pollingRef.current) clearInterval(pollingRef.current);
-                setWaMode(false);
+                stopPolling()
+                setWaMode(false)
               }}
-              className="text-xs text-[#d85b30] hover:underline"
+              className="w-full text-sm font-semibold text-[#d85b30] hover:underline"
             >
-              Kembali ke form
+              {t('auth.cancel')}
             </button>
           </div>
         )}
 
-        <div className="mt-6 border-t border-[#ead8ca] pt-4 text-center text-xs text-[#6f5448]">
-          Sudah punya akun?{' '}
+        <div className="mt-8 text-center text-sm text-[#6f5448]">
+          {t('auth.has_account')}{' '}
           <Link to={ROUTES.AUTH_BUYER} className="font-bold text-[#d85b30] hover:underline">
-            Masuk di sini
+            {t('auth.login_btn')}
+          </Link>
+        </div>
+
+        <div className="mt-6 border-t border-[#ead8ca] pt-6 text-center text-sm text-[#6f5448]">
+          <Link to={ROUTES.HOME} className="font-medium text-[#8b7166] hover:text-[#4b2417]">
+            {t('auth.back_to_home', 'Kembali ke Beranda')}
           </Link>
         </div>
       </div>
     </div>
-  );
-};
-
-export default Register;
+  )
+}

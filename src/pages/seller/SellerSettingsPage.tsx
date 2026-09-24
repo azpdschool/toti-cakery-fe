@@ -1,17 +1,18 @@
-// src/pages/seller/SellerSettingsPage.tsx
-
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useToast } from '@/components/ui/Toast';
+import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
+import { SellerModal } from '@/components/ui/SellerModal';
 import {
   User,
-  Shield,
   Users,
+  MessageCircle,
   Edit,
   Trash2,
   Search,
   Eye,
   EyeOff,
   Plus,
-  X,
+  
 } from 'lucide-react';
 import {
   getMyProfile,
@@ -23,9 +24,74 @@ import {
   updateUser,
   deleteUser,
   type UserProfile,
+  type UserProfileUpdate,
 } from '@/services/sellerSettingsService';
 import { useAuth } from '@/hooks/useAuth';
-import type React from 'react';
+import { useTranslation } from 'react-i18next';
+import {
+  getWhatsAppStatus,
+  getWhatsAppQr,
+  resetWhatsAppNumber,
+  type WhatsAppStatus
+} from "@/services/whatsappService";
+import Cropper from 'react-easy-crop';
+
+// ============================================================
+// UTILS FOR IMAGE CROPPING
+// ============================================================
+const createImage = (url: string): Promise<HTMLImageElement> =>
+  new Promise((resolve, reject) => {
+    const image = new Image();
+    image.addEventListener('load', () => resolve(image));
+    image.addEventListener('error', (error) => reject(error));
+    image.setAttribute('crossOrigin', 'anonymous');
+    image.src = url;
+  });
+
+async function getCroppedImg(
+  imageSrc: string,
+  pixelCrop: { x: number; y: number; width: number; height: number }
+): Promise<File | null> {
+  const image = await createImage(imageSrc);
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+
+  if (!ctx) return null;
+
+  canvas.width = image.width;
+  canvas.height = image.height;
+  ctx.drawImage(image, 0, 0);
+
+  const croppedCanvas = document.createElement('canvas');
+  const croppedCtx = croppedCanvas.getContext('2d');
+
+  if (!croppedCtx) return null;
+
+  croppedCanvas.width = pixelCrop.width;
+  croppedCanvas.height = pixelCrop.height;
+
+  croppedCtx.drawImage(
+    canvas,
+    pixelCrop.x,
+    pixelCrop.y,
+    pixelCrop.width,
+    pixelCrop.height,
+    0,
+    0,
+    pixelCrop.width,
+    pixelCrop.height
+  );
+
+  return new Promise((resolve) => {
+    croppedCanvas.toBlob((blob) => {
+      if (blob) {
+        resolve(new File([blob], 'avatar.jpg', { type: 'image/jpeg' }));
+      } else {
+        resolve(null);
+      }
+    }, 'image/jpeg');
+  });
+}
 
 // ============================================================
 // KOMPONEN TAB NAVIGATION
@@ -55,14 +121,18 @@ function TabButton({ label, icon: Icon, isActive, onClick }: TabButtonProps) {
 }
 
 // ============================================================
-// TAB 1: PROFIL
+// TAB 1: MY PROFILE
 // ============================================================
 
 function ProfileTab() {
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  
+  // Edit mode state
+  const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
     username: '',
     email: '',
@@ -70,33 +140,90 @@ function ProfileTab() {
     nomor_wa_admin: '',
   });
 
-  const loadProfile = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await getMyProfile();
-      setProfile(data);
-      setFormData({
-        username: data.username || '',
-        email: data.email || '',
-        phone_number: data.phone_number || '',
-        nomor_wa_admin: data.nomor_wa_admin || '',
-      });
-    } catch (err: any) {
-      console.error(err);
-      setError('Gagal memuat profil.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Avatar Modal State
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Password State
+  const [passwordData, setPasswordData] = useState({
+    current: '',
+    new: '',
+    confirm: '',
+  });
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+
 
   useEffect(() => {
-    loadProfile();
+    let ignore = false;
+    const load = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await getMyProfile();
+        if (ignore) return;
+        setProfile(data);
+        setFormData({
+          username: data.username || '',
+          email: data.email || '',
+          phone_number: data.phone_number || '',
+          nomor_wa_admin: data.nomor_wa_admin || '',
+        });
+      } catch (err: any) {
+        if (ignore) return;
+        console.error(err);
+        setError('Failed to load profile.');
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    };
+    load();
+    return () => { ignore = true; };
   }, []);
 
-  const handleSave = async () => {
+  const handleEditClick = () => {
+    if (profile) {
+      setFormData({
+        username: profile.username || '',
+        email: profile.email || '',
+        phone_number: profile.phone_number || '',
+        nomor_wa_admin: profile.nomor_wa_admin || '',
+      });
+    }
+    setIsEditing(true);
+  };
+
+  const handleCancelClick = () => {
+    if (profile) {
+      setFormData({
+        username: profile.username || '',
+        email: profile.email || '',
+        phone_number: profile.phone_number || '',
+        nomor_wa_admin: profile.nomor_wa_admin || '',
+      });
+    }
+    setIsEditing(false);
+    setError(null);
+  };
+
+  const hasChanges = profile ? (
+    formData.username !== (profile.username || '') ||
+    formData.email !== (profile.email || '') ||
+    formData.phone_number !== (profile.phone_number || '') ||
+    formData.nomor_wa_admin !== (profile.nomor_wa_admin || '')
+  ) : false;
+
+  const handleSaveProfile = async () => {
     if (formData.username && !/^[a-zA-Z0-9_-]+$/.test(formData.username)) {
-      setError('Username hanya boleh menggunakan huruf, angka, underscore (_), atau tanda hubung (-). Tidak boleh ada spasi.');
+      setError('Username can only contain letters, numbers, underscore (_), or hyphen (-). No spaces allowed.');
       return;
     }
 
@@ -104,16 +231,16 @@ function ProfileTab() {
       setSaving(true);
       setError(null);
       
-      const payload = {
-        username: formData.username || undefined,
-        email: formData.email || undefined,
-        phone_number: formData.phone_number || undefined,
-        nomor_wa_admin: formData.nomor_wa_admin || undefined,
-      };
+      const payload: UserProfileUpdate = {};
+      if (formData.username !== (profile?.username || '')) payload.username = formData.username;
+      if (formData.email !== (profile?.email || '')) payload.email = formData.email;
+      if (formData.phone_number !== (profile?.phone_number || '')) payload.phone_number = formData.phone_number;
+      if (formData.nomor_wa_admin !== (profile?.nomor_wa_admin || '')) payload.nomor_wa_admin = formData.nomor_wa_admin;
 
       const updated = await updateMyProfile(payload);
       setProfile(updated);
-      alert('Profil berhasil diperbarui!');
+      setIsEditing(false);
+      showToast({ message: 'Profile updated successfully.', type: 'success' });
     } catch (err: any) {
       if (err.response?.data?.detail) {
         const detail = err.response.data.detail;
@@ -126,38 +253,105 @@ function ProfileTab() {
           setError(detail);
         }
       } else {
-        setError('Gagal memperbarui profil.');
+        setError('Unable to update your profile right now.');
       }
+      showToast({ message: 'Unable to update your profile right now.', type: 'error' });
     } finally {
       setSaving(false);
     }
   };
 
-  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-    const file = e.target.files[0];
-    
-    try {
-      setError(null);
-      const updated = await uploadAvatar(file);
-      setProfile(updated);
-      alert('Avatar berhasil diperbarui!');
-    } catch (err: any) {
-      setError('Gagal mengupload avatar.');
+  // Avatar Handlers
+  const handleAvatarFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      const url = URL.createObjectURL(file);
+      setAvatarPreviewUrl(url);
+      setShowAvatarModal(true);
+    }
+    // Reset input so the same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
-  if (loading) return <div className="py-8 text-center text-gray-500">Memuat profil...</div>;
-  if (!profile) return <div className="py-8 text-center text-red-500">Gagal memuat profil.</div>;
+  const onCropComplete = useCallback((_croppedArea: any, croppedAreaPixels: any) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
+  const handleAvatarConfirm = async () => {
+    if (!avatarPreviewUrl || !croppedAreaPixels) return;
+
+    try {
+      setIsUploadingAvatar(true);
+      const croppedImageFile = await getCroppedImg(avatarPreviewUrl, croppedAreaPixels);
+      
+      if (!croppedImageFile) {
+        showToast({ message: 'Failed to process image.', type: 'error' });
+        return;
+      }
+
+      const updated = await uploadAvatar(croppedImageFile);
+      setProfile(updated);
+      showToast({ message: 'Profile photo updated successfully.', type: 'success' });
+      setShowAvatarModal(false);
+    } catch (err) {
+      console.error(err);
+      showToast({ message: 'Unable to update profile photo right now.', type: 'error' });
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
+  const handleAvatarCancel = () => {
+    setShowAvatarModal(false);
+    setAvatarPreviewUrl(null);
+    setZoom(1);
+    setCrop({ x: 0, y: 0 });
+  };
+
+  // Password Handlers
+  const handleUpdatePassword = async () => {
+    if (!passwordData.current) {
+      setPasswordError('Current password is required');
+      return;
+    }
+    if (passwordData.new.length < 6) {
+      setPasswordError('New password must be at least 6 characters');
+      return;
+    }
+    if (passwordData.new !== passwordData.confirm) {
+      setPasswordError('Passwords do not match');
+      return;
+    }
+    
+    try {
+      setSavingPassword(true);
+      setPasswordError(null);
+      await changeMyPassword({
+        old_password: passwordData.current,
+        new_password: passwordData.new,
+      });
+      showToast({ message: 'Password updated successfully.', type: 'success' });
+      setPasswordData({ current: '', new: '', confirm: '' });
+    } catch (err: any) {
+      if (err.response?.data?.detail) {
+        setPasswordError(err.response.data.detail);
+      } else {
+        setPasswordError('Failed to update password.');
+      }
+      showToast({ message: 'Unable to update password right now.', type: 'error' });
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
+  if (loading) return <div className="py-8 text-center text-gray-500">Loading profile...</div>;
+  if (!profile) return <div className="py-8 text-center text-red-500">Failed to load profile.</div>;
 
   return (
     <div className="space-y-6">
-      {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
-
+      {/* Profile Header */}
       <div className="rounded-xl bg-white p-6 shadow-sm">
         <div className="flex items-center gap-4">
           <div className="relative group">
@@ -168,147 +362,154 @@ function ProfileTab() {
                 {profile.username?.charAt(0).toUpperCase()}
               </div>
             )}
-            <label className="absolute inset-0 flex cursor-pointer items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-              <span className="text-xs text-white">Ubah</span>
-              <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+            <label className="absolute inset-0 flex cursor-pointer items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity hover:opacity-100">
+              <span className="text-xs text-white">Edit Photo</span>
+              <input 
+                type="file" 
+                accept="image/*" 
+                className="hidden" 
+                ref={fileInputRef}
+                onChange={handleAvatarFileSelect} 
+              />
             </label>
           </div>
           <div>
             <h3 className="text-lg font-bold text-[#4b2417]">{profile.username}</h3>
-            <p className="text-sm capitalize text-[#6f5448]">{profile.role_name || (profile.role_id === 1 ? 'Owner' : profile.role_id === 2 ? 'Admin' : 'Staff')}</p>
+            <p className="text-sm capitalize text-[#6f5448]">
+              {profile.role_name || (profile.role_id === 1 ? 'Owner' : profile.role_id === 2 ? 'Admin' : 'Staff')}
+            </p>
             {profile.is_active ? (
-              <p className="text-sm text-green-600 font-semibold">Aktif</p>
+              <p className="text-sm text-green-600 font-semibold">Active</p>
             ) : (
-              <p className="text-sm text-red-600 font-semibold">Nonaktif</p>
+              <p className="text-sm text-red-600 font-semibold">Inactive</p>
             )}
           </div>
         </div>
       </div>
 
+      {/* Personal Data Section */}
       <div className="rounded-xl bg-white p-6 shadow-sm">
-        <h3 className="mb-4 text-sm font-bold uppercase text-[#6f5448]">Data Personal</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-bold uppercase text-[#6f5448]">Personal Data</h3>
+          {!isEditing && (
+            <button
+              onClick={handleEditClick}
+              className="flex items-center gap-2 text-sm font-semibold text-[#d85b30] hover:text-[#c04e28]"
+            >
+              <Edit className="h-4 w-4" />
+              Edit
+            </button>
+          )}
+        </div>
+        
+        {error && isEditing && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">Username <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-semibold text-[#4b2417]">Username *</label>
             <input
               type="text"
-              value={formData.username}
+              value={isEditing ? formData.username : profile.username}
               onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-              className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
+              readOnly={!isEditing}
+              className={`mt-1 w-full rounded-lg border px-4 py-2 text-sm outline-none ${
+                isEditing 
+                  ? 'border-[#d0bfaf] focus:border-[#d85b30]' 
+                  : 'border-transparent bg-gray-50 text-gray-700 focus:border-transparent'
+              }`}
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">Email</label>
+            <label className="block text-sm font-semibold text-[#4b2417]">Email (Optional)</label>
             <input
               type="email"
-              value={formData.email}
+              value={isEditing ? formData.email : (profile.email || '')}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
+              readOnly={!isEditing}
+              className={`mt-1 w-full rounded-lg border px-4 py-2 text-sm outline-none ${
+                isEditing 
+                  ? 'border-[#d0bfaf] focus:border-[#d85b30]' 
+                  : 'border-transparent bg-gray-50 text-gray-700 focus:border-transparent'
+              }`}
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">Nomor Telepon</label>
+            <label className="block text-sm font-semibold text-[#4b2417]">Phone Number (Optional)</label>
             <input
               type="tel"
-              value={formData.phone_number}
+              value={isEditing ? formData.phone_number : (profile.phone_number || '')}
               onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-              className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
+              readOnly={!isEditing}
+              className={`mt-1 w-full rounded-lg border px-4 py-2 text-sm outline-none ${
+                isEditing 
+                  ? 'border-[#d0bfaf] focus:border-[#d85b30]' 
+                  : 'border-transparent bg-gray-50 text-gray-700 focus:border-transparent'
+              }`}
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">Nomor WA Admin</label>
+            <label className="block text-sm font-semibold text-[#4b2417]">Admin WhatsApp Number (Optional)</label>
             <input
               type="tel"
-              value={formData.nomor_wa_admin}
+              value={isEditing ? formData.nomor_wa_admin : (profile.nomor_wa_admin || '')}
               onChange={(e) => setFormData({ ...formData, nomor_wa_admin: e.target.value })}
-              className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
-              placeholder="Contoh: +62812..."
+              readOnly={!isEditing}
+              placeholder={isEditing ? "Example: +62812..." : ""}
+              className={`mt-1 w-full rounded-lg border px-4 py-2 text-sm outline-none ${
+                isEditing 
+                  ? 'border-[#d0bfaf] focus:border-[#d85b30]' 
+                  : 'border-transparent bg-gray-50 text-gray-700 focus:border-transparent'
+              }`}
             />
           </div>
         </div>
 
-        <div className="mt-6 flex gap-3 border-t border-gray-200 pt-6">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="rounded-lg bg-[#d85b30] px-6 py-2 text-sm font-semibold text-white hover:bg-[#c04e28] disabled:opacity-50"
-          >
-            {saving ? 'Menyimpan...' : 'Simpan'}
-          </button>
-        </div>
+        {isEditing && (
+          <div className="mt-6 flex gap-3 border-t border-gray-200 pt-6">
+            <button
+              onClick={handleCancelClick}
+              disabled={saving}
+              className="rounded-lg border border-gray-300 px-6 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveProfile}
+              disabled={saving || !hasChanges}
+              className="rounded-lg bg-[#d85b30] px-6 py-2 text-sm font-semibold text-white hover:bg-[#c04e28] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        )}
       </div>
-    </div>
-  );
-}
 
-// ============================================================
-// TAB 2: KEAMANAN
-// ============================================================
-
-function SecurityTab() {
-  const [passwordData, setPasswordData] = useState({
-    current: '',
-    new: '',
-    confirm: '',
-  });
-  const [showCurrent, setShowCurrent] = useState(false);
-  const [showNew, setShowNew] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleUpdatePassword = async () => {
-    if (!passwordData.current) {
-      setError('Password lama wajib diisi');
-      return;
-    }
-    if (passwordData.new.length < 6) {
-      setError('Password baru minimal 6 karakter');
-      return;
-    }
-    if (passwordData.new !== passwordData.confirm) {
-      setError('Konfirmasi password tidak cocok');
-      return;
-    }
-    
-    try {
-      setSaving(true);
-      setError(null);
-      await changeMyPassword({
-        old_password: passwordData.current,
-        new_password: passwordData.new,
-      });
-      alert('Password berhasil diperbarui!');
-      setPasswordData({ current: '', new: '', confirm: '' });
-    } catch (err: any) {
-      if (err.response?.data?.detail) {
-        setError(err.response.data.detail);
-      } else {
-        setError('Gagal memperbarui password.');
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="grid gap-6 md:grid-cols-2">
+      {/* Change Password Section */}
       <div className="rounded-xl bg-white p-6 shadow-sm">
-        <h3 className="text-sm font-bold uppercase text-[#6f5448]">Ganti Password</h3>
+        <h3 className="text-sm font-bold uppercase text-[#6f5448]">Password & Security</h3>
         <p className="mt-1 text-xs text-[#8b7166]">
-          Tips: kombinasikan huruf besar, huruf kecil, angka, dan simbol.
+          Change your account password to keep your account secure.
         </p>
 
-        <div className="mt-4 space-y-4">
+        {passwordError && (
+          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {passwordError}
+          </div>
+        )}
+
+        <div className="mt-4 space-y-4 max-w-md">
           <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">Password Saat Ini</label>
+            <label className="block text-sm font-semibold text-[#4b2417]">Current Password *</label>
             <div className="relative mt-1">
               <input
                 type={showCurrent ? 'text' : 'password'}
                 value={passwordData.current}
                 onChange={(e) => setPasswordData({ ...passwordData, current: e.target.value })}
-                placeholder="Masukkan password lama"
+                placeholder="Enter current password"
                 className="w-full rounded-lg border border-[#d0bfaf] px-4 py-2 pr-10 text-sm outline-none focus:border-[#d85b30]"
               />
               <button
@@ -322,13 +523,13 @@ function SecurityTab() {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">Password Baru</label>
+            <label className="block text-sm font-semibold text-[#4b2417]">New Password *</label>
             <div className="relative mt-1">
               <input
                 type={showNew ? 'text' : 'password'}
                 value={passwordData.new}
                 onChange={(e) => setPasswordData({ ...passwordData, new: e.target.value })}
-                placeholder="Minimal 8 karakter, huruf kapital, simbol, angka"
+                placeholder="Min. 6 characters"
                 className="w-full rounded-lg border border-[#d0bfaf] px-4 py-2 pr-10 text-sm outline-none focus:border-[#d85b30]"
               />
               <button
@@ -342,13 +543,13 @@ function SecurityTab() {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">Konfirmasi Password Baru</label>
+            <label className="block text-sm font-semibold text-[#4b2417]">Confirm New Password *</label>
             <div className="relative mt-1">
               <input
                 type={showConfirm ? 'text' : 'password'}
                 value={passwordData.confirm}
                 onChange={(e) => setPasswordData({ ...passwordData, confirm: e.target.value })}
-                placeholder="Ulangi password baru"
+                placeholder="Repeat new password"
                 className="w-full rounded-lg border border-[#d0bfaf] px-4 py-2 pr-10 text-sm outline-none focus:border-[#d85b30]"
               />
               <button
@@ -363,30 +564,72 @@ function SecurityTab() {
 
           <button
             onClick={handleUpdatePassword}
-            disabled={saving}
-            className="w-full rounded-lg bg-[#d85b30] py-2 text-sm font-semibold text-white hover:bg-[#c04e28] disabled:opacity-50"
+            disabled={savingPassword || !passwordData.current || !passwordData.new || !passwordData.confirm}
+            className="w-full rounded-lg bg-[#d85b30] py-2 text-sm font-semibold text-white hover:bg-[#c04e28] disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {saving ? 'Memperbarui...' : 'Perbarui Password'}
+            {savingPassword ? 'Updating...' : 'Change Password'}
           </button>
         </div>
       </div>
 
-      <div className="rounded-xl bg-white p-6 shadow-sm">
-        <h3 className="text-sm font-bold uppercase text-[#6f5448]">Info</h3>
-        <p className="mt-2 text-sm text-[#6f5448]">Pastikan password yang Anda gunakan aman dan tidak mudah ditebak.</p>
-        
-        {error && (
-          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-            {error}
+      {/* Avatar Edit Modal */}
+      {showAvatarModal && avatarPreviewUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="mb-4 text-xl font-bold text-[#4b2417]">Edit Photo</h2>
+            
+            <div className="relative h-64 w-full bg-gray-100 rounded-lg overflow-hidden">
+              <Cropper
+                image={avatarPreviewUrl}
+                crop={crop}
+                zoom={zoom}
+                aspect={1}
+                cropShape="round"
+                showGrid={false}
+                onCropChange={setCrop}
+                onCropComplete={onCropComplete}
+                onZoomChange={setZoom}
+              />
+            </div>
+            
+            <div className="mt-4">
+              <label className="text-sm font-medium text-gray-700">Zoom</label>
+              <input
+                type="range"
+                value={zoom}
+                min={1}
+                max={3}
+                step={0.1}
+                onChange={(e) => setZoom(Number(e.target.value))}
+                className="w-full mt-2"
+              />
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={handleAvatarCancel}
+                disabled={isUploadingAvatar}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAvatarConfirm}
+                disabled={isUploadingAvatar}
+                className="rounded-lg bg-[#d85b30] px-4 py-2 text-sm font-semibold text-white hover:bg-[#c04e28] disabled:opacity-50"
+              >
+                {isUploadingAvatar ? 'Saving...' : 'Confirm'}
+              </button>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
 
 // ============================================================
-// TAB 3: PENGGUNA (dengan modal tambah/edit)
+// TAB 3: USERS (with add/edit modal)
 // ============================================================
 
 interface UserModalProps {
@@ -429,135 +672,130 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.username || !formData.email || !formData.phone_number) {
-      alert('Semua field wajib diisi');
+      alert('All fields are required');
       return;
     }
     
     const usernameRegex = /^[a-zA-Z0-9_-]+$/;
     if (!usernameRegex.test(formData.username)) {
-      alert('Username hanya boleh menggunakan huruf, angka, underscore (_), atau tanda hubung (-). Tidak boleh ada spasi.');
+      alert('Username can only contain letters, numbers, underscore (_), or hyphen (-). No spaces allowed.');
       return;
     }
 
     if (!initialData && !formData.password) {
-      alert('Password wajib diisi untuk user baru');
+      alert('Password is required for new user');
       return;
     }
     onSave(formData);
     onClose();
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-2xl font-black text-[#4b2417]">
-            {initialData ? 'Edit Pengguna' : 'Tambah Pengguna'}
-          </h2>
-          <button onClick={onClose} className="rounded-full p-1 hover:bg-gray-100">
-            <X className="h-6 w-6" />
+    <SellerModal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={initialData ? 'Edit User' : 'Add User'}
+      size="lg"
+      footer={
+        <div className="flex justify-end gap-3 w-full">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-gray-300 px-6 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="user-form"
+            className="rounded-lg bg-[#d85b30] px-6 py-2 text-sm font-semibold text-white hover:bg-[#c04e28]"
+          >
+            {initialData ? 'Save Changes' : 'Add User'}
           </button>
         </div>
+      }
+    >
+      <form id="user-form" onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-semibold text-[#4b2417]">
+            Username *
+          </label>
+          <input
+            type="text"
+            required
+            value={formData.username}
+            onChange={e => setFormData({...formData, username: e.target.value})}
+            className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 outline-none focus:border-[#d85b30]"
+            placeholder="johndoe"
+          />
+        </div>
+        
+        <div>
+          <label className="block text-sm font-semibold text-[#4b2417]">
+            Email
+          </label>
+          <input
+            type="email"
+            value={formData.email}
+            onChange={e => setFormData({...formData, email: e.target.value})}
+            className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 outline-none focus:border-[#d85b30]"
+            placeholder="johndoe@example.com"
+          />
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-semibold text-[#4b2417]">
+            Phone Number
+          </label>
+          <input
+            type="text"
+            value={formData.phone_number}
+            onChange={e => setFormData({...formData, phone_number: e.target.value})}
+            className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 outline-none focus:border-[#d85b30]"
+            placeholder="628123456789"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-[#4b2417]">
+            Role *
+          </label>
+          <select
+            value={formData.role_id}
+            onChange={e => setFormData({...formData, role_id: Number(e.target.value)})}
+            className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 outline-none focus:border-[#d85b30]"
+          >
+            <option value={3}>Admin</option>
+            <option value={2}>Owner</option>
+          </select>
+        </div>
+
+        {!initialData && (
           <div>
             <label className="block text-sm font-semibold text-[#4b2417]">
-              Username <span className="text-red-500">*</span>
+              Password *
             </label>
-            <input
-              type="text"
-              placeholder="Contoh: rina"
-              value={formData.username}
-              onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-              className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">
-              Email <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="email"
-              placeholder="rina@toticakery.com"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">
-              Nomor WhatsApp <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              placeholder="0812-3456-7890"
-              value={formData.phone_number}
-              onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-              className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">
-              Role <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={formData.role_id}
-              onChange={(e) => setFormData({ ...formData, role_id: parseInt(e.target.value, 10) })}
-              className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
-            >
-              <option value={2}>Admin</option>
-              <option value={3}>Staff</option>
-            </select>
-          </div>
-
-          {!initialData && (
-            <div>
-              <label className="block text-sm font-semibold text-[#4b2417]">
-                Password <span className="text-red-500">*</span>
-              </label>
-              <div className="relative mt-1">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  placeholder="Minimal 6 karakter"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full rounded-lg border border-[#d0bfaf] px-4 py-2 pr-10 text-sm outline-none focus:border-[#d85b30]"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166]"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
+            <div className="relative mt-1">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                required
+                value={formData.password}
+                onChange={e => setFormData({...formData, password: e.target.value})}
+                className="w-full rounded-lg border border-[#d0bfaf] px-4 py-2 pr-10 outline-none focus:border-[#d85b30]"
+                placeholder="Enter password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
             </div>
-          )}
-
-          <div className="flex justify-end gap-3 border-t border-gray-200 pt-6 mt-6">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-gray-300 px-6 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-            >
-              Batal
-            </button>
-            <button
-              type="submit"
-              className="rounded-lg bg-[#d85b30] px-6 py-2 text-sm font-semibold text-white hover:bg-[#c04e28]"
-            >
-              {initialData ? 'Simpan Perubahan' : 'Tambah Pengguna'}
-            </button>
           </div>
-        </form>
-      </div>
-    </div>
-  );
+        )}
+      </form>
+    </SellerModal>  );
 }
 
 function UsersTab() {
@@ -568,17 +806,18 @@ function UsersTab() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterRole, setFilterRole] = useState('Semua role');
+  const [filterRole, setFilterRole] = useState('All roles');
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
   const [toastMessage, setToastMessage] = useState('');
+  const { showToast } = useToast();
 
   useEffect(() => {
     if (toastMessage) {
-      const timer = setTimeout(() => setToastMessage(''), 3000);
-      return () => clearTimeout(timer);
+      showToast({ message: toastMessage, type: 'success' });
+      setToastMessage('');
     }
-  }, [toastMessage]);
+  }, [toastMessage, showToast]);
 
   const loadUsers = async () => {
     setLoading(true);
@@ -586,7 +825,7 @@ function UsersTab() {
       const data = await getUsers();
       setUsers(data);
     } catch (error) {
-      console.error("Gagal memuat pengguna (Mungkin Endpoint belum tersedia)", error);
+      console.error("Failed to load users (Endpoint might not be available)", error);
       setUsers([]);
     } finally {
       setLoading(false);
@@ -605,15 +844,15 @@ function UsersTab() {
     let targetRoleId = 0;
     if (filterRole === 'admin') targetRoleId = 2;
     if (filterRole === 'staff') targetRoleId = 3;
-    const matchRole = filterRole === 'Semua role' || u.role_id === targetRoleId;
+    const matchRole = filterRole === 'All roles' || u.role_id === targetRoleId;
     return matchSearch && matchRole;
   });
 
   const getStatusBadge = (isActive: boolean) => {
     if (isActive) {
-      return <span className="text-xs font-semibold text-green-600">Aktif</span>;
+      return <span className="text-xs font-semibold text-green-600">Active</span>;
     }
-    return <span className="text-xs font-semibold text-red-600">Nonaktif</span>;
+    return <span className="text-xs font-semibold text-red-600">Inactive</span>;
   };
 
   const extractErrorMessage = (error: any, defaultMsg: string) => {
@@ -635,10 +874,10 @@ function UsersTab() {
     try {
       await addUser(data);
       await loadUsers(); // Refetch data
-      setToastMessage('Pengguna berhasil ditambahkan!');
+      setToastMessage('User successfully added!');
       closeModal();
     } catch (error: any) {
-      alert(extractErrorMessage(error, 'Gagal menambahkan pengguna.'));
+      showToast({ message: extractErrorMessage(error, 'Failed to add user.'), type: 'error' });
     }
   };
 
@@ -647,20 +886,21 @@ function UsersTab() {
     try {
       const updated = await updateUser(editingUser.id, data);
       setUsers(users.map((u) => (u.id === updated.id ? updated : u)));
-      alert('Pengguna berhasil diperbarui!');
+      showToast({ message: 'User successfully updated!', type: 'success' });
+      closeModal();
     } catch (error: any) {
-      alert(extractErrorMessage(error, 'Gagal memperbarui pengguna.'));
+      showToast({ message: extractErrorMessage(error, 'Failed to update user.'), type: 'error' });
     }
   };
 
   const handleDeleteUser = async (id: number) => {
-    if (!confirm('Yakin ingin menghapus pengguna ini?')) return;
+    if (!confirm('Are you sure you want to delete this user?')) return;
     try {
       await deleteUser(id);
       setUsers(users.filter((u) => u.id !== id));
-      alert('Pengguna berhasil dihapus.');
+      showToast({ message: 'User deleted successfully.', type: 'success' });
     } catch (error: any) {
-      alert(extractErrorMessage(error, 'Gagal menghapus pengguna.'));
+      showToast({ message: extractErrorMessage(error, 'Failed to delete user.'), type: 'error' });
     }
   };
 
@@ -679,7 +919,7 @@ function UsersTab() {
     setEditingUser(null);
   };
 
-  if (loading) return <div className="py-8 text-center">Memuat...</div>;
+  if (loading) return <div className="py-8 text-center text-gray-500">Loading...</div>;
 
   return (
     <div className="space-y-4">
@@ -688,7 +928,7 @@ function UsersTab() {
           <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8b7166]" />
           <input
             type="text"
-            placeholder="Cari nama atau username..."
+            placeholder="Search name or username..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full rounded-lg border border-[#d0bfaf] py-2 pl-9 pr-4 text-sm outline-none focus:border-[#d85b30]"
@@ -699,7 +939,7 @@ function UsersTab() {
           onChange={(e) => setFilterRole(e.target.value)}
           className="rounded-lg border border-[#d0bfaf] px-3 py-2 text-sm outline-none focus:border-[#d85b30]"
         >
-          <option value="Semua role">Semua role</option>
+          <option value="All roles">All roles</option>
           <option value="admin">Admin</option>
           <option value="staff">Staff</option>
         </select>
@@ -709,13 +949,15 @@ function UsersTab() {
             className="flex items-center gap-1 rounded-lg bg-[#d85b30] px-4 py-2 text-sm font-semibold text-white hover:bg-[#c04e28]"
           >
             <Plus className="h-4 w-4" />
-            Tambah
+            Add
           </button>
         )}
       </div>
 
       <div className="space-y-3">
-        {filteredUsers.map((user) => (
+        {filteredUsers.length === 0 ? (
+           <div className="py-8 text-center text-gray-500">No users found.</div>
+        ) : filteredUsers.map((user) => (
           <div
             key={user.id}
             className="flex flex-wrap items-center justify-between rounded-xl bg-white p-4 shadow-sm"
@@ -763,11 +1005,258 @@ function UsersTab() {
         onSave={editingUser ? handleEditUser : handleAddUser}
         initialData={editingUser}
       />
-      {toastMessage && (
-        <div className="fixed bottom-4 right-4 z-50 rounded-lg bg-green-500 px-4 py-3 text-white shadow-lg">
-          {toastMessage}
+    </div>
+  );
+}
+
+// ============================================================
+// TAB 4: WHATSAPP
+// ============================================================
+
+function WhatsAppTab() {
+  const { t } = useTranslation();
+  const { user: currentUser } = useAuth();
+  const isOwner = currentUser?.role === 'owner';
+
+  const [status, setStatus] = useState<WhatsAppStatus | null>(null);
+  const [loadingStatus, setLoadingStatus] = useState(true);
+  const [errorStatus, setErrorStatus] = useState<string | null>(null);
+  
+  const [isResetting, setIsResetting] = useState(false);
+  const [isPreparingQr, setIsPreparingQr] = useState(false);
+  
+  const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const [qrError, setQrError] = useState<string | null>(null);
+  
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  // Status Polling
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    let isActive = true;
+
+    const fetchStatus = async () => {
+      try {
+        const data = await getWhatsAppStatus();
+        if (!isActive) return;
+        setStatus(data);
+        setErrorStatus(null);
+        
+        // Clear preparing state if connected
+        if (data.keadaan === 'tersambung') {
+          setIsPreparingQr(false);
+        }
+      } catch (err: any) {
+        if (!isActive) return;
+        if (err.response?.status === 503) {
+          setErrorStatus(t('whatsapp.qr_unavailable', 'WhatsApp service is unavailable'));
+        } else if (err.response?.status === 403) {
+          setErrorStatus(t('common.error', 'An error occurred'));
+        } else {
+          setErrorStatus(t('whatsapp.error_retry', 'Error connecting to WhatsApp. Retrying...'));
+        }
+      } finally {
+        if (isActive) {
+          setLoadingStatus(false);
+          timeoutId = setTimeout(fetchStatus, 3000);
+        }
+      }
+    };
+
+    fetchStatus();
+
+    return () => {
+      isActive = false;
+      clearTimeout(timeoutId);
+    };
+  }, [t]);
+
+  // Handle Object URL cleanup
+  useEffect(() => {
+    return () => {
+      if (qrUrl) {
+        URL.revokeObjectURL(qrUrl);
+      }
+    };
+  }, [qrUrl]);
+
+  // QR Polling for Owner when menunggu_scan
+  useEffect(() => {
+    if (!isOwner) return;
+    
+    if (status?.keadaan !== 'menunggu_scan') {
+      setQrUrl(null);
+      setQrError(null);
+      return;
+    }
+
+    let timeoutId: NodeJS.Timeout;
+    let isActive = true;
+
+    const fetchQr = async () => {
+      try {
+        const blob = await getWhatsAppQr();
+        if (!isActive) return;
+        
+        const url = URL.createObjectURL(blob);
+        setQrUrl((prevUrl) => {
+          if (prevUrl) URL.revokeObjectURL(prevUrl);
+          return url;
+        });
+        setQrError(null);
+        setIsPreparingQr(false); // QR is ready
+        
+        if (isActive) {
+          timeoutId = setTimeout(fetchQr, 5000);
+        }
+      } catch (err: any) {
+        if (!isActive) return;
+        
+        if (err.response?.status === 404) {
+          // QR not ready yet, continue polling
+          timeoutId = setTimeout(fetchQr, 5000);
+        } else if (err.response?.status === 503) {
+          // Service unavailable, stop polling
+          setQrError(t('whatsapp.qr_unavailable', 'WhatsApp service is unavailable'));
+          setIsPreparingQr(false);
+        } else if (err.response?.status === 403) {
+          setQrError(t('common.error', 'An error occurred'));
+          setIsPreparingQr(false);
+        } else {
+          timeoutId = setTimeout(fetchQr, 5000);
+        }
+      }
+    };
+
+    fetchQr();
+
+    return () => {
+      isActive = false;
+      clearTimeout(timeoutId);
+    };
+  }, [status?.keadaan, isOwner, t]);
+
+  const { showToast } = useToast();
+
+  const handleReset = async () => {
+    setShowConfirm(false);
+    try {
+      setIsResetting(true);
+      setQrError(null);
+      await resetWhatsAppNumber();
+      setIsPreparingQr(true);
+      // Optimistic update
+      setStatus((prev) => prev ? { ...prev, keadaan: 'terputus' } : null);
+      showToast({ message: t('whatsapp.qr_instruction', 'Number reset successfully'), type: 'success' });
+    } catch (err: any) {
+      showToast({ message: t('whatsapp.error_retry', 'Error connecting to WhatsApp. Retrying...'), type: 'error' });
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  const isDisconnectedNormal = status?.keadaan === 'terputus' && !isPreparingQr && !isResetting;
+  const isPreparing = isResetting || isPreparingQr || (status?.keadaan === 'menunggu_scan' && !qrUrl && !qrError && isOwner);
+
+  if (loadingStatus && !status) {
+    return <div className="py-8 text-center text-gray-500">{t('whatsapp.status_preparing_qr', 'Preparing WhatsApp...')}</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-xl bg-white p-6 shadow-sm">
+        <h3 className="mb-4 text-sm font-bold uppercase text-[#6f5448]">WhatsApp System</h3>
+        
+        {errorStatus && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {errorStatus}
+          </div>
+        )}
+
+        <div className="flex flex-col gap-4">
+          {status?.keadaan === 'tersambung' && (
+            <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-bold text-green-800">Connected</h4>
+                  <p className="text-sm text-green-700">Phone Number: {status.nomor || '—'}</p>
+                  <p className="text-sm text-green-700">Profile Name: {status.profile_name || '—'}</p>
+                </div>
+                {isOwner && (
+                  <button
+                    onClick={() => setShowConfirm(true)}
+                    disabled={isResetting || isPreparingQr}
+                    className="rounded-lg bg-[#d85b30] px-4 py-2 text-sm font-semibold text-white hover:bg-[#c04e28] disabled:opacity-50"
+                  >
+                    Change Number
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {isDisconnectedNormal && (
+            <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h4 className="font-bold text-yellow-800">Disconnected</h4>
+                  <p className="text-sm text-yellow-700">Chatbot is currently unavailable</p>
+                </div>
+                {isOwner && (
+                  <button
+                    onClick={handleReset}
+                    disabled={isResetting}
+                    className="rounded-lg bg-[#d85b30] px-4 py-2 text-sm font-semibold text-white hover:bg-[#c04e28] disabled:opacity-50"
+                  >
+                    Show QR Code
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {isPreparing && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-center">
+              <p className="font-semibold text-blue-800">Preparing QR Code...</p>
+              <p className="text-sm text-blue-600">Loading</p>
+            </div>
+          )}
+
+          {status?.keadaan === 'menunggu_scan' && !isPreparingQr && (
+            <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-6 text-center flex flex-col items-center">
+              <h4 className="mb-2 font-bold text-yellow-800">Waiting for Scan</h4>
+              
+              {qrError && isOwner && (
+                <div className="mt-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  {qrError}
+                </div>
+              )}
+              
+              {isOwner && qrUrl && (
+                <>
+                  <p className="mb-4 text-sm text-yellow-700">
+                    Please scan the QR code below to connect your WhatsApp number.
+                  </p>
+                  <div className="bg-white p-4 rounded-xl shadow-sm inline-block">
+                    <img src={qrUrl} alt="WhatsApp QR Code" className="w-64 h-64 object-contain" />
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
-      )}
+      </div>
+
+      <ConfirmationModal
+        isOpen={showConfirm}
+        title="Confirm Change Number"
+        message="Are you sure you want to change the WhatsApp number? This will disconnect the current number."
+        confirmText="Yes, Change Number"
+        cancelText="Cancel"
+        onConfirm={handleReset}
+        onCancel={() => setShowConfirm(false)}
+        isDestructive={false}
+      />
     </div>
   );
 }
@@ -776,13 +1265,16 @@ function UsersTab() {
 // KOMPONEN UTAMA SETTINGS
 // ============================================================
 
-type SettingsTab = 'profile' | 'security' | 'users';
+type SettingsTab = 'profile' | 'users' | 'whatsapp';
 
 export default function SellerSettingsPage() {
+  const { user: currentUser } = useAuth();
+  const isStaff = currentUser?.role === 'staff';
+
   const tabs = [
-    { key: 'profile' as const, label: 'Profil Saya', icon: User },
-    { key: 'security' as const, label: 'Keamanan', icon: Shield },
-    { key: 'users' as const, label: 'Pengguna', icon: Users },
+    { key: 'profile' as const, label: 'My Profile', icon: User },
+    { key: 'users' as const, label: 'Users', icon: Users },
+    ...(!isStaff ? [{ key: 'whatsapp' as const, label: 'WhatsApp', icon: MessageCircle }] : [])
   ];
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
@@ -803,8 +1295,8 @@ export default function SellerSettingsPage() {
 
       <div>
         {activeTab === 'profile' && <ProfileTab />}
-        {activeTab === 'security' && <SecurityTab />}
         {activeTab === 'users' && <UsersTab />}
+        {activeTab === 'whatsapp' && <WhatsAppTab />}
       </div>
     </div>
   );

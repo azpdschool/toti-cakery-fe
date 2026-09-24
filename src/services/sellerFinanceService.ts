@@ -64,7 +64,7 @@ export async function getFinanceStats(startDate?: string, endDate?: string): Pro
     outstandingPayments: Number(data.outstanding_payments || 0),
     nonRefundableDpIncome: Number(data.non_refundable_dp_income || 0),
     otherIncome: Number(data.other_income || 0),
-    productProfitability: data.product_profitability || [],
+    productProfitability: data.full_product_profitability || data.product_profitability || [],
     supplierSpending: data.supplier_spending || [],
   };
 }

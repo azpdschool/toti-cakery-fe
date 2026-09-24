@@ -28,7 +28,7 @@ export function SellerLayout() {
         />
       )}
 
-      <div className="flex flex-1 flex-col min-w-0 transition-all duration-300 ease-in-out">
+      <div className={`flex flex-1 flex-col min-w-0 transition-all duration-300 ease-in-out${isSidebarOpen ? ' ml-64 lg:ml-0' : ''}`}>
         <SellerHeader
           isSidebarOpen={isSidebarOpen}
           toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}

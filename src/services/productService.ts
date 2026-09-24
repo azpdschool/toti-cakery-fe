@@ -43,10 +43,9 @@ export type { SetPriceRequest };
 
 export interface ArchivedProduct extends SimpleProduct {
   archivedAt: string | null;
-  daysUntilPermanentDelete: number;
 }
 
-const placeholderImage =
+export const placeholderImage =
   'data:image/svg+xml;utf8,' +
   encodeURIComponent(`
     <svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
@@ -59,8 +58,6 @@ const placeholderImage =
       </text>
     </svg>
   `);
-
-const ARCHIVE_RETENTION_DAYS = 30;
 
 function parseNumber(value: string | number | null | undefined): number {
   if (value === null || value === undefined || value === '') return 0;
@@ -117,20 +114,6 @@ function resolveImageUrl(
 
   const separator = finalUrl.includes('?') ? '&' : '?';
   return `${finalUrl}${separator}v=${normalizedCacheKey}`;
-}
-
-function daysSince(dateString: string | null | undefined): number {
-  if (!dateString) return 0;
-
-  const then = new Date(dateString).getTime();
-  if (!Number.isFinite(then)) return 0;
-
-  const now = Date.now();
-  const diffMs = now - then;
-
-  if (diffMs <= 0) return 0;
-
-  return diffMs / (1000 * 60 * 60 * 24);
 }
 
 function slugify(value: string): string {
@@ -256,7 +239,7 @@ export function mapProductOutToSimpleProduct(product: ProductOut): SimpleProduct
     parentCategory: mapped.parentCategory,
     minimumOrder: mapped.minimumOrder ?? 1,
 
-    status: mapped.isActive ? 'active' : 'inactive',
+    status: mapped.isActive ? 'active' : 'archived',
 
     createdAt: mapped.createdAt,
     updatedAt: mapped.updatedAt,
@@ -288,10 +271,22 @@ export async function getAllProductsDetailed(): Promise<Product[]> {
 }
 
 /**
+ * Mendapatkan produk berdasarkan kategori untuk rekomendasi.
+ * Documenting backend requirement:
+ * The backend needs to support a `limit` parameter or a dedicated `/products/{id}/recommendations`
+ * endpoint so we don't have to download the entire category list just for 4 recommendations.
+ */
+export async function getProductsByCategory(category: string): Promise<Product[]> {
+  const products = await getAllProductsApi(true, category);
+
+  return products.map(mapProductOutToProduct);
+}
+
+/**
  * Ambil semua produk, aktif dan inactive.
  */
-export async function getAllProducts(): Promise<SimpleProduct[]> {
-  const products = await getAllProductsApi(false);
+export async function getAllProducts(onlyActive: boolean = false): Promise<SimpleProduct[]> {
+  const products = await getAllProductsApi(onlyActive, undefined);
 
   return products.map(mapProductOutToSimpleProduct);
 }
@@ -317,48 +312,11 @@ export async function getArchivedProducts(): Promise<ArchivedProduct[]> {
   const allProducts = await getAllProductsApi(false);
   const inactiveProducts = allProducts.filter((product) => !product.is_active);
 
-  const expired: ProductOut[] = [];
-  const stillValid: ProductOut[] = [];
-
-  for (const product of inactiveProducts) {
+  return inactiveProducts.map((product) => {
     const archivedAt = product.updated_at ?? product.created_at ?? null;
-    const age = Math.floor(daysSince(archivedAt));
-
-    if (age >= ARCHIVE_RETENTION_DAYS) {
-      expired.push(product);
-    } else {
-      stillValid.push(product);
-    }
-  }
-
-  /**
-   * Auto hard-delete produk yang sudah lewat masa retensi.
-   * Kalau salah satu gagal, jangan gagalkan render tab archived.
-   */
-  if (expired.length > 0) {
-    const results = await Promise.allSettled(
-      expired.map((product) => deleteProductApi(product.id))
-    );
-
-    results.forEach((result, idx) => {
-      if (result.status === 'rejected') {
-        console.error(
-          `Gagal auto hard-delete produk id=${expired[idx].id}:`,
-          result.reason
-        );
-      }
-    });
-  }
-
-  return stillValid.map((product) => {
-    const archivedAt = product.updated_at ?? product.created_at ?? null;
-    const age = Math.floor(daysSince(archivedAt));
-    const daysUntilPermanentDelete = Math.max(ARCHIVE_RETENTION_DAYS - age, 0);
-
     return {
       ...mapProductOutToSimpleProduct(product),
       archivedAt,
-      daysUntilPermanentDelete,
     };
   });
 }
@@ -544,3 +502,10 @@ export async function updateProductPrice(
     harga_jual: price,
   });
 }
+
+export { 
+  getBackendCategories, 
+  createBackendCategory, 
+  updateBackendCategory, 
+  deleteBackendCategory 
+} from '../api/product';

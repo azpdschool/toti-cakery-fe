@@ -2,6 +2,8 @@
 import { createContext, useEffect, useMemo, useState, useCallback, useRef, type ReactNode } from 'react'
 import type { AuthState, SellerRole, User, UserRole } from '@/types'
 import { TOKEN_KEY, USER_KEY } from '@/constants'
+import { jwtDecode } from 'jwt-decode'
+import { logoutApi } from '@/api/auth'
 
 export interface AuthContextType extends AuthState {
   login: (token: string, user: User) => void
@@ -28,6 +30,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAuthenticated: false,
   })
 
+  const logout = useCallback(async () => {
+    const token = localStorage.getItem(TOKEN_KEY)
+    
+    // Clear state safely
+    localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(USER_KEY)
+    localStorage.removeItem('buyer_avatar')
+
+    setAuth({
+      user: null,
+      accessToken: null,
+      isAuthenticated: false,
+    })
+
+    if (token) {
+      try {
+        await logoutApi()
+      } catch (e) {
+        console.error('Backend logout failed, but local state cleared.')
+      }
+    }
+  }, [])
+
   useEffect(() => {
     const token = localStorage.getItem(TOKEN_KEY)
     const storedUser = localStorage.getItem(USER_KEY)
@@ -35,18 +60,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!token || !storedUser) return
 
     try {
-      const user = JSON.parse(storedUser) as User
-
-      setAuth({
-        user,
-        accessToken: token,
-        isAuthenticated: true,
-      })
+      const decoded = jwtDecode(token)
+      if (decoded.exp && decoded.exp * 1000 > Date.now()) {
+        const user = JSON.parse(storedUser) as User
+        setAuth({
+          user,
+          accessToken: token,
+          isAuthenticated: true,
+        })
+      } else {
+        // Token expired on startup
+        localStorage.removeItem(TOKEN_KEY)
+        localStorage.removeItem(USER_KEY)
+        localStorage.removeItem('buyer_avatar')
+      }
     } catch {
       localStorage.removeItem(TOKEN_KEY)
       localStorage.removeItem(USER_KEY)
+      localStorage.removeItem('buyer_avatar')
     }
   }, [])
+
+  // Handle Automatic Expiry using JWT exp
+  useEffect(() => {
+    if (auth.accessToken) {
+      try {
+        const decoded = jwtDecode(auth.accessToken)
+        if (decoded.exp) {
+          const timeUntilExpiry = decoded.exp * 1000 - Date.now()
+          if (timeUntilExpiry > 0) {
+            const timer = setTimeout(() => {
+              logout()
+            }, timeUntilExpiry)
+            return () => clearTimeout(timer)
+          } else {
+            logout()
+          }
+        }
+      } catch {
+        logout()
+      }
+    }
+  }, [auth.accessToken, logout])
 
   const login = useCallback((token: string, user: User) => {
     localStorage.setItem(TOKEN_KEY, token)
@@ -56,17 +111,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       accessToken: token,
       isAuthenticated: true,
-    })
-  }, [])
-
-  const logout = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY)
-    localStorage.removeItem(USER_KEY)
-
-    setAuth({
-      user: null,
-      accessToken: null,
-      isAuthenticated: false,
     })
   }, [])
 

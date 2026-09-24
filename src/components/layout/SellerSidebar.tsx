@@ -1,4 +1,4 @@
-// src/components/layout/SellerSidebar.tsx
+import { useState, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -14,6 +14,7 @@ import { ROUTES, LOGO_URL } from '@/constants'
 import { useAuth } from '@/hooks/useAuth'
 import { hasPermission } from '@/services/rbacService'
 import { roleLabel } from '@/lib/roles'
+import { getMyProfile } from '@/services/sellerSettingsService'
 
 const allMenuItems = [
   {
@@ -24,37 +25,37 @@ const allMenuItems = [
   },
   {
     path: ROUTES.SELLER_ORDERS,
-    label: 'Pesanan',
+    label: 'Orders',
     icon: ShoppingCart,
     permission: 'view_process_orders',
   },
   {
     path: ROUTES.SELLER_PRODUCTS,
-    label: 'Produk',
+    label: 'Products',
     icon: Package,
     permission: 'manage_products',
   },
   {
     path: ROUTES.SELLER_INVENTORY,
-    label: 'Stok',
+    label: 'Inventory',
     icon: Boxes,
     permission: 'manage_inventory',
   },
   {
     path: ROUTES.SELLER_REPORTS,
-    label: 'Keuangan',
+    label: 'Finance',
     icon: Receipt,
     permission: 'view_financial_reports',
   },
   {
-    path: ROUTES.SELLER_CHATBOT,
+    path: ROUTES.SELLER_FAQ,
     label: 'FAQ',
     icon: MessageCircleQuestion,
     permission: 'manage_chatbot_faq',
   },
   {
     path: ROUTES.SELLER_SETTINGS,
-    label: 'Pengaturan',
+    label: 'Settings',
     icon: Settings,
     permission: 'manage_users',
   },
@@ -67,6 +68,23 @@ interface SellerSidebarProps {
 export function SellerSidebar({ isOpen }: SellerSidebarProps) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    let ignore = false
+    getMyProfile()
+      .then((profile) => {
+        if (!ignore && profile?.avatar_url) {
+          setAvatarUrl(profile.avatar_url)
+        }
+      })
+      .catch(() => {
+        // Silently fall back to initial on error
+      })
+    return () => {
+      ignore = true
+    }
+  }, [])
 
   const handleLogout = () => {
     logout()
@@ -83,7 +101,7 @@ export function SellerSidebar({ isOpen }: SellerSidebarProps) {
   return (
     <aside
       className={`
-        fixed inset-y-0 left-0 z-30 flex h-screen flex-col overflow-hidden bg-[#F6EDDE]
+        fixed inset-y-0 left-0 z-30 flex h-screen flex-col overflow-hidden bg-[#F9F5EC]
         transition-all duration-300 ease-in-out
         lg:sticky lg:top-0
         ${
@@ -123,9 +141,17 @@ export function SellerSidebar({ isOpen }: SellerSidebarProps) {
 
         <div className="mt-auto border-t border-[#4b2417]/10 pt-4">
           <div className="flex items-center gap-3 rounded-lg bg-[#4b2417]/5 p-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#E0A04E] text-sm font-black uppercase text-[#3A1F16]">
-              {initial}
-            </div>
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt={user?.name || user?.username || 'Profile'}
+                className="h-10 w-10 shrink-0 rounded-full object-cover"
+              />
+            ) : (
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#E0A04E] text-sm font-black uppercase text-[#3A1F16]">
+                {initial}
+              </div>
+            )}
 
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-[#4b2417]">
@@ -151,3 +177,4 @@ export function SellerSidebar({ isOpen }: SellerSidebarProps) {
     </aside>
   )
 }
+

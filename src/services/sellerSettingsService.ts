@@ -39,9 +39,18 @@ export interface UserAdminUpdate {
 
 // ── CURRENT USER PROFILE ────────────────────────────────────
 
+let activeProfileRequest: Promise<UserProfile> | null = null;
+
 export async function getMyProfile(): Promise<UserProfile> {
-  const response = await apiClient.get('/users/me');
-  return response.data;
+  if (activeProfileRequest) return activeProfileRequest;
+  
+  activeProfileRequest = apiClient.get('/users/me')
+    .then(response => response.data)
+    .finally(() => {
+      activeProfileRequest = null;
+    });
+    
+  return activeProfileRequest;
 }
 
 export async function updateMyProfile(data: UserProfileUpdate): Promise<UserProfile> {

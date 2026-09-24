@@ -89,9 +89,9 @@ export default function SellerLoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#fdf6f0] to-[#f4ebdf] px-4 py-8">
+    <div className="flex min-h-screen items-center justify-center bg-white px-4 py-8">
       <div className="w-full max-w-md">
-        <div className="rounded-2xl border border-[#ead8ca] bg-white/90 p-8 shadow-xl backdrop-blur-sm">
+        <div className="rounded-2xl border border-[#ead8ca] bg-gradient-to-br from-[#fdf6f0] to-[#f4ebdf] p-8 shadow-xl backdrop-blur-sm">
           <div className="mb-6 text-center">
             <img
               src={LOGO_URL}
@@ -212,14 +212,7 @@ export default function SellerLoginPage() {
               </Link>
             </div>
 
-            <div className="text-center text-sm text-[#6f5448]">
-              <Link
-                to={ROUTES.HOME}
-                className="font-medium text-[#6f5448] transition hover:text-[#4b2417]"
-              >
-                {t('auth.back_to_home')}
-              </Link>
-            </div>
+            
           </form>
         </div>
 

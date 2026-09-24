@@ -1,4 +1,5 @@
 // src/pages/buyer/OrderDetailPage.tsx
+import { useTranslation } from 'react-i18next'
 import { useState, useEffect } from 'react'
 import type React from 'react'
 import { Link, useParams, Navigate } from 'react-router-dom'
@@ -84,6 +85,7 @@ export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { user, isAuthenticated } = useAuth()
 
+  const { t } = useTranslation()
   const [order, setOrder] = useState<BuyerOrder | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -191,7 +193,7 @@ export default function OrderDetailPage() {
   useEffect(() => {
     async function loadOrder() {
       if (!id) {
-        setError('ID pesanan tidak ditemukan')
+        setError(t('order_detail.not_found'))
         setLoading(false)
         return
       }
@@ -203,7 +205,7 @@ export default function OrderDetailPage() {
         const data = await getBuyerOrderById(id)
 
         if (!data) {
-          setError('Pesanan tidak ditemukan')
+          setError(t('order_detail.not_found'))
         } else {
           setOrder(data)
           
@@ -247,7 +249,7 @@ export default function OrderDetailPage() {
         }
       } catch (err) {
         console.error('Gagal memuat detail pesanan:', err)
-        setError('Gagal memuat detail pesanan')
+        setError(t('order_detail.failed_load'))
       } finally {
         setLoading(false)
       }
@@ -330,14 +332,14 @@ export default function OrderDetailPage() {
         <XCircle className="mx-auto h-12 w-12 text-red-400" />
 
         <h2 className="mt-3 text-xl font-semibold text-gray-700">
-          {error || 'Pesanan tidak ditemukan'}
+          {error || t('order_detail.not_found')}
         </h2>
 
         <Link
           to={ROUTES.ORDERS}
           className="mt-4 inline-block text-[#d85b30] transition hover:text-[#c04e28]"
         >
-          Kembali ke daftar pesanan
+          {t('order_detail.back_to_list')}
         </Link>
       </div>
     )
@@ -353,7 +355,7 @@ export default function OrderDetailPage() {
         className="mb-6 flex items-center gap-2 text-sm font-medium text-[#6f5448] transition hover:text-[#4b2417]"
       >
         <ArrowLeft className="h-4 w-4" />
-        Kembali ke daftar pesanan
+        {t('order_detail.back_to_list')}
       </Link>
 
       <div className="overflow-hidden rounded-2xl border border-[#ead8ca] bg-white shadow-sm">
@@ -448,14 +450,14 @@ export default function OrderDetailPage() {
 
                 <div className="mt-3 space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-[#6f5448]">Metode</span>
+                    <span className="text-[#6f5448]">{t('order_detail.method', 'Metode')}</span>
                     <span className="font-medium capitalize text-[#4b2417]">
                       {order.paymentMethod}
                     </span>
                   </div>
 
                   <div className="flex justify-between">
-                    <span className="text-[#6f5448]">Status</span>
+                    <span className="text-[#6f5448]">{t('order_detail.status', 'Status')}</span>
                     <span
                       className={`font-medium capitalize ${
                         order.paymentStatus === 'paid'
@@ -478,14 +480,14 @@ export default function OrderDetailPage() {
                   </div>
 
                   <div className="flex justify-between border-t border-[#ead8ca] pt-2 font-bold">
-                    <span className="text-[#4b2417]">Total</span>
+                    <span className="text-[#4b2417]">{t('order_detail.total', 'Total')}</span>
                     <span className="text-[#d85b30]">
                       {formatRupiah(order.total)}
                     </span>
                   </div>
                   {order.amountPaid !== undefined && (
                     <div className="flex justify-between mt-1 text-sm">
-                      <span className="text-[#6f5448]">Total Dibayar</span>
+                      <span className="text-[#6f5448]">{t('order_detail.total_paid', 'Total Dibayar')}</span>
                       <span className="text-[#4b2417] font-medium">
                         {formatRupiah(order.amountPaid)}
                       </span>
@@ -493,7 +495,7 @@ export default function OrderDetailPage() {
                   )}
                   {order.amountDue !== undefined  && (
                     <div className="flex justify-between mt-1 text-sm font-bold">
-                      <span className="text-[#4b2417]">Sisa Tagihan</span>
+                      <span className="text-[#4b2417]">{t('order_detail.remaining_bill', 'Sisa Tagihan')}</span>
                       <span className="text-red-600">
                         {formatRupiah(order.amountDue)}
                       </span>
@@ -514,7 +516,7 @@ export default function OrderDetailPage() {
                     ) : (
                       <div className="space-y-4">
                         <div>
-                          <label className="block text-sm font-semibold text-[#4b2417] mb-2">Pilih Metode Pelunasan</label>
+                          <label className="block text-sm font-semibold text-[#4b2417] mb-2">{t('order_detail.choose_payment_method', 'Pilih Metode Pelunasan')}</label>
                           <div className="flex gap-2">
                             <button
                               onClick={() => setPayRemainingMethod('qris')}
@@ -575,13 +577,13 @@ export default function OrderDetailPage() {
             <div>
               <div className="rounded-xl border border-[#ead8ca] p-4">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-[#6f5448]">
-                  Item Pesanan ({order.items.length})
+                  {t('order_detail.items')} ({order.items.length})
                 </h3>
 
                 <div className="mt-3 space-y-2">
                   {order.items.length === 0 ? (
                     <p className="text-sm text-[#6f5448]">
-                      Item pesanan tidak tersedia.
+                      {t('order_detail.item_unavailable')}
                     </p>
                   ) : (
                     order.items.map((item) => (
@@ -628,7 +630,7 @@ export default function OrderDetailPage() {
 
                 <div className="mt-4 space-y-1 border-t border-[#ead8ca] pt-3 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-[#6f5448]">Subtotal</span>
+                    <span className="text-[#6f5448]">{t('order_detail.subtotal', 'Subtotal')}</span>
                     <span className="text-[#4b2417]">
                       {formatRupiah(order.subtotal)}
                     </span>
@@ -647,7 +649,7 @@ export default function OrderDetailPage() {
 
                   {order.serviceFee > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-[#6f5448]">Biaya Layanan</span>
+                      <span className="text-[#6f5448]">{t('order_detail.service_fee', 'Biaya Layanan')}</span>
                       <span className="text-[#4b2417]">
                         {formatRupiah(order.serviceFee)}
                       </span>
@@ -655,14 +657,14 @@ export default function OrderDetailPage() {
                   )}
 
                   <div className="flex justify-between border-t border-[#ead8ca] pt-2 font-bold">
-                    <span className="text-[#4b2417]">Total</span>
+                    <span className="text-[#4b2417]">{t('order_detail.total', 'Total')}</span>
                     <span className="text-[#d85b30]">
                       {formatRupiah(order.total)}
                     </span>
                   </div>
                   {order.amountPaid !== undefined && (
                     <div className="flex justify-between mt-1 text-sm">
-                      <span className="text-[#6f5448]">Total Dibayar</span>
+                      <span className="text-[#6f5448]">{t('order_detail.total_paid', 'Total Dibayar')}</span>
                       <span className="text-[#4b2417] font-medium">
                         {formatRupiah(order.amountPaid)}
                       </span>
@@ -670,7 +672,7 @@ export default function OrderDetailPage() {
                   )}
                   {order.amountDue !== undefined  && (
                     <div className="flex justify-between mt-1 text-sm font-bold">
-                      <span className="text-[#4b2417]">Sisa Tagihan</span>
+                      <span className="text-[#4b2417]">{t('order_detail.remaining_bill', 'Sisa Tagihan')}</span>
                       <span className="text-red-600">
                         {formatRupiah(order.amountDue)}
                       </span>
@@ -688,27 +690,27 @@ export default function OrderDetailPage() {
 
               <div className="mt-4 rounded-xl border border-[#ead8ca] p-4">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-[#6f5448]">
-                  Status Pesanan
+                  {t('order_detail.status')}
                 </h3>
 
                 
                 <div className="mt-3 space-y-3">
                   {paymentInstructions && (
                     <div className="mb-4 rounded-xl border-2 border-[#d85b30] bg-[#f8f4f0] p-4 text-center">
-                      <h4 className="text-sm font-bold text-[#4b2417] mb-3">Lanjutkan Pembayaran</h4>
+                      <h4 className="text-sm font-bold text-[#4b2417] mb-3">{t('order_detail.continue_payment', 'Lanjutkan Pembayaran')}</h4>
                       {paymentInstructions.qris_url ? (
                         <>
-                          <p className="text-xs font-semibold text-[#6f5448] mb-2">Scan QRIS</p>
+                          <p className="text-xs font-semibold text-[#6f5448] mb-2">{t('order_detail.qris', 'Scan QRIS')}</p>
                           <img src={paymentInstructions.qris_url} alt="QRIS" className="mx-auto w-48 h-48 bg-white p-2 rounded-lg" />
                         </>
                       ) : paymentInstructions.va_number ? (
                         <>
-                          <p className="text-xs font-semibold text-[#6f5448] mb-2">Virtual Account Bank Transfer</p>
+                          <p className="text-xs font-semibold text-[#6f5448] mb-2">{t('order_detail.bank_transfer', 'Virtual Account Bank Transfer')}</p>
                           <p className="text-2xl font-mono text-[#d85b30]">{paymentInstructions.va_number}</p>
                         </>
                       ) : null}
                       <p className="mt-2 text-xs text-[#8b7166]">
-                        Silakan selesaikan pembayaran agar pesanan dapat diproses.
+                        {t('order_detail.payment_warning')}
                       </p>
                     </div>
                   )}
@@ -881,7 +883,7 @@ export default function OrderDetailPage() {
                 rows={4}
                 value={reviewComment}
                 onChange={(e) => setReviewComment(e.target.value)}
-                placeholder="Bagikan pengalaman Anda tentang produk ini..."
+                placeholder="{t('order_detail.review_placeholder')}"
                 className="w-full rounded-xl border border-[#ead8ca] p-3 text-sm outline-none focus:border-[#d85b30] focus:ring-1 focus:ring-[#d85b30]"
               ></textarea>
             </div>

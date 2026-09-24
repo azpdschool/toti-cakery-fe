@@ -52,6 +52,7 @@ export interface Order {
   amountPaid?: number;
   amountDue?: number;
   createdAt?: string;
+  rawDueDate?: string;
 }
 
 export interface Invoice {
@@ -113,17 +114,25 @@ export function mapOrderResponse(o: any): Order {
     amountPaid: o.amount_paid !== undefined && o.amount_paid !== null ? parseFloat(o.amount_paid) : undefined,
     amountDue: o.amount_due !== undefined && o.amount_due !== null ? parseFloat(o.amount_due) : undefined,
     createdAt: o.created_at,
+    rawDueDate: o.due_date,
   } as any;
 }
 
-export async function getOrders(params?: { limit?: number; offset?: number; status?: string }): Promise<Order[]> {
-  try {
-    const response = await apiClient.get('/orders', { params });
-    return response.data.map(mapOrderResponse);
-  } catch (error) {
-    console.error('Failed to fetch orders:', error);
-    return [];
-  }
+const activeOrdersRequests = new Map<string, Promise<Order[]>>();
+
+export async function getOrders(params?: { limit?: number; offset?: number; status?: string; signal?: AbortSignal; [key: string]: any }): Promise<Order[]> {
+  const { signal, ...queryParams } = params || {};
+  const key = JSON.stringify(queryParams);
+  if (activeOrdersRequests.has(key)) return activeOrdersRequests.get(key)!;
+
+  // We omit the signal from the actual network call to prevent StrictMode
+  // unmounts from aborting the shared Promise for the other concurrent caller.
+  const promise = apiClient.get('/orders', { params: queryParams })
+    .then(response => response.data.map(mapOrderResponse))
+    .finally(() => activeOrdersRequests.delete(key));
+
+  activeOrdersRequests.set(key, promise);
+  return promise;
 }
 
 export async function getOrderById(id: string): Promise<Order> {
@@ -142,45 +151,35 @@ export async function updateOrderStatus(id: string, status: OrderStatus): Promis
 
 
 
-export async function getOrderStats(): Promise<{
-  totalOrdersThisMonth: number;
+export async function getOrderStats(_ordersData?: any[]): Promise<{
+  totalOrdersThisMonth: number | string;
   ordersChange: string;
-  completed: number;
+  completed: number | string;
   completedChange: string;
-  processed: number;
+  processed: number | string;
   processedChange: string;
-  waitingConfirmation: number;
+  waitingConfirmation: number | string;
   waitingChange: string;
 }> {
   try {
-    const response = await apiClient.get('/orders');
-    const orders = response.data;
-    const totalOrders = orders.length;
-    const completed = orders.filter((o: any) => o.status === 'delivered' || o.status === 'picked_up' || o.status === 'completed').length;
-    const processed = orders.filter((o: any) => o.status === 'in_process' || o.status === 'ready').length;
-    const waitingConfirmation = orders.filter((o: any) => o.status === 'pending').length;
+    const response = await apiClient.get('/orders/stats');
+    const data = response.data;
+    
+    // We sum completed, delivered, and picked_up for the completed stat
+    const completedCount = (data.completed || 0) + (data.delivered || 0) + (data.picked_up || 0);
 
     return {
-      totalOrdersThisMonth: totalOrders,
+      totalOrdersThisMonth: data.total || 0,
       ordersChange: 'Real-time',
-      completed,
-      completedChange: 'Real-time',
-      processed,
-      processedChange: 'Real-time',
-      waitingConfirmation,
-      waitingChange: 'Real-time',
+      completed: completedCount,
+      completedChange: 'Completed/Delivered/Picked up',
+      processed: data.in_process || 0,
+      processedChange: 'In Process',
+      waitingConfirmation: data.pending || 0,
+      waitingChange: 'Pending',
     };
   } catch(e) {
-    return {
-      totalOrdersThisMonth: 0,
-      ordersChange: '',
-      completed: 0,
-      completedChange: '',
-      processed: 0,
-      processedChange: '',
-      waitingConfirmation: 0,
-      waitingChange: '',
-    };
+    throw new Error('Failed to load order statistics.');
   }
 }
 

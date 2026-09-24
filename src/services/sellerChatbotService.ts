@@ -83,6 +83,25 @@ export async function getChatbotFaqs(): Promise<Faq[]> {
   return data.map(mapFaqOutToFaq)
 }
 
+// Stats can be calculated from already fetched FAQs to avoid duplicate requests
+export function getChatbotStatsFromFaqs(faqs: Faq[]): FaqStats {
+  const total = faqs.length;
+  const active = faqs.filter(f => f.status === 'active').length;
+  const inactive = faqs.filter(f => f.status === 'inactive').length;
+
+  const activePercentage = total > 0 ? Math.round((active / total) * 100) : 0;
+  const inactivePercentage = total > 0 ? Math.round((inactive / total) * 100) : 0;
+
+  return {
+    total,
+    active,
+    inactive,
+    activePercentage,
+    inactivePercentage,
+    usedInChatbot: active,
+  };
+}
+
 export async function getChatbotStats(): Promise<FaqStats> {
   const faqs = await getAllFaqs(false)
 

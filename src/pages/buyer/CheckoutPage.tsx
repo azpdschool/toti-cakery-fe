@@ -14,7 +14,8 @@ import {
   Loader2,
 
 } from 'lucide-react';
-import { useCart } from '@/context/CartContext';
+import { useCart } from '@/context/CartContext'
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { formatRupiah } from '@/services/productService';
 import { createOrder, processPayment, getOrderPaymentStatus, type DeliveryMethod, type PaymentMethod } from '@/services/buyerOrderService';
@@ -25,6 +26,7 @@ type CheckoutStep = 'form' | 'payment' | 'success';
 export default function CheckoutPage() {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const { t } = useTranslation()
   const { items, totalPrice, clearCart, updateMultipleAvailability } = useCart();
 
   // Protected route
@@ -250,7 +252,7 @@ export default function CheckoutPage() {
         )}
 
         <div className="rounded-2xl bg-white p-6 shadow-sm border border-[#ead8ca]">
-          <h1 className="text-2xl font-black text-[#4b2417]">Pembayaran</h1>
+          <h1 className="text-2xl font-black text-[#4b2417]">{t('checkout.payment_title', 'Pembayaran')}</h1>
           
           <div className="mt-6 rounded-xl bg-[#f8f4f0] p-4">
             <div className="flex items-center justify-between">
@@ -271,7 +273,7 @@ export default function CheckoutPage() {
           {!paymentResult ? (
             <div className="mt-6 space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-[#4b2417] mb-2">Metode Pembayaran</label>
+                <label className="block text-sm font-semibold text-[#4b2417] mb-2">{t('checkout.payment_method', 'Metode Pembayaran')}</label>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setMidtransMethod('qris')}
@@ -307,17 +309,17 @@ export default function CheckoutPage() {
             <div className="mt-6 space-y-4 text-center">
               {paymentResult.qris_url ? (
                 <div className="rounded-xl border border-[#ead8ca] p-4">
-                  <p className="font-semibold text-[#4b2417] mb-2">Scan QRIS</p>
+                  <p className="font-semibold text-[#4b2417] mb-2">{t('checkout.qris', 'Scan QRIS')}</p>
                   <img src={paymentResult.qris_url} alt="QRIS" className="mx-auto w-48 h-48" />
                 </div>
               ) : paymentResult.va_number ? (
                 <div className="rounded-xl border border-[#ead8ca] p-4">
-                  <p className="font-semibold text-[#4b2417] mb-2">Virtual Account BCA</p>
+                  <p className="font-semibold text-[#4b2417] mb-2">{t('checkout.bca_va', 'Virtual Account BCA')}</p>
                   <p className="text-2xl font-mono text-[#d85b30]">{paymentResult.va_number}</p>
                 </div>
               ) : paymentResult.midtrans_response?.redirect_url ? (
                 <div className="rounded-xl border border-[#ead8ca] p-4">
-                  <p className="font-semibold text-[#4b2417] mb-2">Lanjutkan Pembayaran</p>
+                  <p className="font-semibold text-[#4b2417] mb-2">{t('checkout.continue_payment', 'Lanjutkan Pembayaran')}</p>
                   <a href={paymentResult.midtrans_response.redirect_url} target="_blank" rel="noreferrer" className="text-blue-500 underline">
                     Klik di sini untuk membayar
                   </a>
@@ -398,7 +400,7 @@ export default function CheckoutPage() {
       </Link>
 
       <div className="rounded-2xl bg-white p-6 shadow-sm border border-[#ead8ca]">
-        <h1 className="text-2xl font-black text-[#4b2417]">Checkout</h1>
+        <h1 className="text-2xl font-black text-[#4b2417]">{t('checkout.title', 'Checkout')}</h1>
         <p className="mt-1 text-sm text-[#6f5448]">
           Lengkapi data pesanan Anda
         </p>
@@ -421,7 +423,7 @@ export default function CheckoutPage() {
               >
                 <Store className="h-5 w-5" />
                 Pickup
-                <span className="text-xs font-medium text-green-600">Gratis</span>
+                <span className="text-xs font-medium text-green-600">{t('checkout.free', 'Gratis')}</span>
               </button>
               <button
                 type="button"
@@ -460,7 +462,7 @@ export default function CheckoutPage() {
           {/* Data Penerima (jika bukan pickup) */}
           {formData.deliveryMethod !== 'pickup' && (
             <div className="space-y-4 rounded-xl bg-[#f8f4f0] p-4">
-              <h3 className="text-sm font-bold text-[#4b2417]">Data Penerima</h3>
+              <h3 className="text-sm font-bold text-[#4b2417]">{t('checkout.recipient_data', 'Data Penerima')}</h3>
               <div>
                 <label className="block text-sm font-semibold text-[#4b2417]">
                   Nama Penerima <span className="text-red-500">*</span>
@@ -502,7 +504,7 @@ export default function CheckoutPage() {
 
           {/* Catatan */}
           <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">Catatan untuk Seller</label>
+            <label className="block text-sm font-semibold text-[#4b2417]">{t('checkout.notes', 'Catatan untuk Seller')}</label>
             <textarea
               rows={2}
               value={formData.notes}
@@ -552,19 +554,19 @@ export default function CheckoutPage() {
 
           {/* Ringkasan */}
           <div className="rounded-xl bg-[#f8f4f0] p-4 space-y-2 text-sm">
-            <h3 className="font-bold text-[#4b2417]">Ringkasan Pesanan</h3>
+            <h3 className="font-bold text-[#4b2417]">{t('checkout.order_summary', 'Ringkasan Pesanan')}</h3>
             <div className="flex justify-between">
               <span className="text-[#6f5448]">Subtotal ({items.length} item)</span>
               <span className="font-semibold text-[#4b2417]">{formatRupiah(subtotal)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-[#6f5448]">Biaya Pengiriman</span>
+              <span className="text-[#6f5448]">{t('checkout.shipping_fee', 'Biaya Pengiriman')}</span>
               <span className="font-semibold text-[#8b7166]">
                 {formData.deliveryMethod === 'pickup' ? 'Gratis' : 'Dihitung via WA'}
               </span>
             </div>
             <div className="flex justify-between border-t border-[#d0bfaf] pt-2 font-bold">
-              <span className="text-[#4b2417]">Total</span>
+              <span className="text-[#4b2417]">{t('checkout.total', 'Total')}</span>
               <span className="text-[#d85b30]">{formatRupiah(total)}</span>
             </div>
             {formData.paymentMethod === 'dp' && (

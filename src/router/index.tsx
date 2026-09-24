@@ -2,6 +2,7 @@
 import { lazy } from 'react'
 import { createBrowserRouter, Navigate, useRouteError } from 'react-router-dom'
 import { ROUTES } from '@/constants'
+import { SellerLocaleProvider } from '@/components/providers/SellerLocaleProvider'
 
 // Layouts
 const BuyerLayout = lazy(() =>
@@ -25,6 +26,7 @@ const CheckoutPage = lazy(() => import('@/pages/buyer/CheckoutPage'))
 const OrdersPage = lazy(() => import('@/pages/buyer/OrdersPage'))
 const OrderDetailPage = lazy(() => import('@/pages/buyer/OrderDetailPage'))
 const ProfilePage = lazy(() => import('@/pages/buyer/ProfilePage'))
+const WishlistPage = lazy(() => import('@/pages/buyer/WishlistPage'))
 
 // Auth pages
 const BuyerLoginPage = lazy(() => import('@/pages/auth/BuyerLoginPage'))
@@ -49,10 +51,11 @@ const SellerInventoryPage = lazy(
 )
 const SellerOrdersPage = lazy(() => import('@/pages/seller/SellerOrdersPage'))
 const SellerReportsPage = lazy(() => import('@/pages/seller/SellerFinancePage'))
-const SellerChatbotPage = lazy(() => import('@/pages/seller/SellerChatbotPage'))
+const SellerFaqPage = lazy(() => import('@/pages/seller/SellerFaqPage'))
 const SellerSettingsPage = lazy(
   () => import('@/pages/seller/SellerSettingsPage'),
 )
+const BuyerFaqPage = lazy(() => import('@/pages/buyer/BuyerFaqPage'))
 
 // NotFound
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
@@ -122,9 +125,24 @@ export const router = createBrowserRouter([
         path: '/profile',
         element: <ProfilePage />,
       },
+      {
+        path: ROUTES.WISHLIST,
+        element: <WishlistPage />,
+      },
+      {
+        path: ROUTES.BUYER_FAQ,
+        element: <BuyerFaqPage />,
+      },
     ],
   },
-
+  {
+    path: '/auth/buyer',
+    element: <Navigate to={ROUTES.AUTH_BUYER} replace />,
+  },
+  {
+    path: '/register',
+    element: <Navigate to={ROUTES.AUTH_BUYER_REGISTER} replace />,
+  },
   {
     path: ROUTES.AUTH_BUYER,
     element: <BuyerLoginPage />,
@@ -136,29 +154,24 @@ export const router = createBrowserRouter([
     errorElement: <RouterErrorPage />,
   },
   {
-    path: '/register',
-    element: <BuyerRegisterPage />,
-    errorElement: <RouterErrorPage />,
-  },
-  {
-    path: '/auth/buyer/forgot-password',
+    path: ROUTES.AUTH_BUYER_FORGOT_PASSWORD,
     element: <BuyerForgotPasswordPage />,
     errorElement: <RouterErrorPage />,
   },
 
   {
     path: ROUTES.AUTH_SELLER,
-    element: <SellerLoginPage />,
+    element: <SellerLocaleProvider><SellerLoginPage /></SellerLocaleProvider>,
     errorElement: <RouterErrorPage />,
   },
   {
     path: ROUTES.AUTH_SELLER_FORGOT_PASSWORD,
-    element: <SellerForgotPasswordPage />,
+    element: <SellerLocaleProvider><SellerForgotPasswordPage /></SellerLocaleProvider>,
     errorElement: <RouterErrorPage />,
   },
 
   {
-    element: <SellerLayout />,
+    element: <SellerLocaleProvider><SellerLayout /></SellerLocaleProvider>,
     errorElement: <RouterErrorPage />,
     children: [
       {
@@ -186,8 +199,8 @@ export const router = createBrowserRouter([
         element: <SellerReportsPage />,
       },
       {
-        path: ROUTES.SELLER_CHATBOT,
-        element: <SellerChatbotPage />,
+        path: ROUTES.SELLER_FAQ,
+        element: <SellerFaqPage />,
       },
       {
         path: ROUTES.SELLER_SETTINGS,

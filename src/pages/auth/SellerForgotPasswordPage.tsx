@@ -12,7 +12,7 @@ import {
   Eye,
   EyeOff,
 } from 'lucide-react'
-import { ROUTES } from '@/constants'
+import { ROUTES, LOGO_URL } from '@/constants'
 import {
   requestSellerForgotPassword,
   resetSellerPassword,
@@ -61,7 +61,7 @@ export default function SellerForgotPasswordPage() {
     setSuccess(null)
 
     if (!email.trim()) {
-      setError('Email atau username wajib diisi')
+      setError('Email or username is required')
       return
     }
 
@@ -73,13 +73,13 @@ export default function SellerForgotPasswordPage() {
       })
 
       setOtpId(response.otp_id)
-      setSuccess('Kode OTP telah dikirim.')
+      setSuccess('OTP code has been sent.')
       setStep('otp')
     } catch (err) {
       setError(
         parseApiError(
           err,
-          'Gagal mengirim OTP. Pastikan email/username terdaftar.',
+          'Failed to send OTP. Ensure email/username is registered.',
         ),
       )
     } finally {
@@ -94,12 +94,12 @@ export default function SellerForgotPasswordPage() {
     setSuccess(null)
 
     if (!otp.trim()) {
-      setError('Masukkan kode OTP')
+      setError('Please enter OTP code')
       return
     }
 
     if (!otpId) {
-      setError('OTP ID tidak ditemukan. Silakan kirim ulang OTP.')
+      setError('OTP ID not found. Please resend OTP.')
       setStep('email')
       return
     }
@@ -113,10 +113,10 @@ export default function SellerForgotPasswordPage() {
       })
 
       setVerifyToken(response.verify_token)
-      setSuccess('OTP berhasil diverifikasi. Silakan buat password baru.')
+      setSuccess('OTP successfully verified. Please create a new password.')
       setStep('reset')
     } catch (err) {
-      setError(parseApiError(err, 'Kode OTP salah atau sudah expired.'))
+      setError(parseApiError(err, 'Invalid or expired OTP code.'))
     } finally {
       setIsLoading(false)
     }
@@ -129,17 +129,17 @@ export default function SellerForgotPasswordPage() {
     setSuccess(null)
 
     if (newPassword.length < 6) {
-      setError('Password minimal 6 karakter')
+      setError('Password must be at least 6 characters')
       return
     }
 
     if (newPassword !== confirmPassword) {
-      setError('Password dan konfirmasi tidak cocok')
+      setError('Password and confirmation do not match')
       return
     }
 
     if (!verifyToken) {
-      setError('Token verifikasi tidak ditemukan. Silakan ulangi proses.')
+      setError('Verification token not found. Please restart the process.')
       setStep('email')
       return
     }
@@ -152,20 +152,20 @@ export default function SellerForgotPasswordPage() {
         new_password: newPassword,
       })
 
-      setSuccess('Password berhasil direset! Silakan login.')
+      setSuccess('Password reset successfully! Please log in.')
 
       setTimeout(() => {
         navigate(ROUTES.AUTH_SELLER, { replace: true })
       }, 1200)
     } catch (err) {
-      setError(parseApiError(err, 'Gagal mereset password. Silakan coba lagi.'))
+      setError(parseApiError(err, 'Failed to reset password. Please try again.'))
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#fdf6f0] to-[#f4ebdf] px-4 py-8">
+    <div className="flex min-h-screen items-center justify-center bg-white px-4 py-8">
       <div className="w-full max-w-md">
         <button
           type="button"
@@ -173,18 +173,25 @@ export default function SellerForgotPasswordPage() {
           className="mb-6 flex items-center gap-1 text-sm font-medium text-[#6f5448] transition hover:text-[#4b2417]"
         >
           <ChevronLeft className="h-4 w-4" />
-          Kembali ke Login
+          Back to Login
         </button>
 
-        <div className="rounded-2xl border border-[#ead8ca] bg-white/90 p-8 shadow-xl backdrop-blur-sm">
-          <h1 className="text-2xl font-black text-[#4b2417]">
-            Lupa Password
+        <div className="rounded-2xl border border-[#ead8ca] bg-gradient-to-br from-[#fdf6f0] to-[#f4ebdf] p-8 shadow-xl backdrop-blur-sm">
+          <div className="mb-6 text-center">
+            <img
+              src={LOGO_URL}
+              alt="Toti Cakery"
+              className="mx-auto w-48 sm:w-60 h-auto max-w-full object-contain"
+            />
+          </div>
+          <h1 className="text-2xl font-black text-[#4b2417] text-center">
+            Forgot Password
           </h1>
 
-          <p className="mt-1 text-sm text-[#6f5448]">
-            {step === 'email' && 'Masukkan email atau username seller Anda'}
-            {step === 'otp' && 'Masukkan kode OTP yang dikirim'}
-            {step === 'reset' && 'Buat password baru untuk akun Anda'}
+          <p className="mt-1 text-sm text-[#6f5448] text-center">
+            {step === 'email' && 'Enter your seller username'}
+            {step === 'otp' && 'Enter the OTP sent to your email'}
+            {step === 'reset' && 'Create a new password for your account'}
           </p>
 
           {step === 'email' && (
@@ -194,7 +201,7 @@ export default function SellerForgotPasswordPage() {
                   htmlFor="email"
                   className="block text-sm font-semibold text-[#4b2417]"
                 >
-                  Email / Username
+                  Username / Email
                 </label>
 
                 <div className="relative mt-1.5">
@@ -207,15 +214,10 @@ export default function SellerForgotPasswordPage() {
                     type="text"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="contoh: owner / admin / staff"
+                    placeholder="e.g., owner / admin / staff"
                     className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-4 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
                   />
                 </div>
-
-                <p className="mt-2 text-xs text-[#8b7166]">
-                  Catatan: backend saat ini mencari seller berdasarkan username.
-                  Jika nanti kolom email sudah aktif, field ini tetap bisa dipakai untuk email.
-                </p>
               </div>
 
               {error && (
@@ -240,10 +242,10 @@ export default function SellerForgotPasswordPage() {
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Mengirim OTP...
+                    Sending OTP...
                   </>
                 ) : (
-                  'Kirim OTP'
+                  'Send OTP'
                 )}
               </button>
             </form>
@@ -256,7 +258,7 @@ export default function SellerForgotPasswordPage() {
                   htmlFor="otp"
                   className="block text-sm font-semibold text-[#4b2417]"
                 >
-                  Kode OTP
+                  OTP Code
                 </label>
 
                 <input
@@ -267,7 +269,7 @@ export default function SellerForgotPasswordPage() {
                   maxLength={6}
                   value={otp}
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                  placeholder="Masukkan kode OTP"
+                  placeholder="Enter OTP code"
                   autoFocus
                   className="mt-1.5 w-full rounded-xl border border-[#d0bfaf] bg-white/70 px-4 py-3 text-center text-xl font-bold text-[#4b2417] outline-none transition placeholder:text-sm placeholder:font-normal placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
                 />
@@ -296,10 +298,10 @@ export default function SellerForgotPasswordPage() {
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Memverifikasi...
+                    Verifying...
                   </>
                 ) : (
-                  'Verifikasi OTP'
+                  'Verify OTP'
                 )}
               </button>
 
@@ -313,7 +315,7 @@ export default function SellerForgotPasswordPage() {
                   }}
                   className="text-sm font-medium text-[#d85b30] transition hover:text-[#c04e28]"
                 >
-                  Kirim ulang OTP
+                  Resend OTP
                 </button>
               </div>
             </form>
@@ -326,7 +328,7 @@ export default function SellerForgotPasswordPage() {
                   htmlFor="new-password"
                   className="block text-sm font-semibold text-[#4b2417]"
                 >
-                  Password Baru
+                  New Password
                 </label>
 
                 <div className="relative mt-1.5">
@@ -339,7 +341,7 @@ export default function SellerForgotPasswordPage() {
                     type={showPassword ? 'text' : 'password'}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Minimal 6 karakter"
+                    placeholder="Minimum 6 characters"
                     className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-12 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
                   />
 
@@ -362,7 +364,7 @@ export default function SellerForgotPasswordPage() {
                   htmlFor="confirm-password"
                   className="block text-sm font-semibold text-[#4b2417]"
                 >
-                  Konfirmasi Password
+                  Confirm Password
                 </label>
 
                 <div className="relative mt-1.5">
@@ -375,7 +377,7 @@ export default function SellerForgotPasswordPage() {
                     type={showPassword ? 'text' : 'password'}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Ulangi password baru"
+                    placeholder="Repeat new password"
                     className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-12 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
                   />
                 </div>
@@ -403,7 +405,7 @@ export default function SellerForgotPasswordPage() {
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Mereset Password...
+                    Resetting Password...
                   </>
                 ) : (
                   'Reset Password'

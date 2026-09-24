@@ -32,9 +32,18 @@ export interface SupplierUpdate {
   is_active?: boolean;
 }
 
+let activeSuppliersRequest: Promise<SupplierOut[]> | null = null;
+
 export async function getSuppliers(): Promise<SupplierOut[]> {
-  const response = await apiClient.get<SupplierOut[]>('/purchases/suppliers');
-  return response.data;
+  if (activeSuppliersRequest) return activeSuppliersRequest;
+  
+  activeSuppliersRequest = apiClient.get<SupplierOut[]>('/purchases/suppliers')
+    .then(response => response.data)
+    .finally(() => {
+      activeSuppliersRequest = null;
+    });
+    
+  return activeSuppliersRequest;
 }
 
 export async function createSupplier(payload: SupplierCreate): Promise<SupplierOut> {

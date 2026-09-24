@@ -288,3 +288,26 @@ export async function resetBuyerPassword(
 
   return response.data
 }
+export async function logoutApi(): Promise<void> {
+  await apiClient.post('/auth/logout')
+}
+
+export async function requestBuyerForgotPassword(email: string): Promise<MessageResponse> {
+  const response = await apiClient.post<MessageResponse>('/auth/buyer/forgot-password', { email })
+  return response.data
+}
+
+export async function resetBuyerPasswordEmail(payload: { email: string, otp: string, new_password: string }): Promise<MessageResponse> {
+  const response = await apiClient.post<MessageResponse>('/auth/buyer/reset-password/email', payload)
+  return response.data
+}
+
+export async function changeBuyerPassword(payload: { current_password: string, new_password: string }): Promise<MessageResponse> {
+  const response = await apiClient.post<MessageResponse>('/buyers/me/change-password', payload)
+  return response.data
+}
+
+export async function changeBuyerPhone(payload: { current_password: string, phone: string }): Promise<{phone: string}> {
+  const response = await apiClient.patch<{phone: string}>('/buyers/me/phone', payload)
+  return response.data
+}

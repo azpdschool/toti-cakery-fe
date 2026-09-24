@@ -154,8 +154,8 @@ function toStockUpdatePayload(
 // SERVICE FUNCTIONS
 // ============================================================
 
-export async function getInventoryItems(): Promise<InventoryItem[]> {
-  const stockItems = await getStockItems();
+export async function getInventoryItems(signal?: AbortSignal): Promise<InventoryItem[]> {
+  const stockItems = await getStockItems(undefined, signal);
 
   return stockItems.map(mapStockOutToInventoryItem);
 }
@@ -166,9 +166,7 @@ export async function getInventoryItemById(itemId: string): Promise<InventoryIte
   return mapStockOutToInventoryItem(stockItem);
 }
 
-export async function getInventoryStats(): Promise<InventoryStats> {
-  const items = await getInventoryItems();
-
+export function getInventoryStats(items: InventoryItem[]): InventoryStats {
   const totalItems = items.length;
   const safeStock = items.filter((item) => item.stock > item.minStock).length;
   const lowStock = items.filter(
