@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import {
   CakeSlice,
+  ChevronLeft,
+  ChevronRight,
   Heart,
   Leaf,
   ShieldCheck,
@@ -33,9 +35,6 @@ interface Stat {
   label: string
   icon: LucideIcon
 }
-
-const PRODUCTS_PER_PAGE = 4
-const REVIEWS_PER_PAGE = 3
 
 export default function HomePage() {
   const { addItem } = useCart()
@@ -78,9 +77,6 @@ export default function HomePage() {
   >([])
   const [loading, setLoading] = useState(true)
 
-  const [productIndex, setProductIndex] = useState(0)
-  const [reviewIndex, setReviewIndex] = useState(0)
-
   useEffect(() => {
     async function loadData() {
       setLoading(true)
@@ -117,29 +113,60 @@ export default function HomePage() {
     alert(t('home.alert_added_to_cart', { productName: product.name }));
   };
 
-  const productTotalPages = Math.ceil(products.length / PRODUCTS_PER_PAGE)
-  const currentProducts = products.slice(
-    productIndex * PRODUCTS_PER_PAGE,
-    (productIndex + 1) * PRODUCTS_PER_PAGE
-  )
+  // Horizontal scroll carousel behavior (products)
+  const productScrollRef = useRef<HTMLDivElement>(null)
+  const [canScrollProductLeft, setCanScrollProductLeft] = useState(false)
+  const [canScrollProductRight, setCanScrollProductRight] = useState(true)
 
-  const reviewTotalPages = Math.ceil(reviews.length / REVIEWS_PER_PAGE)
-  const currentReviews = reviews.slice(
-    reviewIndex * REVIEWS_PER_PAGE,
-    (reviewIndex + 1) * REVIEWS_PER_PAGE
-  )
+  const updateProductScrollButtons = () => {
+    if (productScrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = productScrollRef.current
+      setCanScrollProductLeft(scrollLeft > 0)
+      setCanScrollProductRight(scrollLeft < scrollWidth - clientWidth - 1)
+    }
+  }
 
-  const handleProductPrev = () => {
-    setProductIndex((prev) => (prev === 0 ? productTotalPages - 1 : prev - 1))
+  useEffect(() => {
+    updateProductScrollButtons()
+    window.addEventListener('resize', updateProductScrollButtons)
+    return () => window.removeEventListener('resize', updateProductScrollButtons)
+  }, [products])
+
+  const scrollProductLeft = () => {
+    productScrollRef.current?.scrollBy({ left: -300, behavior: 'smooth' })
+    setTimeout(updateProductScrollButtons, 300)
   }
-  const handleProductNext = () => {
-    setProductIndex((prev) => (prev === productTotalPages - 1 ? 0 : prev + 1))
+  const scrollProductRight = () => {
+    productScrollRef.current?.scrollBy({ left: 300, behavior: 'smooth' })
+    setTimeout(updateProductScrollButtons, 300)
   }
-  const handleReviewPrev = () => {
-    setReviewIndex((prev) => (prev === 0 ? reviewTotalPages - 1 : prev - 1))
+
+  // Horizontal scroll carousel behavior (testimonials)
+  const reviewScrollRef = useRef<HTMLDivElement>(null)
+  const [canScrollReviewLeft, setCanScrollReviewLeft] = useState(false)
+  const [canScrollReviewRight, setCanScrollReviewRight] = useState(true)
+
+  const updateReviewScrollButtons = () => {
+    if (reviewScrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = reviewScrollRef.current
+      setCanScrollReviewLeft(scrollLeft > 0)
+      setCanScrollReviewRight(scrollLeft < scrollWidth - clientWidth - 1)
+    }
   }
-  const handleReviewNext = () => {
-    setReviewIndex((prev) => (prev === reviewTotalPages - 1 ? 0 : prev + 1))
+
+  useEffect(() => {
+    updateReviewScrollButtons()
+    window.addEventListener('resize', updateReviewScrollButtons)
+    return () => window.removeEventListener('resize', updateReviewScrollButtons)
+  }, [reviews])
+
+  const scrollReviewLeft = () => {
+    reviewScrollRef.current?.scrollBy({ left: 300, behavior: 'smooth' })
+    setTimeout(updateReviewScrollButtons, 300)
+  }
+  const scrollReviewRight = () => {
+    reviewScrollRef.current?.scrollBy({ left: -300, behavior: 'smooth' })
+    setTimeout(updateReviewScrollButtons, 300)
   }
 
   if (loading) {
@@ -151,10 +178,10 @@ export default function HomePage() {
   }
 
   return (
-    <div className="bg-[#fffaf5] pb-6">
+    <div className="bg-[#F6EFE6] pb-6">
       {/* HERO SECTION */}
       <section className="mx-auto max-w-7xl px-4 pt-5 lg:px-8">
-        <div className="relative overflow-hidden rounded-xl bg-[#f8eee5] shadow-sm">
+        <div className="relative overflow-hidden rounded-xl bg-white shadow-md ring-1 ring-[#D0BFAF]/60">
           <div
             className="absolute inset-0 hidden md:block"
             style={{
@@ -164,14 +191,14 @@ export default function HomePage() {
               backgroundPosition: 'center',
             }}
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#f8eee5] via-[#f8eee5]/80 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-white via-white/85 to-transparent" />
           <div className="relative z-10 px-8 py-10 lg:px-12 lg:py-16 max-w-2xl">
-            <h1 className="max-w-xl text-4xl font-black leading-tight tracking-tight text-[#4b2417] md:text-5xl lg:text-6xl">
+            <h1 className="max-w-xl text-4xl font-black leading-tight tracking-tight text-[#3A1F16] md:text-5xl lg:text-6xl">
               {t('home.hero_title_1')}
               <br />
               {t('home.hero_title_2')}
             </h1>
-            <p className="mt-5 max-w-md text-base leading-7 text-[#6f5448]">
+            <p className="mt-5 max-w-md text-base leading-7 text-[#6B4A3C]">
               {t('home.hero_desc')}
             </p>
             <div className="mt-8 grid max-w-xl gap-4 sm:grid-cols-3">
@@ -179,10 +206,10 @@ export default function HomePage() {
                 const Icon = benefit.icon
                 return (
                   <div key={benefit.title} className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#ffe2cc] text-[#d85b30]">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F6EFE6] text-[#9B4A2F]">
                       <Icon className="h-5 w-5" />
                     </div>
-                    <p className="text-xs font-black leading-4 text-[#4b2417]">
+                    <p className="text-xs font-black leading-4 text-[#3A1F16]">
                       {benefit.title}
                     </p>
                   </div>
@@ -213,10 +240,10 @@ export default function HomePage() {
             </div>
             <div>
               <div className="max-w-3xl">
-                <h2 className="text-2xl font-black text-[#4b2417]">
+                <h2 className="text-2xl font-black text-[#3A1F16]">
                   {t('home.about_title')}
                 </h2>
-                <p className="mt-3 text-sm leading-6 text-[#6f5448]">
+                <p className="mt-3 text-sm leading-6 text-[#6B4A3C]">
                   {t('home.about_desc_1')}
                   {t('home.made_with_love')}
                   {t('home.about_desc_2')}
@@ -227,14 +254,14 @@ export default function HomePage() {
                   const Icon = stat.icon
                   return (
                     <div key={stat.label} className="flex items-center gap-3">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#ffe5d5] text-[#d85b30]">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#F6EFE6] text-[#9B4A2F]">
                         <Icon className="h-5 w-5" />
                       </div>
                       <div>
-                        <p className="text-xl font-black text-[#4b2417]">
+                        <p className="text-xl font-black text-[#3A1F16]">
                           {stat.value}
                         </p>
-                        <p className="text-xs font-semibold text-[#6f5448]">
+                        <p className="text-xs font-semibold text-[#6B4A3C]">
                           {stat.label}
                         </p>
                       </div>
@@ -249,160 +276,161 @@ export default function HomePage() {
 
       {/* SEMUA PRODUK */}
       <section className="mx-auto max-w-7xl px-4 pt-10 lg:px-8">
-        <div className="mb-5 flex items-center justify-between px-1">
-          <h2 className="text-2xl font-black text-[#4b2417]">{t('home.our_products')}</h2>
-          <div className="flex items-center gap-2">
-            {productTotalPages > 1 && (
-              <>
-                <button
-                  type="button"
-                  onClick={handleProductPrev}
-                  aria-label={t('common.prev')}
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-[#fff1e7] text-[#c95b31] transition hover:bg-[#f3d7c7]"
-                >
-                  ‹
-                </button>
-                <button
-                  type="button"
-                  onClick={handleProductNext}
-                  aria-label={t('common.next')}
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-[#fff1e7] text-[#c95b31] transition hover:bg-[#f3d7c7]"
-                >
-                  ›
-                </button>
-              </>
-            )}
+        <div className="rounded-xl bg-white px-6 py-7 shadow-sm">
+          <div className="mb-5 flex items-center justify-between">
+            <h2 className="text-2xl font-black text-[#3A1F16]">{t('home.our_products')}</h2>
             <Link
               to={ROUTES.CATALOG}
-              className="text-xs font-black text-[#d85b30] hover:text-[#b74725]"
+              className="text-xs font-black text-[#9B4A2F] hover:text-[#7E3A24]"
             >
               {t('home.view_all')}
             </Link>
           </div>
-        </div>
 
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {currentProducts.map((product) => (
-            <article
-              key={product.id}
-              className="overflow-hidden rounded-xl bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md"
-            >
-              <Link to={`/catalog/${product.slug}`}>
-                <div className="h-36 overflow-hidden bg-[#fbefe8]">
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="h-full w-full object-cover transition duration-300 hover:scale-105"
-                  />
-                </div>
-              </Link>
-              <div className="p-4">
-                <Link
-                  to={`/catalog/${product.slug}`}
-                  className="line-clamp-1 text-sm font-black text-[#4b2417] hover:text-[#d85b30]"
-                >
-                  {product.name}
-                </Link>
-                <div className="mt-1 flex items-center gap-1 text-xs">
-                  <Star className="h-3.5 w-3.5 fill-[#ff8a00] text-[#ff8a00]" />
-                  <span className="font-semibold text-[#d85b30]">
-                    {product.rating.toFixed(1)} ({product.soldCount})
-                  </span>
-                </div>
-                <p className="mt-3 text-sm font-black text-[#4b2417]">
-                  {formatRupiah(product.price)}
-                </p>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleAddToCart(product);
-                  }}
-                  disabled={!product.isAvailable || !product.isInStock || product.stockQuantity <= 0}
-                  className="mt-3 flex h-8 w-full items-center justify-center gap-2 rounded-md border border-[#ef8b67] bg-white text-xs font-black text-[#d85b30] transition hover:bg-[#d85b30] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-[#d85b30]"
-                >
-                  <ShoppingCart className="h-3.5 w-3.5" />
-                  {t('home.add_to_cart')}
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
-
-        {productTotalPages > 1 && (
-          <div className="mt-5 flex justify-center gap-2">
-            {Array.from({ length: productTotalPages }).map((_, idx) => (
+          <div className="relative group">
+            {canScrollProductLeft && (
               <button
-                key={idx}
-                onClick={() => setProductIndex(idx)}
-                aria-label={`${t('common.page')} ${idx + 1}`}
-                className={`h-2 w-2 rounded-full transition ${
-                  idx === productIndex ? 'bg-[#d85b30]' : 'bg-[#f3d7c7]'
-                }`}
-              />
-            ))}
+                type="button"
+                onClick={scrollProductLeft}
+                aria-label={t('common.prev')}
+                className="absolute left-0 top-1/2 -translate-y-1/2 -ml-3 hidden sm:flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md border border-[#EAD8CA] text-[#6B4A3C] hover:text-[#9B4A2F] z-10 opacity-0 group-hover:opacity-100 transition-opacity focus:outline-none focus:ring-2 focus:ring-[#9B4A2F]/30"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+            )}
+            {canScrollProductRight && (
+              <button
+                type="button"
+                onClick={scrollProductRight}
+                aria-label={t('common.next')}
+                className="absolute right-0 top-1/2 -translate-y-1/2 -mr-3 hidden sm:flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md border border-[#EAD8CA] text-[#6B4A3C] hover:text-[#9B4A2F] z-10 opacity-0 group-hover:opacity-100 transition-opacity focus:outline-none focus:ring-2 focus:ring-[#9B4A2F]/30"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            )}
+
+            <div
+              ref={productScrollRef}
+              onScroll={updateProductScrollButtons}
+              className="flex gap-5 overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth px-1 -mx-1"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
+            >
+              {products.map((product) => (
+                <article
+                  key={product.id}
+                  className="snap-start shrink-0 w-[220px] overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-[#EAD8CA] transition hover:-translate-y-1 hover:shadow-md"
+                >
+                  <Link to={`/catalog/${product.slug}`}>
+                    <div className="aspect-square w-full overflow-hidden bg-[#EFE4D6]">
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        className="h-full w-full object-cover transition duration-300 hover:scale-105"
+                      />
+                    </div>
+                  </Link>
+                  <div className="p-4">
+                    <Link
+                      to={`/catalog/${product.slug}`}
+                      className="line-clamp-1 text-sm font-black text-[#3A1F16] hover:text-[#9B4A2F]"
+                    >
+                      {product.name}
+                    </Link>
+                    <div className="mt-1 flex items-center gap-1 text-xs">
+                      <Star className="h-3.5 w-3.5 fill-[#E0A04E] text-[#E0A04E]" />
+                      <span className="font-semibold text-[#9B4A2F]">
+                        {product.rating.toFixed(1)} ({product.soldCount})
+                      </span>
+                    </div>
+                    <p className="mt-3 text-sm font-black text-[#3A1F16]">
+                      {formatRupiah(product.price)}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleAddToCart(product);
+                      }}
+                      disabled={!product.isAvailable || !product.isInStock || product.stockQuantity <= 0}
+                      className="mt-3 flex h-8 w-full items-center justify-center gap-2 rounded-md border border-[#9B4A2F] bg-white text-xs font-black text-[#9B4A2F] transition hover:bg-[#9B4A2F] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-[#9B4A2F]"
+                    >
+                      <ShoppingCart className="h-3.5 w-3.5" />
+                      {t('home.add_to_cart')}
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
           </div>
-        )}
+        </div>
       </section>
 
       {/* TESTIMONIALS */}
-      <section className="mx-auto max-w-7xl px-4 pt-12 lg:px-8">
+      <section className="mx-auto max-w-7xl px-4 pt-8 lg:px-8">
         <div className="rounded-xl bg-white px-6 py-7 shadow-sm">
           <div className="mb-5 flex items-center justify-between">
-            <h2 className="text-2xl font-black text-[#4b2417]">
+            <h2 className="text-2xl font-black text-[#3A1F16]">
               {t('home.testimonials_title')}
             </h2>
-            <div className="hidden items-center gap-2 sm:flex">
-              <button
-                type="button"
-                onClick={handleReviewPrev}
-                aria-label={t('common.prev')}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-[#fff1e7] text-[#c95b31] transition hover:bg-[#f3d7c7]"
-              >
-                ‹
-              </button>
-              <button
-                type="button"
-                onClick={handleReviewNext}
-                aria-label={t('common.next')}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-[#fff1e7] text-[#c95b31] transition hover:bg-[#f3d7c7]"
-              >
-                ›
-              </button>
-            </div>
           </div>
 
-          {currentReviews.length === 0 ? (
-            <p className="text-center text-sm text-[#6f5448]">{t('home.no_testimonials')}</p>
+          {reviews.length === 0 ? (
+            <p className="text-center text-sm text-[#6B4A3C]">{t('home.no_testimonials')}</p>
           ) : (
-            <>
-              <div className="grid gap-5 lg:grid-cols-3">
-                {currentReviews.map((review) => (
+            <div className="relative group">
+              {canScrollReviewLeft && (
+                <button
+                  type="button"
+                  onClick={scrollReviewLeft}
+                  aria-label={t('common.prev')}
+                  className="absolute left-0 top-1/2 -translate-y-1/2 -ml-3 hidden sm:flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md border border-[#EAD8CA] text-[#6B4A3C] hover:text-[#9B4A2F] z-10 opacity-0 group-hover:opacity-100 transition-opacity focus:outline-none focus:ring-2 focus:ring-[#9B4A2F]/30"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+              )}
+              {canScrollReviewRight && (
+                <button
+                  type="button"
+                  onClick={scrollReviewRight}
+                  aria-label={t('common.next')}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 -mr-3 hidden sm:flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md border border-[#EAD8CA] text-[#6B4A3C] hover:text-[#9B4A2F] z-10 opacity-0 group-hover:opacity-100 transition-opacity focus:outline-none focus:ring-2 focus:ring-[#9B4A2F]/30"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              )}
+
+              <div
+                ref={reviewScrollRef}
+                onScroll={updateReviewScrollButtons}
+                className="flex gap-5 overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth px-1 -mx-1"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
+              >
+                {reviews.map((review) => (
                   <article
                     key={review.productId + review.customerName}
-                    className="rounded-xl border border-[#f3e2d7] bg-white p-5 shadow-sm"
+                    className="snap-start shrink-0 w-[280px] rounded-xl bg-[#F6EFE6] p-5"
                   >
                     <div className="flex gap-3">
-                      <Sparkles className="h-8 w-8 shrink-0 fill-[#ffd2aa] text-[#ffd2aa]" />
-                      <p className="text-xs leading-6 text-[#6f5448]">
+                      <Sparkles className="h-8 w-8 shrink-0 fill-[#E0A04E] text-[#E0A04E]" />
+                      <p className="text-xs leading-6 text-[#6B4A3C]">
                         {review.comment}
                       </p>
                     </div>
                     <div className="mt-5">
-                      <p className="text-sm font-black text-[#4b2417]">
+                      <p className="text-sm font-black text-[#3A1F16]">
                         {review.customerName}
                       </p>
-                      <p className="mt-1 text-xs font-semibold text-[#6f5448]">
+                      <p className="mt-1 text-xs font-semibold text-[#6B4A3C]">
                         {t('home.bought')}{review.purchasedProductName}
                       </p>
-                      <div className="mt-2 flex items-center gap-0.5 text-[#ff8a00]">
+                      <div className="mt-2 flex items-center gap-0.5 text-[#E0A04E]">
                         {Array.from({ length: 5 }).map((_, index) => (
                           <Star
                             key={index}
                             className={
                               index < review.rating
                                 ? 'h-3.5 w-3.5 fill-current'
-                                : 'h-3.5 w-3.5 text-[#f3d7c7]'
+                                : 'h-3.5 w-3.5 text-[#D0BFAF]'
                             }
                           />
                         ))}
@@ -411,21 +439,7 @@ export default function HomePage() {
                   </article>
                 ))}
               </div>
-              {reviewTotalPages > 1 && (
-                <div className="mt-5 flex justify-center gap-2">
-                  {Array.from({ length: reviewTotalPages }).map((_, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setReviewIndex(idx)}
-                      aria-label={`${t('common.page')} ${idx + 1}`}
-                      className={`h-2 w-2 rounded-full transition ${
-                        idx === reviewIndex ? 'bg-[#d85b30]' : 'bg-[#f3d7c7]'
-                      }`}
-                    />
-                  ))}
-                </div>
-              )}
-            </>
+            </div>
           )}
         </div>
       </section>

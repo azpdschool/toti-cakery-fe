@@ -56,10 +56,10 @@ export function BuyerNavbar() {
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
     [
-      'relative flex items-center gap-2 text-sm font-semibold transition-colors hover:text-[#f97316]',
+      'relative flex items-center gap-2 text-sm font-semibold transition-colors hover:text-[#9B4A2F]',
       isActive
-        ? 'text-[#f97316] after:absolute after:-bottom-2 after:left-0 after:h-0.5 after:w-full after:rounded-full after:bg-[#f97316]'
-        : 'text-[#4b2417]',
+        ? 'text-[#9B4A2F] after:absolute after:-bottom-2 after:left-0 after:h-0.5 after:w-full after:rounded-full after:bg-[#9B4A2F]'
+        : 'text-[#3A1F16]',
     ].join(' ')
 
   const getInitials = (name: string) => {
@@ -76,7 +76,7 @@ export function BuyerNavbar() {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[#ead8ca] bg-[#f4ebdf]/95 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-[#D0BFAF] bg-white/95 backdrop-blur">
       <div className="mx-auto flex h-[76px] max-w-[1440px] items-center gap-4 px-4 md:px-8 lg:pl-12 lg:pr-12 xl:gap-7">
         {/* KIRI: Logo + Beranda */}
         <div className="flex min-w-0 shrink-0 items-center gap-6 xl:gap-7">
@@ -104,11 +104,11 @@ export function BuyerNavbar() {
         {/* TENGAH: Search Bar */}
         <div className="hidden min-w-0 flex-1 justify-center lg:flex">
           <div className="relative w-full max-w-[420px]">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6f5448]" />
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B4A3C]" />
             <input
               type="text"
               placeholder={t('nav.search', 'Cari dessert favorit kamu..')}
-              className="h-10 w-full rounded-full border border-[#6f5448]/45 bg-white/75 pl-11 pr-5 text-xs font-medium text-[#4b2417] outline-none placeholder:text-[#8b7166] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
+              className="h-10 w-full rounded-full border border-[#D0BFAF] bg-white/75 pl-11 pr-5 text-xs font-medium text-[#3A1F16] outline-none placeholder:text-[#9C8478] focus:border-[#9B4A2F] focus:ring-2 focus:ring-[#9B4A2F]/25"
             />
           </div>
         </div>
@@ -120,7 +120,7 @@ export function BuyerNavbar() {
               <ShoppingCart className="h-4 w-4" />
 
               {totalItems > 0 && (
-                <span className="absolute -right-2.5 -top-2.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#d85b30] px-1 text-[9px] font-bold leading-none text-white">
+                <span className="absolute -right-2.5 -top-2.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#9B4A2F] px-1 text-[9px] font-bold leading-none text-white">
                   {totalItems}
                 </span>
               )}
@@ -141,7 +141,7 @@ export function BuyerNavbar() {
             <button
               type="button"
               onClick={() => setIsLanguageOpen((value) => !value)}
-              className="flex h-10 items-center justify-center gap-1.5 px-1 text-xs font-semibold text-[#3f1f16] transition-colors hover:text-[#c95b31]"
+              className="flex h-10 items-center justify-center gap-1.5 px-1 text-xs font-semibold text-[#3A1F16] transition-colors hover:text-[#9B4A2F]"
             >
               <span>{currentLanguage.flag}</span>
               <span>{currentLanguage.label}</span>
@@ -149,13 +149,13 @@ export function BuyerNavbar() {
             </button>
 
             {isLanguageOpen && (
-              <div className="absolute right-0 top-12 w-24 overflow-hidden rounded-lg border border-[#ead8ca] bg-white shadow-lg">
+              <div className="absolute right-0 top-12 w-24 overflow-hidden rounded-lg border border-[#D0BFAF] bg-white shadow-lg">
                 {languages.map((language) => (
                   <button
                     key={language.code}
                     type="button"
                     onClick={() => handleChangeLanguage(language)}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-[#3f1f16] hover:bg-[#fff3e8]"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-[#3A1F16] hover:bg-[#F6EFE6]"
                   >
                     <span>{language.flag}</span>
                     <span>{language.label}</span>
@@ -169,7 +169,7 @@ export function BuyerNavbar() {
           {user && user.role === 'buyer' ? (
             <Link
               to="/profile"
-              className="flex min-w-0 items-center gap-2 text-sm font-semibold text-[#3f1f16] transition-colors hover:text-[#c95b31]"
+              className="flex min-w-0 items-center gap-2 text-sm font-semibold text-[#3A1F16] transition-colors hover:text-[#9B4A2F]"
             >
               {avatar ? (
                 <img
@@ -178,7 +178,7 @@ export function BuyerNavbar() {
                   className="h-7 w-7 shrink-0 rounded-full object-cover"
                 />
               ) : (
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#d85b30] text-xs font-bold text-white">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#9B4A2F] text-xs font-bold text-white">
                   {getInitials(user.name || '')}
                 </div>
               )}
@@ -190,7 +190,7 @@ export function BuyerNavbar() {
           ) : (
             <Link
               to={ROUTES.AUTH_BUYER}
-              className="hidden h-10 min-w-[154px] items-center justify-center gap-2 rounded-lg border border-[#3f1f16]/80 bg-white/45 px-4 text-xs font-semibold text-[#3f1f16] transition-colors hover:bg-white md:flex"
+              className="hidden h-10 min-w-[154px] items-center justify-center gap-2 rounded-lg border border-[#3A1F16]/70 bg-white/70 px-4 text-xs font-semibold text-[#3A1F16] transition-colors hover:bg-white md:flex"
             >
               <User className="h-4 w-4" />
               {t('nav.login_register', 'Masuk / Daftar')}
@@ -201,7 +201,7 @@ export function BuyerNavbar() {
         <button
           type="button"
           onClick={() => setIsMobileMenuOpen((value) => !value)}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#3f1f16] shadow-sm md:hidden"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#3A1F16] shadow-sm md:hidden"
           aria-label="Toggle menu"
         >
           {isMobileMenuOpen ? (
@@ -213,13 +213,13 @@ export function BuyerNavbar() {
       </div>
 
       {isMobileMenuOpen && (
-        <div className="border-t border-[#ead8ca] bg-[#f4ebdf] px-4 py-4 md:hidden">
+        <div className="border-t border-[#D0BFAF] bg-[#EFE4D6] px-4 py-4 md:hidden">
           <div className="relative mb-4">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6f5448]" />
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B4A3C]" />
             <input
               type="text"
               placeholder={t('nav.search', 'Cari dessert favorit kamu..')}
-              className="h-10 w-full rounded-full border border-[#6f5448]/40 bg-white pl-11 pr-4 text-xs text-[#4b2417] outline-none"
+              className="h-10 w-full rounded-full border border-[#D0BFAF] bg-white pl-11 pr-4 text-xs text-[#3A1F16] outline-none"
             />
           </div>
 
@@ -227,7 +227,7 @@ export function BuyerNavbar() {
             <Link
               to={ROUTES.HOME}
               onClick={() => setIsMobileMenuOpen(false)}
-              className="flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-[#3f1f16]"
+              className="flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-[#3A1F16]"
             >
               <Home className="h-4 w-4" />
               {t('nav.home', 'Beranda')}
@@ -236,7 +236,7 @@ export function BuyerNavbar() {
             <Link
               to={ROUTES.CATALOG}
               onClick={() => setIsMobileMenuOpen(false)}
-              className="flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-[#3f1f16]"
+              className="flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-[#3A1F16]"
             >
               <ShoppingBag className="h-4 w-4" />
               {t('nav.catalog', 'Produk')}
@@ -245,13 +245,13 @@ export function BuyerNavbar() {
             <Link
               to={ROUTES.CART}
               onClick={() => setIsMobileMenuOpen(false)}
-              className="flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-[#3f1f16]"
+              className="flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-[#3A1F16]"
             >
               <div className="relative">
                 <ShoppingCart className="h-4 w-4" />
 
                 {totalItems > 0 && (
-                  <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#d85b30] px-1 text-[9px] font-bold text-white">
+                  <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#9B4A2F] px-1 text-[9px] font-bold text-white">
                     {totalItems}
                   </span>
                 )}
@@ -263,7 +263,7 @@ export function BuyerNavbar() {
             <Link
               to={ROUTES.ORDERS}
               onClick={() => setIsMobileMenuOpen(false)}
-              className="flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-[#3f1f16]"
+              className="flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-[#3A1F16]"
             >
               <ClipboardList className="h-4 w-4" />
               {t('nav.orders', 'Pesanan Saya')}
@@ -273,7 +273,7 @@ export function BuyerNavbar() {
               <Link
                 to="/profile"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-[#3f1f16]"
+                className="flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-[#3A1F16]"
               >
                 {avatar ? (
                   <img
@@ -282,7 +282,7 @@ export function BuyerNavbar() {
                     className="h-6 w-6 rounded-full object-cover"
                   />
                 ) : (
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#d85b30] text-xs font-bold text-white">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#9B4A2F] text-xs font-bold text-white">
                     {getInitials(user.name || '')}
                   </div>
                 )}
@@ -293,7 +293,7 @@ export function BuyerNavbar() {
               <Link
                 to={ROUTES.AUTH_BUYER}
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center gap-2 rounded-xl bg-[#d85b30] px-4 py-3 text-sm font-semibold text-white"
+                className="flex items-center gap-2 rounded-xl bg-[#9B4A2F] px-4 py-3 text-sm font-semibold text-white"
               >
                 <User className="h-4 w-4" />
                 {t('nav.login_register', 'Masuk / Daftar')}

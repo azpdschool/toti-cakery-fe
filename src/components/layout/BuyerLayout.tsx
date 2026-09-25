@@ -5,7 +5,7 @@ import { BuyerFooter } from '@/components/layout/BuyerFooter'
 
 export function BuyerLayout() {
   return (
-    <div className="flex min-h-screen flex-col bg-[#fffaf5]">
+    <div className="flex min-h-screen flex-col bg-[#F6EFE6]">
       <BuyerNavbar />
 
       <main className="flex-1">
