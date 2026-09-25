@@ -24,6 +24,13 @@ export interface ProductReview {
   productName?: string;
 }
 
+export interface ProductImage {
+  id: number;
+  productId?: number;
+  imageUrl: string;
+  isPrimary: boolean;
+}
+
 export interface Product {
   /**
    * ID tetap string untuk kompatibilitas UI/cart lama.
@@ -53,6 +60,7 @@ export interface Product {
    * Pakai image.
    */
   imageUrlRaw: string | null;
+  images: ProductImage[];
 
   price: number;
   hppTotal: number;
@@ -103,6 +111,7 @@ export interface SimpleProduct {
    * "/static/products/12.jpg"
    */
   imageUrlRaw: string | null;
+  images: ProductImage[];
 
   price: number;
   hppTotal: number;

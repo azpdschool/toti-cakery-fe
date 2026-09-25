@@ -38,7 +38,7 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
   const decrement = () => setQuantity((prev) => Math.max(minOrder, prev - step))
 
   return (
-    <article className="group overflow-hidden rounded-xl bg-[#F6EFE6] shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+    <article className="group overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-[#EAD8CA] transition hover:-translate-y-1 hover:shadow-md">
       <Link to={`/catalog/${product.slug}`} className="block">
         <div className="relative aspect-square overflow-hidden bg-[#EFE4D6]">
           <img
@@ -93,7 +93,8 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
             onClick={decrement}
             disabled={!isPurchasable || quantity <= minOrder}
             className="flex h-7 w-7 items-center justify-center rounded border border-[#D0BFAF] text-[#3A1F16] hover:bg-[#E8DCCB] disabled:opacity-40 disabled:cursor-not-allowed"
-            aria-label="Kurangi jumlah"
+            aria-label={t('product_detail.decrease_qty')}
+            title={t('product_detail.decrease_qty')}
           >
             <Minus className="h-3 w-3" />
           </button>
@@ -104,7 +105,8 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
             onClick={increment}
             disabled={!isPurchasable || quantity >= maxQty}
             className="flex h-7 w-7 items-center justify-center rounded border border-[#D0BFAF] text-[#3A1F16] hover:bg-[#E8DCCB] disabled:opacity-40 disabled:cursor-not-allowed"
-            aria-label="Tambah jumlah"
+            aria-label={t('product_detail.increase_qty')}
+            title={t('product_detail.increase_qty')}
           >
             <Plus className="h-3 w-3" />
           </button>

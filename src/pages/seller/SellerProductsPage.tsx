@@ -1,21 +1,25 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Plus, Loader2, AlertCircle, CheckCircle, Pencil, Trash2, FileText, Search, Filter, Archive, X, Eye, Image as ImageIcon, Box } from 'lucide-react'
+import { Plus, Loader2, AlertCircle, CheckCircle, Pencil, Trash2, FileText, Search, Filter, Archive, X, Eye, Image as ImageIcon, Box, Star } from 'lucide-react'
 import RecipeManagementModal from './RecipeManagementModal'
 import CategoryManagementModal from './CategoryManagementModal'
 import ImageCropper from '@/components/common/ImageCropper'
 import { useAuth } from '@/hooks/useAuth'
+import { useTranslation } from 'react-i18next'
 import {
   getAllProducts,
   updateProduct,
-  
+  getProductByBackendId,
   formatRupiah,
   type SimpleProduct,
   createProductWithOptionalPrice,
-  uploadProductImage,
+  uploadProductImages,
+  setPrimaryProductImage,
+  deleteProductImage,
   archiveProduct
 } from '@/services/productService'
 import type { ProductCreate, ProductUpdate } from '@/api/product'
 import { getBackendCategories, type CategoryResponse } from '@/api/product'
+import type { ProductImage } from '@/types/product'
 import {
   getProductRecipes,
   addRecipeIngredient,
@@ -36,6 +40,7 @@ interface ProductFormIngredient {
 }
 
 export default function SellerProductsPage() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const role = user?.role
 
@@ -81,9 +86,13 @@ export default function SellerProductsPage() {
   const [ingredients, setIngredients] = useState<ProductFormIngredient[]>([])
   const [deletedRecipeIds, setDeletedRecipeIds] = useState<number[]>([])
 
-  // Image Cropping & Preview
-  const [selectedImage, setSelectedImage] = useState<File | null>(null)
-  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  // Multiple Image state
+  const [existingImages, setExistingImages] = useState<ProductImage[]>([])
+  const [draftImages, setDraftImages] = useState<{ file: File; previewUrl: string }[]>([])
+  const [primaryDraftIndex, setPrimaryDraftIndex] = useState<number>(0)
+  const [isUploadingImage, setIsUploadingImage] = useState(false)
+
+  // Image Cropping & View modal
   const [cropperSource, setCropperSource] = useState<string | null>(null)
   const [viewImageSource, setViewImageSource] = useState<string | null>(null)
 
@@ -271,12 +280,13 @@ export default function SellerProductsPage() {
     setFormData({ ...defaultFormState, kategori: categories.length > 0 ? categories[0].name : 'Kue Basah' })
     setIngredients([])
     setDeletedRecipeIds([])
+    setExistingImages([])
+    draftImages.forEach((img) => URL.revokeObjectURL(img.previewUrl))
+    setDraftImages([])
+    setPrimaryDraftIndex(0)
     setIsFormOpen(true)
     setError(null)
     setSuccess(null)
-    setSelectedImage(null)
-    if (imagePreview && imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
-    setImagePreview(null)
 
     // Ensure latest inventory options are loaded
     getInventoryOptions()
@@ -295,9 +305,10 @@ export default function SellerProductsPage() {
       is_active: product.isActive,
       is_available: product.isAvailable,
     })
-    setSelectedImage(null)
-    if (imagePreview && imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
-    setImagePreview(product.image || null)
+    setExistingImages(product.images || [])
+    draftImages.forEach((img) => URL.revokeObjectURL(img.previewUrl))
+    setDraftImages([])
+    setPrimaryDraftIndex(0)
     setIngredients([])
     setDeletedRecipeIds([])
     setIsFormOpen(true)
@@ -307,14 +318,18 @@ export default function SellerProductsPage() {
 
     setIsLoadingRecipe(true)
     try {
-      const [options, recipeSummary] = await Promise.all([
+      const [options, recipeSummary, freshProduct] = await Promise.all([
         getInventoryOptions().catch(() => []),
         getProductRecipes(product.backendId).catch((err) => {
           console.error('Failed to get product recipes:', err)
           return { bahan: [] }
         }),
+        getProductByBackendId(product.backendId).catch(() => null),
       ])
       setInventoryOptions(options)
+      if (freshProduct && freshProduct.images) {
+        setExistingImages(freshProduct.images)
+      }
 
       const mappedIngredients: ProductFormIngredient[] = recipeSummary.bahan.map((recipe) => ({
         recipeId: recipe.id,
@@ -326,7 +341,7 @@ export default function SellerProductsPage() {
       }))
       setIngredients(mappedIngredients)
     } catch (err) {
-      console.error('Gagal load detail recipe:', err)
+      console.error('Gagal load detail recipe/product:', err)
     } finally {
       setIsLoadingRecipe(false)
     }
@@ -357,12 +372,12 @@ export default function SellerProductsPage() {
 
     const validTypes = ['image/jpeg', 'image/png', 'image/webp']
     if (!validTypes.includes(file.type)) {
-      setError('Unsupported file format. Use JPG, PNG, or WEBP.')
+      setError('Format file tidak didukung. Gunakan JPG, PNG, atau WEBP.')
       e.target.value = ''
       return
     }
     if (file.size > 5 * 1024 * 1024) {
-      setError('File size must not exceed 5MB.')
+      setError('Ukuran file tidak boleh melebihi 5MB.')
       e.target.value = ''
       return
     }
@@ -374,11 +389,60 @@ export default function SellerProductsPage() {
   }
 
   const handleCropConfirm = (croppedFile: File) => {
-    setSelectedImage(croppedFile)
-    if (imagePreview && imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
-    setImagePreview(URL.createObjectURL(croppedFile))
+    const previewUrl = URL.createObjectURL(croppedFile)
+    setDraftImages((prev) => [...prev, { file: croppedFile, previewUrl }])
     if (cropperSource) URL.revokeObjectURL(cropperSource)
     setCropperSource(null)
+  }
+
+  const handleSetExistingPrimary = async (imageId: number) => {
+    if (!editId) return
+    try {
+      setIsUploadingImage(true)
+      await setPrimaryProductImage(editId, imageId)
+      const fresh = await getProductByBackendId(editId)
+      setExistingImages(fresh.images)
+      toast.success(t('products.image_primary_success', 'Foto utama berhasil diperbarui.'))
+      fetchProducts()
+    } catch (err) {
+      console.error(err)
+      toast.error('Gagal memperbarui foto utama.')
+    } finally {
+      setIsUploadingImage(false)
+    }
+  }
+
+  const handleDeleteExistingImage = async (imageId: number) => {
+    if (!editId) return
+    if (existingImages.length + draftImages.length <= 1) {
+      toast.error(t('products.cannot_delete_last_image', 'Tidak dapat menghapus foto terakhir. Tambahkan foto pengganti terlebih dahulu.'))
+      return
+    }
+    try {
+      setIsUploadingImage(true)
+      await deleteProductImage(editId, imageId)
+      const fresh = await getProductByBackendId(editId)
+      setExistingImages(fresh.images)
+      toast.success(t('products.image_removed_success', 'Foto berhasil dihapus.'))
+      fetchProducts()
+    } catch (err) {
+      console.error(err)
+      toast.error('Gagal menghapus foto.')
+    } finally {
+      setIsUploadingImage(false)
+    }
+  }
+
+  const handleRemoveDraftImage = (index: number) => {
+    if (existingImages.length + draftImages.length <= 1) {
+      toast.error(t('products.cannot_delete_last_image', 'Tidak dapat menghapus foto terakhir. Tambahkan foto pengganti terlebih dahulu.'))
+      return
+    }
+    URL.revokeObjectURL(draftImages[index].previewUrl)
+    setDraftImages((prev) => prev.filter((_, i) => i !== index))
+    if (primaryDraftIndex >= draftImages.length - 1) {
+      setPrimaryDraftIndex(0)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -392,6 +456,13 @@ export default function SellerProductsPage() {
     }
     if (!formData.nama_produk.trim()) {
       setError('Product name is required.')
+      return
+    }
+
+    // Require at least 1 image (existing or newly uploaded)
+    const totalImages = existingImages.length + draftImages.length
+    if (totalImages === 0) {
+      setError(t('products.at_least_one_image_required', 'Minimal 1 foto produk wajib ada.'))
       return
     }
 
@@ -440,7 +511,7 @@ export default function SellerProductsPage() {
           )
         }
 
-        // Update/Add recipe entries sequentially or in parallel
+        // Update/Add recipe entries sequentially
         const validIngredients = ingredients.filter(
           (ingredient) => ingredient.inventoryId && ingredient.quantity > 0
         )
@@ -464,9 +535,13 @@ export default function SellerProductsPage() {
           }
         }
 
-        if (selectedImage) {
+        if (draftImages.length > 0) {
           try {
-            await uploadProductImage(editId, selectedImage)
+            await uploadProductImages(
+              editId,
+              draftImages.map((d) => d.file),
+              primaryDraftIndex
+            )
             setSuccess('Product updated successfully.')
           } catch (imgErr) {
             console.error(imgErr)
@@ -485,7 +560,7 @@ export default function SellerProductsPage() {
         const created = await createProductWithOptionalPrice(createPayload, harga_jual)
         isProductCreatedOrUpdated = true
 
-        // Create recipe entries sequentially to ensure reliability
+        // Create recipe entries sequentially
         const recipePayloads: RecipeCreate[] = ingredients
           .filter((ingredient) => ingredient.inventoryId && ingredient.quantity > 0)
           .map((ingredient) => ({
@@ -500,9 +575,13 @@ export default function SellerProductsPage() {
           }
         }
 
-        if (selectedImage) {
+        if (draftImages.length > 0) {
           try {
-            await uploadProductImage(created.backendId, selectedImage)
+            await uploadProductImages(
+              created.backendId,
+              draftImages.map((d) => d.file),
+              primaryDraftIndex
+            )
             setSuccess('Product added successfully.')
           } catch (imgErr) {
             console.error(imgErr)
@@ -519,15 +598,14 @@ export default function SellerProductsPage() {
         setEditId(null)
         setIngredients([])
         setDeletedRecipeIds([])
-        setSelectedImage(null)
-        if (imagePreview && imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
-        setImagePreview(null)
+        setExistingImages([])
+        draftImages.forEach((img) => URL.revokeObjectURL(img.previewUrl))
+        setDraftImages([])
       }
 
       if (isProductCreatedOrUpdated) {
         fetchProducts()
       }
-
     } catch (err) {
       console.error(err)
       if (!isProductCreatedOrUpdated) {
@@ -625,9 +703,9 @@ export default function SellerProductsPage() {
                   setIsFormOpen(false)
                   setEditId(null)
                   setFormData(defaultFormState)
-                  setSelectedImage(null)
-                  if (imagePreview && imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
-                  setImagePreview(null)
+                  setExistingImages([])
+                  draftImages.forEach((img) => URL.revokeObjectURL(img.previewUrl))
+                  setDraftImages([])
                   setError(null)
                   setSuccess(null)
                 }}
@@ -871,42 +949,131 @@ export default function SellerProductsPage() {
               </div>
 
               <div className="sm:col-span-2 border-t border-[#ead8ca] pt-4 mt-2">
-                <label className="mb-1 block text-sm font-semibold text-[#4b2417]">
-                  Product Image <span className="text-red-500">(Optional)</span>
-                </label>
-                <div className="mt-2 flex flex-col sm:flex-row sm:items-center gap-4">
-                  {imagePreview ? (
-                    <div className="relative group h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-[#d0bfaf]">
-                      <img src={imagePreview} alt="Preview" className="h-full w-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => setViewImageSource(imagePreview)}
-                        className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                        aria-label="View Image"
-                        title="View Image"
-                      >
-                        <Eye className="h-6 w-6 text-white" />
-                      </button>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-sm font-semibold text-[#4b2417]">
+                    {t('products.product_images', 'Foto Produk')} <span className="text-red-500">*</span>
+                  </label>
+                  <span className="text-xs text-[#8b7166]">
+                    {t('products.at_least_one_image_required', 'Minimal 1 foto produk wajib ada.')}
+                  </span>
+                </div>
+
+                <p className="mb-3 text-xs text-[#6f5448]">
+                  Format JPG, PNG, WEBP. Maks 5MB per file. Foto dengan tanda Foto Utama akan dijadikan tampilan utama produk.
+                </p>
+
+                <div className="flex flex-wrap gap-3 items-center">
+                  {/* Existing Images */}
+                  {existingImages.map((img) => (
+                    <div
+                      key={`existing-${img.id}`}
+                      className={`relative group h-28 w-28 shrink-0 overflow-hidden rounded-xl border-2 transition-all bg-white shadow-sm ${
+                        img.isPrimary ? 'border-[#d85b30]' : 'border-[#d0bfaf]'
+                      }`}
+                    >
+                      <img src={img.imageUrl} alt="Product Image" className="h-full w-full object-cover" />
+                      
+                      {img.isPrimary && (
+                        <div className="absolute top-1 left-1 z-10 rounded-md bg-[#d85b30] px-1.5 py-0.5 text-[10px] font-bold text-white flex items-center gap-1 shadow">
+                          <Star className="h-3 w-3 fill-white" />
+                          {t('products.primary_image', 'Foto Utama')}
+                        </div>
+                      )}
+
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-1 gap-1 z-20">
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setViewImageSource(img.imageUrl)}
+                            className="rounded-lg bg-white/20 p-1.5 text-white hover:bg-white/40 transition"
+                            title="View Image"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={isUploadingImage || existingImages.length + draftImages.length <= 1}
+                            onClick={() => handleDeleteExistingImage(img.id)}
+                            className="rounded-lg bg-red-600/80 p-1.5 text-white hover:bg-red-600 disabled:opacity-40 transition"
+                            title={t('products.remove_image', 'Hapus Foto')}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                        {!img.isPrimary && (
+                          <button
+                            type="button"
+                            disabled={isUploadingImage}
+                            onClick={() => handleSetExistingPrimary(img.id)}
+                            className="mt-1 w-full rounded bg-[#d85b30] py-1 text-[10px] font-semibold text-white hover:bg-[#c04e28] transition"
+                          >
+                            {t('products.set_primary', 'Jadikan Utama')}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  ) : (
-                    <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-xl border border-dashed border-[#d0bfaf] bg-gray-50 text-gray-400">
-                      <ImageIcon className="h-6 w-6" />
+                  ))}
+
+                  {/* Draft Upload Images */}
+                  {draftImages.map((draft, idx) => (
+                    <div
+                      key={`draft-${idx}`}
+                      className={`relative group h-28 w-28 shrink-0 overflow-hidden rounded-xl border-2 transition-all bg-white shadow-sm border-dashed ${
+                        existingImages.length === 0 && primaryDraftIndex === idx ? 'border-[#d85b30]' : 'border-[#d0bfaf]'
+                      }`}
+                    >
+                      <img src={draft.previewUrl} alt="Draft Preview" className="h-full w-full object-cover" />
+
+                      {existingImages.length === 0 && primaryDraftIndex === idx && (
+                        <div className="absolute top-1 left-1 z-10 rounded-md bg-[#d85b30] px-1.5 py-0.5 text-[10px] font-bold text-white flex items-center gap-1 shadow">
+                          <Star className="h-3 w-3 fill-white" />
+                          {t('products.primary_image', 'Foto Utama')}
+                        </div>
+                      )}
+
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center p-1 gap-1 z-20">
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setViewImageSource(draft.previewUrl)}
+                            className="rounded-lg bg-white/20 p-1.5 text-white hover:bg-white/40 transition"
+                            title="View Image"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveDraftImage(idx)}
+                            className="rounded-lg bg-red-600/80 p-1.5 text-white hover:bg-red-600 transition"
+                            title={t('products.remove_image', 'Hapus Foto')}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                        {existingImages.length === 0 && primaryDraftIndex !== idx && (
+                          <button
+                            type="button"
+                            onClick={() => setPrimaryDraftIndex(idx)}
+                            className="mt-1 w-full rounded bg-[#d85b30] py-1 text-[10px] font-semibold text-white hover:bg-[#c04e28] transition"
+                          >
+                            {t('products.set_primary', 'Jadikan Utama')}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  )}
-                  <div className="flex-1">
-                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-[#f8eee5] px-4 py-2 text-sm font-semibold text-[#d85b30] hover:bg-[#f0e0d0] transition">
-                      <span>Select Image</span>
-                      <input
-                        type="file"
-                        accept="image/png, image/jpeg, image/webp"
-                        onChange={handleImageSelect}
-                        className="hidden"
-                      />
-                    </label>
-                    <p className="mt-2 text-xs text-gray-500">
-                      Format JPG, PNG, WEBP. Max 5MB. You can crop the image after selecting.
-                    </p>
-                  </div>
+                  ))}
+
+                  {/* Add Image Button */}
+                  <label className="flex h-28 w-28 shrink-0 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#d0bfaf] bg-[#f8eee5] text-[#d85b30] hover:bg-[#f0e0d0] transition">
+                    <Plus className="h-6 w-6" />
+                    <span className="mt-1 text-xs font-semibold">{t('products.add_image', 'Tambah Foto')}</span>
+                    <input
+                      type="file"
+                      accept="image/png, image/jpeg, image/webp"
+                      onChange={handleImageSelect}
+                      className="hidden"
+                    />
+                  </label>
                 </div>
               </div>
             </div>
@@ -919,9 +1086,9 @@ export default function SellerProductsPage() {
                   setIsFormOpen(false)
                   setEditId(null)
                   setFormData(defaultFormState)
-                  setSelectedImage(null)
-                  if (imagePreview && imagePreview.startsWith('blob:')) URL.revokeObjectURL(imagePreview)
-                  setImagePreview(null)
+                  setExistingImages([])
+                  draftImages.forEach((img) => URL.revokeObjectURL(img.previewUrl))
+                  setDraftImages([])
                   setError(null)
                   setSuccess(null)
                 }}

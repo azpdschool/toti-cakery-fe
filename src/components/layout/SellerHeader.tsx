@@ -2,6 +2,7 @@
 import { Menu } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { roleLabel } from '@/lib/roles'
+import { NotificationBell } from '@/components/common/NotificationBell'
 
 interface SellerHeaderProps {
   isSidebarOpen: boolean
@@ -39,13 +40,16 @@ export function SellerHeader({ isSidebarOpen, toggleSidebar }: SellerHeaderProps
         </div>
       </div>
 
-      <div className="text-right">
-        <p className="text-sm font-semibold text-[#4b2417]">
-          {roleLabel(user?.role)}
-        </p>
-        <p className="text-xs text-[#8b7166]">
-          {user?.username || user?.email || ''}
-        </p>
+      <div className="flex items-center gap-4 text-right">
+        <NotificationBell />
+        <div>
+          <p className="text-sm font-semibold text-[#4b2417]">
+            {roleLabel(user?.role)}
+          </p>
+          <p className="text-xs text-[#8b7166]">
+            {user?.username || user?.email || ''}
+          </p>
+        </div>
       </div>
     </header>
   )

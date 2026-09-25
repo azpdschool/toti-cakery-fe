@@ -3,6 +3,14 @@ import { apiClient } from './client';
 
 export type ApiDecimal = string | number;
 
+export interface ProductImageOut {
+  id: number;
+  product_id?: number | null;
+  image_url: string;
+  is_primary: boolean;
+  created_at?: string | null;
+}
+
 export interface ProductOut {
   id: number;
   nama_produk: string;
@@ -22,6 +30,7 @@ export interface ProductOut {
    * Contoh: "https://res.cloudinary.com/..."
    */
   image_url: string | null;
+  images?: ProductImageOut[];
 
   // Field catalog dari backend
   slug?: string | null;
@@ -216,6 +225,65 @@ export async function uploadProductImage(
     }
   );
 
+  return response.data;
+}
+
+/**
+ * Upload multiple foto produk sekaligus.
+ * POST /products/{id}/images
+ * Form parameters: files (multiple), primary_index (optional)
+ */
+export async function uploadProductImages(
+  id: number,
+  files: File[],
+  primaryIndex: number = 0
+): Promise<ProductOut> {
+  const formData = new FormData();
+  files.forEach((file) => {
+    formData.append('files', file);
+  });
+  formData.append('primary_index', String(primaryIndex));
+
+  const response = await apiClient.post<ProductOut>(
+    `/products/${id}/images`,
+    formData,
+    {
+      headers: {
+        'Content-Type': undefined,
+      },
+    }
+  );
+
+  return response.data;
+}
+
+/**
+ * Set salah satu gambar sebagai primary image produk.
+ * PATCH /products/{product_id}/images/{image_id}/primary
+ */
+export async function setPrimaryProductImage(
+  productId: number,
+  imageId: number
+): Promise<ProductOut> {
+  const response = await apiClient.patch<ProductOut>(
+    `/products/${productId}/images/${imageId}/primary`
+  );
+  return response.data;
+}
+
+/**
+ * Hapus salah satu gambar produk.
+ * DELETE /products/{product_id}/images/{image_id}
+ */
+export async function deleteProductImage(
+  productId: number,
+  imageId: number
+): Promise<{ deleted: boolean; product_id: number; image_id: number }> {
+  const response = await apiClient.delete<{
+    deleted: boolean;
+    product_id: number;
+    image_id: number;
+  }>(`/products/${productId}/images/${imageId}`);
   return response.data;
 }
 

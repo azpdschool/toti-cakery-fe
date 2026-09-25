@@ -11,6 +11,7 @@ export interface CartItem {
   image: string;
   minOrder: number;
   step: number;
+  category?: string;
   isAvailable?: boolean;
   isInStock?: boolean;
   stockQuantity?: number;
@@ -22,7 +23,7 @@ interface CartContextType {
   removeItem: (productId: string, variantId: string) => void;
   updateQuantity: (productId: string, variantId: string, quantity: number) => void;
   clearCart: () => void;
-  updateMultipleAvailability: (availabilities: Record<string, { isAvailable?: boolean; isInStock?: boolean; stockQuantity?: number } | undefined>) => void;
+  updateMultipleAvailability: (availabilities: Record<string, { isAvailable?: boolean; isInStock?: boolean; stockQuantity?: number; category?: string } | undefined>) => void;
   totalItems: number;
   totalPrice: number;
 }
@@ -107,7 +108,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (existing) {
         return prev.map((i) =>
           i.productId === item.productId && i.variantId === item.variantId
-            ? { ...i, quantity: i.quantity + (item.quantity || 1), isAvailable: true, isInStock: true }
+            ? { ...i, category: item.category || i.category, quantity: i.quantity + (item.quantity || 1), isAvailable: true, isInStock: true }
             : i
         );
       }
@@ -131,12 +132,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  const updateMultipleAvailability = (availabilities: Record<string, { isAvailable?: boolean; isInStock?: boolean; stockQuantity?: number } | undefined>) => {
+  const updateMultipleAvailability = (availabilities: Record<string, { isAvailable?: boolean; isInStock?: boolean; stockQuantity?: number; category?: string } | undefined>) => {
     setItems((prev) =>
       prev.map((i) => {
         const update = availabilities[i.productId];
         return update !== undefined
-          ? { ...i, ...update }
+          ? { ...i, ...update, category: update.category || i.category }
           : i;
       })
     );

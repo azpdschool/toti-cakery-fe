@@ -1,8 +1,8 @@
 import { downloadOrderInvoicePdfAPI } from '@/api/order';
 
-export async function downloadInvoice(orderId: string | number) {
+export async function downloadInvoice(orderId: string | number, lang?: string) {
   try {
-    const response = await downloadOrderInvoicePdfAPI(orderId);
+    const response = await downloadOrderInvoicePdfAPI(orderId, lang);
     const blob = response.data;
     
     // Attempt to extract filename from Content-Disposition

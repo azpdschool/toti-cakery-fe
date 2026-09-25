@@ -1,8 +1,10 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
-  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Search,
-  Sparkles,
+  SlidersHorizontal,
   X,
 } from 'lucide-react'
 import {
@@ -11,6 +13,8 @@ import {
   type Product,
 } from '@/services/productService'
 import { useCart } from '@/context/CartContext'
+import { ProductCard } from '@/components/common/ProductCard'
+import { toast } from 'react-hot-toast'
 
 // ============================================================
 // UTILITY
@@ -31,125 +35,136 @@ function searchProducts(products: Product[], keyword: string): Product[] {
   })
 }
 
-// ============================================================
-// KOMPONEN
-// ============================================================
-import { ProductCard } from '@/components/common/ProductCard'
-
-interface CategorySidebarProps {
-  categories: { category: string; count: number }[]
-  selected: string | null
-  onSelect: (category: string | null) => void
-  isOpen: boolean
-  onClose: () => void
+function formatShortRupiah(value: number): string {
+  if (value >= 1_000_000) return `Rp${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1)}jt`
+  if (value >= 1_000) return `Rp${Math.round(value / 1000)}rb`
+  return `Rp${value}`
 }
 
-function CategorySidebar({
+// ============================================================
+// CATEGORY SCROLLER (same interaction pattern as Home's carousels)
+// ============================================================
+interface CategoryOption {
+  category: string
+  count: number
+}
+
+function CategoryScroller({
   categories,
+  totalCount,
   selected,
   onSelect,
-  isOpen,
-  onClose,
-}: CategorySidebarProps) {
+}: {
+  categories: CategoryOption[]
+  totalCount: number
+  selected: string | null
+  onSelect: (category: string | null) => void
+}) {
+  const { t } = useTranslation()
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [canLeft, setCanLeft] = useState(false)
+  const [canRight, setCanRight] = useState(false)
+
+  const updateButtons = () => {
+    const el = scrollRef.current
+    if (!el) return
+    setCanLeft(el.scrollLeft > 0)
+    setCanRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 1)
+  }
+
+  useEffect(() => {
+    updateButtons()
+    window.addEventListener('resize', updateButtons)
+    return () => window.removeEventListener('resize', updateButtons)
+  }, [categories])
+
+  const scrollBy = (delta: number) => {
+    scrollRef.current?.scrollBy({ left: delta, behavior: 'smooth' })
+    setTimeout(updateButtons, 300)
+  }
+
   return (
-    <>
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm md:hidden"
-          onClick={onClose}
-        />
+    <div className="relative group">
+      {canLeft && (
+        <button
+          type="button"
+          onClick={() => scrollBy(-220)}
+          aria-label={t('common.prev')}
+          className="absolute left-0 top-1/2 -translate-y-1/2 -ml-3 hidden sm:flex h-8 w-8 items-center justify-center rounded-full border border-[#EAD8CA] bg-white text-[#6B4A3C] shadow-md z-10 opacity-0 transition-opacity hover:text-[#9B4A2F] group-hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-[#9B4A2F]/30"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
       )}
-      <aside
-        className={`
-          fixed inset-y-0 left-0 z-50 w-[280px] overflow-y-auto
-          bg-[#F6EFE6] p-5 shadow-lg transition-transform duration-300
-          md:static md:z-auto md:w-auto md:min-w-[220px] md:translate-x-0 md:shadow-none
-          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-        `}
+      {canRight && (
+        <button
+          type="button"
+          onClick={() => scrollBy(220)}
+          aria-label={t('common.next')}
+          className="absolute right-0 top-1/2 -translate-y-1/2 -mr-3 hidden sm:flex h-8 w-8 items-center justify-center rounded-full border border-[#EAD8CA] bg-white text-[#6B4A3C] shadow-md z-10 opacity-0 transition-opacity hover:text-[#9B4A2F] group-hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-[#9B4A2F]/30"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      )}
+
+      <div
+        ref={scrollRef}
+        onScroll={updateButtons}
+        className="no-scrollbar flex gap-2.5 overflow-x-auto scroll-smooth px-1 py-1"
+        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
       >
-        <div className="flex items-center justify-between md:hidden">
-          <h3 className="text-lg font-black text-[#3A1F16]">Jenis Produk</h3>
+        <button
+          type="button"
+          onClick={() => onSelect(null)}
+          className={`shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold transition ${
+            selected === null
+              ? 'border-[#9B4A2F] bg-[#9B4A2F] text-white'
+              : 'border-[#D0BFAF] bg-white text-[#3A1F16] hover:bg-[#F6EFE6]'
+          }`}
+        >
+          {t('catalog.all_products')}
+          <span className="ml-1.5 opacity-70">({totalCount})</span>
+        </button>
+
+        {categories.map(({ category, count }) => (
           <button
+            key={category}
             type="button"
-            onClick={onClose}
-            className="rounded-full p-1.5 text-[#6B4A3C] hover:bg-[#E8DCCB]"
+            onClick={() => onSelect(category)}
+            className={`shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold transition ${
+              selected === category
+                ? 'border-[#9B4A2F] bg-[#9B4A2F] text-white'
+                : 'border-[#D0BFAF] bg-white text-[#3A1F16] hover:bg-[#F6EFE6]'
+            }`}
           >
-            <X className="h-5 w-5" />
+            {category}
+            <span className="ml-1.5 opacity-70">({count})</span>
           </button>
-        </div>
-
-        <h3 className="mb-4 hidden text-sm font-black uppercase tracking-wider text-[#6B4A3C] md:block">
-          Jenis Produk
-        </h3>
-
-        <ul className="space-y-1.5">
-          <li>
-            <button
-              type="button"
-              onClick={() => {
-                onSelect(null)
-                onClose()
-              }}
-              className={`
-                w-full rounded-lg px-4 py-2.5 text-left text-sm font-semibold transition
-                ${!selected
-                  ? 'bg-[#9B4A2F] text-white'
-                  : 'text-[#3A1F16] hover:bg-[#E8DCCB]'
-                }
-              `}
-            >
-              Semua Produk
-              <span className="ml-2 text-xs opacity-70">
-                ({categories.reduce((acc, c) => acc + c.count, 0)})
-              </span>
-            </button>
-          </li>
-          {categories.map(({ category, count }) => (
-            <li key={category}>
-              <button
-                type="button"
-                onClick={() => {
-                  onSelect(category)
-                  onClose()
-                }}
-                className={`
-                  w-full rounded-lg px-4 py-2.5 text-left text-sm font-semibold transition
-                  ${selected === category
-                    ? 'bg-[#9B4A2F] text-white'
-                    : 'text-[#3A1F16] hover:bg-[#E8DCCB]'
-                  }
-                `}
-              >
-                {category}
-                <span className="ml-2 text-xs opacity-70">({count})</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </aside>
-    </>
+        ))}
+      </div>
+    </div>
   )
 }
 
 // ============================================================
-// SEARCH BAR
+// SEARCH BAR (compact, icon-first)
 // ============================================================
 function SearchBar({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const { t } = useTranslation()
   return (
-    <div className="relative">
-      <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9C8478]" />
+    <div className="relative flex h-11 flex-1 items-center rounded-xl border border-[#D0BFAF] bg-white px-3.5 focus-within:border-[#9B4A2F] focus-within:ring-2 focus-within:ring-[#9B4A2F]/20">
+      <Search className="h-4 w-4 shrink-0 text-[#9C8478]" />
       <input
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Cari produk..."
-        className="h-11 w-full rounded-xl border border-[#D0BFAF] bg-white pl-11 pr-4 text-sm text-[#3A1F16] outline-none placeholder:text-[#9C8478] focus:border-[#9B4A2F] focus:ring-2 focus:ring-[#9B4A2F]/20"
+        placeholder={t('catalog.search_placeholder')}
+        className="w-full bg-transparent px-2.5 text-sm text-[#3A1F16] outline-none placeholder:text-[#9C8478]"
       />
       {value && (
         <button
           type="button"
           onClick={() => onChange('')}
-          className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-[#9C8478] hover:bg-[#E8DCCB]"
+          className="shrink-0 rounded-full p-1 text-[#9C8478] hover:bg-[#E8DCCB]"
         >
           <X className="h-4 w-4" />
         </button>
@@ -158,27 +173,112 @@ function SearchBar({ value, onChange }: { value: string; onChange: (v: string) =
   )
 }
 
-function MobileFilterToggle({
-  onClick,
-  activeCount = 0,
+// ============================================================
+// PRICE FILTER POPOVER (separate from category)
+// ============================================================
+function PriceFilterButton({
+  min,
+  max,
+  onApply,
+  onClear,
 }: {
-  onClick: () => void
-  activeCount?: number
+  min: string
+  max: string
+  onApply: (min: string, max: string) => void
+  onClear: () => void
 }) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const [draftMin, setDraftMin] = useState(min)
+  const [draftMax, setDraftMax] = useState(max)
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setDraftMin(min)
+    setDraftMax(max)
+  }, [min, max])
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    if (open) document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [open])
+
+  const activeCount = (min ? 1 : 0) + (max ? 1 : 0)
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex h-11 items-center gap-2 rounded-xl border border-[#D0BFAF] bg-white px-4 text-sm font-semibold text-[#3A1F16] transition hover:bg-[#F6EFE6] md:hidden"
-    >
-      <ChevronDown className="h-4 w-4" />
-      Filter
-      {activeCount > 0 && (
-        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[#9B4A2F] px-1.5 text-xs text-white">
-          {activeCount}
-        </span>
+    <div className="relative shrink-0" ref={panelRef}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label={t('catalog.filter')}
+        className="relative flex h-11 w-11 items-center justify-center rounded-xl border border-[#D0BFAF] bg-white text-[#3A1F16] transition hover:bg-[#F6EFE6]"
+      >
+        <SlidersHorizontal className="h-4 w-4" />
+        {activeCount > 0 && (
+          <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#9B4A2F] px-1 text-[10px] font-bold text-white">
+            {activeCount}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-[52px] z-30 w-[min(280px,90vw)] rounded-2xl border border-[#D0BFAF] bg-white p-4 shadow-xl">
+          <h3 className="mb-3 text-sm font-black text-[#3A1F16]">{t('catalog.price_filter_title')}</h3>
+          <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#6B4A3C]">
+            {t('catalog.price_range')}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              type="number"
+              min={0}
+              inputMode="numeric"
+              placeholder={t('catalog.price_min')}
+              value={draftMin}
+              onChange={(e) => setDraftMin(e.target.value)}
+              className="w-full rounded-lg border border-[#D0BFAF] px-3 py-2 text-sm outline-none focus:border-[#9B4A2F]"
+            />
+            <input
+              type="number"
+              min={0}
+              inputMode="numeric"
+              placeholder={t('catalog.price_max')}
+              value={draftMax}
+              onChange={(e) => setDraftMax(e.target.value)}
+              className="w-full rounded-lg border border-[#D0BFAF] px-3 py-2 text-sm outline-none focus:border-[#9B4A2F]"
+            />
+          </div>
+          <div className="mt-4 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => {
+                setDraftMin('')
+                setDraftMax('')
+                onClear()
+                setOpen(false)
+              }}
+              className="text-xs font-bold text-[#6B4A3C] hover:text-[#3A1F16]"
+            >
+              {t('catalog.clear_filter')}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onApply(draftMin, draftMax)
+                setOpen(false)
+              }}
+              className="rounded-lg bg-[#9B4A2F] px-4 py-2 text-xs font-bold text-white hover:bg-[#7E3A24]"
+            >
+              {t('catalog.apply_filter')}
+            </button>
+          </div>
+        </div>
       )}
-    </button>
+    </div>
   )
 }
 
@@ -186,13 +286,16 @@ function MobileFilterToggle({
 // MAIN PAGE
 // ============================================================
 export default function CatalogPage() {
+  const { t } = useTranslation()
   const [products, setProducts] = useState<Product[]>([])
-  const [categories, setCategories] = useState<{ category: string; count: number }[]>([])
+  const [categories, setCategories] = useState<CategoryOption[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [priceMin, setPriceMin] = useState('')
+  const [priceMax, setPriceMax] = useState('')
 
   const { addItem } = useCart()
 
@@ -208,9 +311,9 @@ export default function CatalogPage() {
       setCategories(catData)
     } catch (err: unknown) {
       console.error('Gagal load catalog products:', err)
-      const e = err as { response?: { data?: { detail?: unknown } }, message?: string }
+      const e = err as { response?: { data?: { detail?: unknown } }; message?: string }
       const detail = e?.response?.data?.detail
-      const msg = typeof detail === 'string' ? detail : e?.message || 'Gagal memuat produk. Silakan coba lagi.'
+      const msg = typeof detail === 'string' ? detail : e?.message || t('catalog.load_error')
       setError(msg)
     } finally {
       setLoading(false)
@@ -221,6 +324,11 @@ export default function CatalogPage() {
     void loadData()
   }, [])
 
+  const totalCount = useMemo(
+    () => categories.reduce((acc, c) => acc + c.count, 0),
+    [categories]
+  )
+
   const filteredProducts = useMemo(() => {
     let result = products
     if (selectedCategory) {
@@ -229,10 +337,26 @@ export default function CatalogPage() {
     if (searchQuery.trim()) {
       result = searchProducts(result, searchQuery)
     }
+    const min = priceMin ? Number(priceMin) : null
+    const max = priceMax ? Number(priceMax) : null
+    if (min !== null || max !== null) {
+      result = result.filter((p) => {
+        const price = p.variants[0]?.price ?? 0
+        if (min !== null && price < min) return false
+        if (max !== null && price > max) return false
+        return true
+      })
+    }
     return result
-  }, [products, selectedCategory, searchQuery])
+  }, [products, selectedCategory, searchQuery, priceMin, priceMax])
 
-  const activeFilterCount = (selectedCategory ? 1 : 0) + (searchQuery.trim() ? 1 : 0)
+  const hasActiveFilters = Boolean(selectedCategory || priceMin || priceMax)
+
+  const clearAllFilters = () => {
+    setSelectedCategory(null)
+    setPriceMin('')
+    setPriceMax('')
+  }
 
   const handleAddToCart = (product: Product, quantity: number) => {
     const variant = product.variants[0]
@@ -245,9 +369,10 @@ export default function CatalogPage() {
       image: product.image,
       minOrder: variant.minOrder,
       step: variant.step,
+      category: product.category,
       quantity,
     })
-    alert(`${quantity}x ${product.name} (${variant.name}) ditambahkan ke keranjang!`)
+    toast.success(t('cart.add_to_cart_success', 'Ditambahkan ke keranjang'))
   }
 
   if (loading) {
@@ -271,14 +396,14 @@ export default function CatalogPage() {
     return (
       <div className="mx-auto max-w-xl px-4 py-20 text-center">
         <div className="rounded-2xl border border-red-200 bg-red-50 p-6 shadow-sm">
-          <p className="text-xl font-bold text-red-700">❌ Gagal Memuat Produk</p>
+          <p className="text-xl font-bold text-red-700">❌ {t('catalog.load_failed_title')}</p>
           <p className="mt-2 text-sm text-red-600">{error}</p>
           <button
             type="button"
             onClick={loadData}
-            className="mt-5 inline-flex rounded-xl bg-red-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-red-700 transition"
+            className="mt-5 inline-flex rounded-xl bg-red-600 px-6 py-2.5 text-sm font-bold text-white transition hover:bg-red-700"
           >
-            Coba Lagi
+            {t('catalog.retry')}
           </button>
         </div>
       </div>
@@ -286,100 +411,115 @@ export default function CatalogPage() {
   }
 
   return (
-    <div className="bg-white pb-10">
-      {/* HERO */}
+    <div className="bg-[#F6EFE6] pb-10">
+      {/* HERO — same layout & colors as Home's hero */}
       <section className="mx-auto max-w-7xl px-4 pt-5 lg:px-8">
-        <div className="relative overflow-hidden rounded-xl bg-[#F6EFE6] shadow-sm">
+        <div className="relative overflow-hidden rounded-xl bg-white shadow-md ring-1 ring-[#D0BFAF]/60">
           <div
             className="absolute inset-0 hidden md:block"
             style={{
               backgroundImage:
-                "url('https://i.pinimg.com/1200x/a1/44/22/a144222b9399e459efd423fc0c7f82d4.jpg')",
+                "url('https://res.cloudinary.com/mrje22up/image/upload/v1790318610/SaveClip.App_625018501_18282534043303493_4772642156586750637_n_2.jpg')",
               backgroundSize: 'cover',
               backgroundPosition: 'center',
-              opacity: 0.15,
             }}
           />
-          <div className="relative z-10 px-8 py-10 lg:px-12 lg:py-14">
-            <div className="flex items-center gap-3">
-              <Sparkles className="h-7 w-7 text-[#E0A04E]" />
-              <h1 className="text-3xl font-black text-[#3A1F16] md:text-4xl lg:text-5xl">
-                Produk Kami
-              </h1>
-            </div>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-[#6B4A3C] md:text-base">
-              Temukan berbagai pilihan cake, cookies, cupcakes, dan dessert yang
-              dibuat fresh dengan bahan berkualitas.
+          <div className="absolute inset-0 bg-gradient-to-r from-white via-white/85 to-transparent" />
+          <div className="relative z-10 max-w-2xl px-8 py-10 lg:px-12 lg:py-16">
+            <h1 className="max-w-xl text-4xl font-black leading-tight tracking-tight text-[#3A1F16] md:text-5xl lg:text-6xl">
+              {t('catalog.title')}
+            </h1>
+            <p className="mt-5 max-w-md text-base leading-7 text-[#6B4A3C]">
+              {t('catalog.subtitle')}
             </p>
           </div>
         </div>
       </section>
 
-      {/* MAIN CONTENT */}
+      {/* CATEGORY SCROLLER */}
       <section className="mx-auto max-w-7xl px-4 pt-6 lg:px-8">
-        <div className="flex gap-6">
-          <CategorySidebar
-            categories={categories}
-            selected={selectedCategory}
-            onSelect={setSelectedCategory}
-            isOpen={isSidebarOpen}
-            onClose={() => setIsSidebarOpen(false)}
+        <CategoryScroller
+          categories={categories}
+          totalCount={totalCount}
+          selected={selectedCategory}
+          onSelect={setSelectedCategory}
+        />
+      </section>
+
+      {/* TOOLBAR: search + price filter */}
+      <section className="mx-auto max-w-7xl px-4 pt-4 lg:px-8">
+        <div className="flex items-center gap-3">
+          <SearchBar value={searchQuery} onChange={setSearchQuery} />
+          <PriceFilterButton
+            min={priceMin}
+            max={priceMax}
+            onApply={(min, max) => {
+              setPriceMin(min)
+              setPriceMax(max)
+            }}
+            onClear={() => {
+              setPriceMin('')
+              setPriceMax('')
+            }}
           />
+        </div>
 
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex-1 min-w-[180px]">
-                <SearchBar value={searchQuery} onChange={setSearchQuery} />
-              </div>
-              <MobileFilterToggle
-                onClick={() => setIsSidebarOpen(true)}
-                activeCount={activeFilterCount}
-              />
-            </div>
-
-            <div className="mt-4 flex items-center justify-between">
-              <p className="text-sm text-[#6B4A3C]">
-                {filteredProducts.length} produk ditemukan
-                {selectedCategory && (
-                  <span className="ml-1 font-medium text-[#3A1F16]">
-                    di {selectedCategory}
-                  </span>
-                )}
-              </p>
-              {selectedCategory && (
+        {/* ACTIVE FILTER CHIPS */}
+        {hasActiveFilters && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {selectedCategory && (
+              <span className="flex items-center gap-1.5 rounded-full border border-[#D0BFAF] bg-white px-3 py-1.5 text-xs font-bold text-[#9B4A2F]">
+                {selectedCategory}
+                <button type="button" onClick={() => setSelectedCategory(null)} className="text-[#6B4A3C] hover:text-[#3A1F16]">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </span>
+            )}
+            {(priceMin || priceMax) && (
+              <span className="flex items-center gap-1.5 rounded-full border border-[#D0BFAF] bg-white px-3 py-1.5 text-xs font-bold text-[#9B4A2F]">
+                {priceMin ? formatShortRupiah(Number(priceMin)) : 'Rp0'}
+                {' – '}
+                {priceMax ? formatShortRupiah(Number(priceMax)) : '∞'}
                 <button
                   type="button"
-                  onClick={() => setSelectedCategory(null)}
-                  className="text-xs font-semibold text-[#9B4A2F] transition hover:text-[#7E3A24]"
+                  onClick={() => {
+                    setPriceMin('')
+                    setPriceMax('')
+                  }}
+                  className="text-[#6B4A3C] hover:text-[#3A1F16]"
                 >
-                  Hapus filter
+                  <X className="h-3.5 w-3.5" />
                 </button>
-              )}
-            </div>
-
-            {filteredProducts.length === 0 ? (
-              <div className="mt-8 flex flex-col items-center justify-center rounded-xl bg-[#F6EFE6] py-16 text-center">
-                <p className="text-4xl">🔍</p>
-                <p className="mt-4 text-lg font-black text-[#3A1F16]">
-                  Produk tidak ditemukan
-                </p>
-                <p className="text-sm text-[#6B4A3C]">
-                  Coba gunakan kata kunci lain atau hapus filter.
-                </p>
-              </div>
-            ) : (
-              <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
-                {filteredProducts.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    onAddToCart={handleAddToCart}
-                  />
-                ))}
-              </div>
+              </span>
             )}
+            <button
+              type="button"
+              onClick={clearAllFilters}
+              className="text-xs font-semibold text-[#9B4A2F] hover:text-[#7E3A24]"
+            >
+              {t('catalog.clear_all')}
+            </button>
           </div>
-        </div>
+        )}
+
+        <p className="mt-4 text-sm text-[#6B4A3C]">
+          {t('catalog.results_found', { count: filteredProducts.length })}
+        </p>
+
+        {/* PRODUCT GRID */}
+        {filteredProducts.length === 0 ? (
+          <div className="mt-4 flex flex-col items-center justify-center rounded-xl bg-white py-16 text-center">
+            <p className="text-4xl">🔍</p>
+            <p className="mt-4 text-lg font-black text-[#3A1F16]">{t('catalog.not_found_title')}</p>
+            <p className="text-sm text-[#6B4A3C]">{t('catalog.not_found_desc')}</p>
+          </div>
+        ) : (
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4">
+            {filteredProducts.map((product) => (
+              <ProductCard key={product.id} product={product} onAddToCart={handleAddToCart} />
+            ))}
+          </div>
+        )}
       </section>
     </div>
   )

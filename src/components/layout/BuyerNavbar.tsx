@@ -18,6 +18,7 @@ import {
 import { useCart } from '@/context/CartContext'
 import { useAuth } from '@/hooks/useAuth'
 import { LANG_KEY, ROUTES, LOGO_URL } from '@/constants'
+import { NotificationBell } from '@/components/common/NotificationBell'
 
 const languages = [
   {
@@ -38,12 +39,12 @@ export function BuyerNavbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const { totalItems } = useCart()
   const { user } = useAuth()
-  const [avatar, setAvatar] = useState<string | null>(null)
+  const avatarUrl = user?.avatar_url
+  const [imgError, setImgError] = useState(false)
 
   useEffect(() => {
-    const savedAvatar = localStorage.getItem('buyer_avatar')
-    if (savedAvatar) setAvatar(savedAvatar)
-  }, [])
+    setImgError(false)
+  }, [avatarUrl])
 
   const currentLanguage =
     languages.find((language) => language.code === i18n.language) ?? languages[0]
@@ -165,16 +166,19 @@ export function BuyerNavbar() {
             )}
           </div>
 
+          {user && user.role === 'buyer' && <NotificationBell />}
+
 
           {user && user.role === 'buyer' ? (
             <Link
               to="/profile"
               className="flex min-w-0 items-center gap-2 text-sm font-semibold text-[#3A1F16] transition-colors hover:text-[#9B4A2F]"
             >
-              {avatar ? (
+              {avatarUrl && !imgError ? (
                 <img
-                  src={avatar}
-                  alt="Avatar"
+                  src={avatarUrl}
+                  alt={user.name || 'Avatar'}
+                  onError={() => setImgError(true)}
                   className="h-7 w-7 shrink-0 rounded-full object-cover"
                 />
               ) : (
@@ -275,10 +279,11 @@ export function BuyerNavbar() {
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="flex items-center gap-2 rounded-xl bg-white px-4 py-3 text-sm font-semibold text-[#3A1F16]"
               >
-                {avatar ? (
+                {avatarUrl && !imgError ? (
                   <img
-                    src={avatar}
-                    alt="Avatar"
+                    src={avatarUrl}
+                    alt={user.name || 'Avatar'}
+                    onError={() => setImgError(true)}
                     className="h-6 w-6 rounded-full object-cover"
                   />
                 ) : (

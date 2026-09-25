@@ -12,6 +12,7 @@ export interface User {
   username?: string
   phone?: string
   email?: string
+  avatar_url?: string | null
 }
 
 export interface AuthState {

@@ -1,14 +1,13 @@
-// src/pages/buyer/ProfilePage.tsx
 import { useRef, useState } from 'react'
 import type React from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { toast } from 'react-hot-toast'
 import {
   User,
   Phone,
   Mail,
   LogOut,
   CheckCircle,
-  Shield,
   Camera,
   Lock,
   Eye,
@@ -23,7 +22,8 @@ import {
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '@/hooks/useAuth'
 import { ROUTES } from '@/constants'
-import { changeBuyerPassword, changeBuyerPhone } from '@/api/auth'
+import { changeBuyerPassword, changeBuyerPhone, uploadBuyerAvatar } from '@/api/auth'
+import ImageCropper from '@/components/common/ImageCropper'
 import { InternationalPhoneInput } from '@/components/common/PhoneInput'
 import { formatPhoneNumber } from '@/utils/phone'
 
@@ -60,10 +60,10 @@ export default function ProfilePage() {
   const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const [avatar] = useState<string | null>(null)
-  const [tempAvatar, setTempAvatar] = useState<string | null>(null)
+  const [isCropperOpen, setIsCropperOpen] = useState(false)
+  const [cropperSrc, setCropperSrc] = useState<string | null>(null)
   const [avatarLoading, setAvatarLoading] = useState(false)
-  const [avatarError, setAvatarError] = useState<string | null>(null)
+  const [profileImgError, setProfileImgError] = useState(false)
 
   // Phone Modal State
   const [isPhoneModalOpen, setIsPhoneModalOpen] = useState(false)
@@ -104,35 +104,42 @@ export default function ProfilePage() {
     const file = e.target.files?.[0]
     if (!file) return
 
-    if (!file.type.startsWith('image/')) {
-      alert('File harus berupa gambar')
+    if (!file.type.startsWith('image/') || file.size === 0 || file.size > 5 * 1024 * 1024) {
+      toast.error(t('profile.image_error'))
+      if (fileInputRef.current) fileInputRef.current.value = ''
       return
     }
 
     const reader = new FileReader()
-
-    reader.onloadend = () => {
-      const result = String(reader.result)
-      setTempAvatar(result)
-      setAvatarError(null)
+    reader.onload = () => {
+      setCropperSrc(String(reader.result))
+      setIsCropperOpen(true)
     }
-
     reader.readAsDataURL(file)
   }
 
-  const handleCancelAvatar = () => {
-    setTempAvatar(null)
-    setAvatarError(null)
+  const handleCropCancel = () => {
+    setIsCropperOpen(false)
+    setCropperSrc(null)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  const handleSaveAvatar = async () => {
+  const handleCropConfirm = async (croppedFile: File) => {
+    if (croppedFile.size > 5 * 1024 * 1024) {
+      toast.error(t('profile.upload_error'))
+      return
+    }
+
     setAvatarLoading(true)
-    setAvatarError(null)
     try {
-      throw new Error('Backend persistence is not yet supported. Frontend UI is ready.')
-    } catch (err: unknown) {
-      setAvatarError(err instanceof Error ? err.message : t('profile.upload_error'))
+      const response = await uploadBuyerAvatar(croppedFile)
+      updateUser({ avatar_url: response.avatar_url })
+      toast.success(t('profile.upload_success'))
+      setIsCropperOpen(false)
+      setCropperSrc(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    } catch {
+      toast.error(t('profile.upload_error'))
     } finally {
       setAvatarLoading(false)
     }
@@ -145,17 +152,17 @@ export default function ProfilePage() {
     setPasswordSuccess(null)
 
     if (!passwordData.current) {
-      setPasswordError('Password saat ini wajib diisi.')
+      setPasswordError(t('profile.password_req_current'))
       return
     }
 
     if (passwordData.new.length < 6) {
-      setPasswordError('Password baru minimal 6 karakter.')
+      setPasswordError(t('profile.password_req_length'))
       return
     }
 
     if (passwordData.new !== passwordData.confirm) {
-      setPasswordError('Password baru dan konfirmasi tidak cocok.')
+      setPasswordError(t('profile.password_req_match'))
       return
     }
 
@@ -167,14 +174,14 @@ export default function ProfilePage() {
         new_password: passwordData.new,
       })
 
-      setPasswordSuccess('Password berhasil diganti.')
+      setPasswordSuccess(t('profile.password_success'))
       setPasswordData({ current: '', new: '', confirm: '' })
       setTimeout(() => {
         setIsChangingPassword(false)
         setPasswordSuccess(null)
       }, 2000)
     } catch (err) {
-      setPasswordError(parseApiError(err, 'Gagal mengganti password.'))
+      setPasswordError(parseApiError(err, t('profile.password_failed')))
     } finally {
       setPasswordLoading(false)
     }
@@ -187,12 +194,12 @@ export default function ProfilePage() {
 
     const cleanedPhone = formatPhoneNumber(newPhone)
     if (!cleanedPhone || cleanedPhone.length < 8) {
-      setPhoneError('Nomor WhatsApp tidak valid. Silakan periksa kembali.')
+      setPhoneError(t('profile.phone_invalid'))
       return
     }
 
     if (!phoneCurrentPassword) {
-      setPhoneError('Password saat ini wajib diisi.')
+      setPhoneError(t('profile.password_req_current'))
       return
     }
 
@@ -205,14 +212,14 @@ export default function ProfilePage() {
       })
       
       updateUser({ phone: response.phone })
-      setPhoneSuccess('Nomor WhatsApp berhasil diperbarui!')
+      setPhoneSuccess(t('profile.phone_success'))
       
       setTimeout(() => {
         setIsPhoneModalOpen(false)
         setPhoneSuccess(null)
       }, 1500)
     } catch (err) {
-      setPhoneError(parseApiError(err, 'Gagal memperbarui nomor WhatsApp.'))
+      setPhoneError(parseApiError(err, t('profile.phone_failed')))
     } finally {
       setPhoneLoading(false)
     }
@@ -221,16 +228,30 @@ export default function ProfilePage() {
   const initial = user.name?.charAt(0).toUpperCase() || 'B'
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
-      <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-        <aside className="rounded-2xl border border-[#ead8ca] bg-white p-6 shadow-sm">
-          <div className="flex flex-col items-center text-center">
+    <div className="mx-auto max-w-6xl px-4 py-8">
+      {/* Page Header (Full Width) */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-black text-[#3A1F16]">
+          {t('profile.title')}
+        </h1>
+        <p className="mt-1 text-sm text-[#6B4A3C]">
+          {t('profile.subtitle')}
+        </p>
+      </div>
+
+      <div className="grid gap-8 lg:grid-cols-[300px_1fr]">
+        
+        {/* LEFT SIDEBAR: Identity & Quick Navigation */}
+        <aside className="space-y-6">
+          {/* Identity Card */}
+          <div className="rounded-2xl border border-[#D0BFAF] bg-white p-6 shadow-sm flex flex-col items-center text-center">
             <div className="relative">
-              <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-full bg-[#f3e2d7] text-4xl font-black text-[#d85b30]">
-                {tempAvatar || avatar ? (
+              <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-[#F6EFE6] text-3xl font-black text-[#9B4A2F] border-2 border-[#EAD8CA]">
+                {user.avatar_url && !profileImgError ? (
                   <img
-                    src={tempAvatar || avatar || ''}
+                    src={user.avatar_url}
                     alt={user.name}
+                    onError={() => setProfileImgError(true)}
                     className="h-full w-full object-cover"
                   />
                 ) : (
@@ -241,7 +262,9 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={handleAvatarClick}
-                className="absolute bottom-0 right-0 flex h-9 w-9 items-center justify-center rounded-full bg-[#d85b30] text-white shadow-sm transition hover:bg-[#c04e28]"
+                className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-[#9B4A2F] text-white shadow-sm transition hover:bg-[#7E3A24]"
+                aria-label={t('profile.change_avatar_title')}
+                title={t('profile.change_avatar_title')}
               >
                 <Camera className="h-4 w-4" />
               </button>
@@ -254,185 +277,140 @@ export default function ProfilePage() {
                 className="hidden"
               />
             </div>
-            
-            {tempAvatar && (
-              <div className="mt-4 flex flex-col items-center gap-2">
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleSaveAvatar}
-                    disabled={avatarLoading}
-                    className="flex h-8 items-center justify-center rounded-lg bg-[#d85b30] px-4 text-xs font-bold text-white transition hover:bg-[#c04e28] disabled:opacity-60"
-                  >
-                    {avatarLoading ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}
-                    Simpan
-                  </button>
-                  <button
-                    onClick={handleCancelAvatar}
-                    disabled={avatarLoading}
-                    className="flex h-8 items-center justify-center rounded-lg border border-[#d0bfaf] px-4 text-xs font-bold text-[#4b2417] transition hover:bg-[#fff4ed]"
-                  >
-                    Batal
-                  </button>
-                </div>
-                {avatarError && (
-                  <div className="mt-1 max-w-[200px] text-center text-xs font-semibold text-red-600">
-                    {avatarError}
-                  </div>
-                )}
-              </div>
-            )}
 
-            <h1 className="mt-4 text-xl font-black text-[#4b2417]">
-              {user.name || t('profile.buyer', 'Buyer')}
-            </h1>
+            <h2 className="mt-4 text-lg font-bold text-[#3A1F16]">
+              {user.name || t('profile.buyer')}
+            </h2>
 
-            <p className="mt-1 text-sm text-[#6f5448]">
+            <p className="mt-0.5 text-xs text-[#6B4A3C]">
               {user.email || user.phone || '-'}
             </p>
 
-            <div className="mt-3 inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 text-xs font-bold text-green-700">
+            <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700 border border-green-200">
               <CheckCircle className="h-3.5 w-3.5" />
-              Akun Aktif
+              {t('profile.active')}
             </div>
           </div>
 
-          <div className="mt-6 space-y-2 border-t border-[#ead8ca] pt-5">
+          {/* Quick Navigation Card */}
+          <div className="rounded-2xl border border-[#D0BFAF] bg-white p-4 shadow-sm space-y-1">
             <Link
               to={ROUTES.HOME}
-              className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-[#6f5448] transition hover:bg-[#fff4ed] hover:text-[#4b2417]"
+              className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold text-[#6B4A3C] transition hover:bg-[#F6EFE6] hover:text-[#3A1F16]"
             >
-              <Home className="h-4 w-4" />
-              Beranda
+              <Home className="h-4 w-4 text-[#9B4A2F]" />
+              {t('profile.home')}
             </Link>
 
             <Link
               to={ROUTES.ORDERS}
-              className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-[#6f5448] transition hover:bg-[#fff4ed] hover:text-[#4b2417]"
+              className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold text-[#6B4A3C] transition hover:bg-[#F6EFE6] hover:text-[#3A1F16]"
             >
-              <ShoppingBag className="h-4 w-4" />
+              <ShoppingBag className="h-4 w-4 text-[#9B4A2F]" />
               {t('profile.my_orders')}
             </Link>
 
             <Link
               to={ROUTES.WISHLIST}
-              className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-[#6f5448] transition hover:bg-[#fff4ed] hover:text-[#4b2417]"
+              className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold text-[#6B4A3C] transition hover:bg-[#F6EFE6] hover:text-[#3A1F16]"
             >
-              <Heart className="h-4 w-4" />
-              Wishlist
+              <Heart className="h-4 w-4 text-[#9B4A2F]" />
+              {t('profile.wishlist')}
             </Link>
 
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold text-red-600 transition hover:bg-red-50"
-            >
-              <LogOut className="h-4 w-4" />
-              Logout
-            </button>
+            <div className="pt-2 border-t border-[#EAD8CA] mt-2">
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-left text-sm font-semibold text-red-600 transition hover:bg-red-50"
+              >
+                <LogOut className="h-4 w-4" />
+                {t('profile.logout')}
+              </button>
+            </div>
           </div>
         </aside>
 
+        {/* RIGHT MAIN CONTENT */}
         <main className="space-y-6">
-          <section className="rounded-2xl border border-[#ead8ca] bg-white p-6 shadow-sm">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-black text-[#4b2417]">
-                  {t('profile.profile_info')}
-                </h2>
 
-                <p className="mt-1 text-sm text-[#6f5448]">
-                  Data akun buyer dari autentikasi backend.
-                </p>
-              </div>
+          {/* Personal Information Card */}
+          <section className="rounded-2xl border border-[#D0BFAF] bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-[#3A1F16] mb-4 border-b border-[#EAD8CA] pb-3">
+              {t('profile.profile_info')}
+            </h2>
 
-              <div className="hidden rounded-full bg-[#fff1e9] px-3 py-1 text-xs font-bold text-[#d85b30] sm:block">
-                Buyer
-              </div>
-            </div>
-
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <div className="rounded-xl border border-[#ead8ca] bg-[#fffaf6] p-4">
-                <div className="mb-2 flex items-center gap-2 text-sm font-bold text-[#4b2417]">
-                  <User className="h-4 w-4 text-[#d85b30]" />
-                  Nama
+            <div className="grid gap-4 md:grid-cols-2">
+              {/* Name */}
+              <div className="rounded-xl border border-[#EAD8CA] bg-[#F6EFE6]/40 p-4">
+                <div className="mb-1.5 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#6B4A3C]">
+                  <User className="h-3.5 w-3.5 text-[#9B4A2F]" />
+                  {t('profile.name')}
                 </div>
-
-                <p className="text-sm text-[#6f5448]">
+                <p className="text-sm font-semibold text-[#3A1F16]">
                   {user.name || '-'}
                 </p>
               </div>
 
-              <div className="rounded-xl border border-[#ead8ca] bg-[#fffaf6] p-4">
-                <div className="mb-2 flex items-center gap-2 text-sm font-bold text-[#4b2417]">
-                  <Mail className="h-4 w-4 text-[#d85b30]" />
-                  Email
+              {/* Email */}
+              <div className="rounded-xl border border-[#EAD8CA] bg-[#F6EFE6]/40 p-4">
+                <div className="mb-1.5 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#6B4A3C]">
+                  <Mail className="h-3.5 w-3.5 text-[#9B4A2F]" />
+                  {t('profile.email')}
                 </div>
-
-                <p className="break-all text-sm text-[#6f5448]">
+                <p className="break-all text-sm font-semibold text-[#3A1F16]">
                   {user.email || '-'}
                 </p>
               </div>
 
-              <div className="rounded-xl border border-[#ead8ca] bg-[#fffaf6] p-4 flex flex-col justify-between">
-                <div>
-                  <div className="mb-2 flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-sm font-bold text-[#4b2417]">
-                      <Phone className="h-4 w-4 text-[#d85b30]" />
-                      Nomor WhatsApp
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setNewPhone(user.phone || '')
-                        setPhoneCurrentPassword('')
-                        setPhoneError(null)
-                        setPhoneSuccess(null)
-                        setIsPhoneModalOpen(true)
-                      }}
-                      className="text-xs font-bold text-[#d85b30] hover:text-[#c04e28] hover:underline"
-                    >
-                      Ubah
-                    </button>
+              {/* WhatsApp Number */}
+              <div className="rounded-xl border border-[#EAD8CA] bg-[#F6EFE6]/40 p-4 md:col-span-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#6B4A3C]">
+                    <Phone className="h-3.5 w-3.5 text-[#9B4A2F]" />
+                    {t('profile.phone')}
                   </div>
-
-                  <p className="text-sm text-[#6f5448]">
-                    {user.phone || '-'}
-                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewPhone(user.phone || '')
+                      setPhoneCurrentPassword('')
+                      setPhoneError(null)
+                      setPhoneSuccess(null)
+                      setIsPhoneModalOpen(true)
+                    }}
+                    className="text-xs font-bold text-[#9B4A2F] hover:text-[#7E3A24] hover:underline"
+                  >
+                    {t('profile.change')}
+                  </button>
                 </div>
-              </div>
-
-              <div className="rounded-xl border border-[#ead8ca] bg-[#fffaf6] p-4">
-                <div className="mb-2 flex items-center gap-2 text-sm font-bold text-[#4b2417]">
-                  <Shield className="h-4 w-4 text-[#d85b30]" />
-                  Role
-                </div>
-
-                <p className="text-sm capitalize text-[#6f5448]">
-                  {user.role}
+                <p className="mt-1 text-sm font-semibold text-[#3A1F16]">
+                  {user.phone || '-'}
                 </p>
               </div>
             </div>
           </section>
 
-          <section className="rounded-2xl border border-[#ead8ca] bg-white p-6 shadow-sm">
-            <h2 className="text-xl font-black text-[#4b2417]">
-              Keamanan Akun
+          {/* Account Security Card */}
+          <section className="rounded-2xl border border-[#D0BFAF] bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-[#3A1F16] mb-1">
+              {t('profile.account_security')}
             </h2>
 
-            <p className="mt-1 text-sm text-[#6f5448]">
-              Ganti password dengan memasukkan password Anda saat ini.
+            <p className="text-xs text-[#6B4A3C] mb-4">
+              {t('profile.change_password')}
             </p>
 
             {passwordError && (
-              <div className="mt-4 flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
-                <AlertCircle className="h-4 w-4 shrink-0" />
+              <div className="mb-4 flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+                <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
                 {passwordError}
               </div>
             )}
 
             {passwordSuccess && (
-              <div className="mt-4 flex items-center gap-2 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-600">
-                <CheckCircle className="h-4 w-4 shrink-0" />
+              <div className="mb-4 flex items-center gap-2 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
+                <CheckCircle className="h-4 w-4 shrink-0 text-green-500" />
                 {passwordSuccess}
               </div>
             )}
@@ -441,29 +419,29 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() => setIsChangingPassword(true)}
-                className="mt-5 inline-flex h-11 items-center justify-center rounded-xl bg-[#d85b30] px-5 text-sm font-black text-white transition hover:bg-[#c04e28]"
+                className="inline-flex h-10 items-center justify-center rounded-xl bg-[#9B4A2F] px-5 text-sm font-bold text-white transition hover:bg-[#7E3A24]"
               >
                 <Lock className="mr-2 h-4 w-4" />
-                Ganti Password
+                {t('profile.change_password')}
               </button>
             ) : (
-              <form onSubmit={handleSavePassword} className="mt-5 max-w-md space-y-4">
+              <form onSubmit={handleSavePassword} className="max-w-md space-y-4 border-t border-[#EAD8CA] pt-4">
                 <div>
-                  <label className="block text-sm font-semibold text-[#4b2417]">
-                    Password Saat Ini
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#3A1F16]">
+                    {t('profile.current_password')}
                   </label>
-                  <div className="relative mt-1.5">
+                  <div className="relative mt-1">
                     <input
                       type={showPassword ? 'text' : 'password'}
                       value={passwordData.current}
                       onChange={(e) => setPasswordData(prev => ({ ...prev, current: e.target.value }))}
-                      placeholder="Masukkan password saat ini"
-                      className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-4 pr-12 text-sm text-[#4b2417] outline-none transition focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
+                      placeholder={t('profile.current_password_placeholder')}
+                      className="w-full rounded-xl border border-[#D0BFAF] bg-white py-2.5 pl-4 pr-12 text-sm text-[#3A1F16] outline-none transition focus:border-[#9B4A2F] focus:ring-2 focus:ring-[#9B4A2F]/20"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(prev => !prev)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166] hover:text-[#4b2417]"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B4A3C] hover:text-[#3A1F16]"
                     >
                       {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -471,48 +449,48 @@ export default function ProfilePage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-[#4b2417]">
-                    Password Baru
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#3A1F16]">
+                    {t('profile.new_password')}
                   </label>
-                  <div className="relative mt-1.5">
+                  <div className="relative mt-1">
                     <input
                       type={showPassword ? 'text' : 'password'}
                       value={passwordData.new}
                       onChange={(e) => setPasswordData(prev => ({ ...prev, new: e.target.value }))}
-                      placeholder="Minimal 6 karakter"
-                      className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-4 pr-12 text-sm text-[#4b2417] outline-none transition focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
+                      placeholder={t('profile.new_password_placeholder')}
+                      className="w-full rounded-xl border border-[#D0BFAF] bg-white py-2.5 pl-4 pr-12 text-sm text-[#3A1F16] outline-none transition focus:border-[#9B4A2F] focus:ring-2 focus:ring-[#9B4A2F]/20"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-[#4b2417]">
-                    Konfirmasi Password Baru
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#3A1F16]">
+                    {t('profile.confirm_password')}
                   </label>
-                  <div className="relative mt-1.5">
+                  <div className="relative mt-1">
                     <input
                       type={showPassword ? 'text' : 'password'}
                       value={passwordData.confirm}
                       onChange={(e) => setPasswordData(prev => ({ ...prev, confirm: e.target.value }))}
-                      placeholder="Ulangi password baru"
-                      className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-4 pr-12 text-sm text-[#4b2417] outline-none transition focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
+                      placeholder={t('profile.confirm_password_placeholder')}
+                      className="w-full rounded-xl border border-[#D0BFAF] bg-white py-2.5 pl-4 pr-12 text-sm text-[#3A1F16] outline-none transition focus:border-[#9B4A2F] focus:ring-2 focus:ring-[#9B4A2F]/20"
                     />
                   </div>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-2 pt-2">
                   <button
                     type="submit"
                     disabled={passwordLoading}
-                    className="inline-flex h-11 items-center justify-center rounded-xl bg-[#d85b30] px-5 text-sm font-black text-white transition hover:bg-[#c04e28] disabled:opacity-60"
+                    className="inline-flex h-10 items-center justify-center rounded-xl bg-[#9B4A2F] px-5 text-sm font-bold text-white transition hover:bg-[#7E3A24] disabled:opacity-60"
                   >
                     {passwordLoading ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Menyimpan...
+                        {t('profile.saving')}
                       </>
                     ) : (
-                      'Simpan Password'
+                      t('profile.save_password')
                     )}
                   </button>
 
@@ -523,9 +501,9 @@ export default function ProfilePage() {
                       setPasswordData({ current: '', new: '', confirm: '' })
                       setPasswordError(null)
                     }}
-                    className="inline-flex h-11 items-center justify-center rounded-xl border border-[#d0bfaf] px-5 text-sm font-bold text-[#4b2417] transition hover:bg-[#fff4ed]"
+                    className="inline-flex h-10 items-center justify-center rounded-xl border border-[#D0BFAF] bg-white px-5 text-sm font-bold text-[#3A1F16] transition hover:bg-[#F6EFE6]"
                   >
-                    Batal
+                    {t('profile.cancel')}
                   </button>
                 </div>
               </form>
@@ -540,7 +518,7 @@ export default function ProfilePage() {
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
             <div className="flex items-center justify-between border-b border-[#ead8ca] pb-3">
               <h3 className="text-lg font-black text-[#4b2417]">
-                Ubah Nomor HP / WhatsApp
+                {t('profile.change_phone_modal_title')}
               </h3>
               <button
                 type="button"
@@ -567,7 +545,7 @@ export default function ProfilePage() {
 
             <form onSubmit={handleSavePhone} className="mt-4 space-y-4">
               <InternationalPhoneInput
-                label="Nomor WhatsApp Baru"
+                label={t('profile.new_phone_label')}
                 value={newPhone}
                 onChange={setNewPhone}
                 placeholder="812 3456 7890"
@@ -575,19 +553,19 @@ export default function ProfilePage() {
                 error={phoneError}
               />
               <p className="text-xs text-[#8b7166]">
-                Pilih kode negara via dropdown dan ketik nomor tanpa angka 0 di depan.
+                {t('profile.phone_helper')}
               </p>
 
               <div>
                 <label className="block text-sm font-semibold text-[#4b2417] mb-1">
-                  Password Saat Ini
+                  {t('profile.current_password')}
                 </label>
                 <div className="relative">
                   <input
                     type={showPhoneCurrentPassword ? 'text' : 'password'}
                     value={phoneCurrentPassword}
                     onChange={(e) => setPhoneCurrentPassword(e.target.value)}
-                    placeholder="Masukkan password Anda"
+                    placeholder={t('profile.current_password_placeholder')}
                     className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-2.5 pl-4 pr-10 text-sm text-[#4b2417] outline-none transition focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
                     required
                   />
@@ -607,7 +585,7 @@ export default function ProfilePage() {
                   onClick={() => setIsPhoneModalOpen(false)}
                   className="rounded-xl border border-[#d0bfaf] px-4 py-2.5 text-sm font-bold text-[#4b2417] hover:bg-[#fff4ed] transition"
                 >
-                  Batal
+                  {t('profile.cancel')}
                 </button>
                 <button
                   type="submit"
@@ -617,10 +595,10 @@ export default function ProfilePage() {
                   {phoneLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Menyimpan...
+                      {t('profile.saving')}
                     </>
                   ) : (
-                    'Simpan Nomor'
+                    t('profile.save_phone')
                   )}
                 </button>
               </div>
@@ -628,6 +606,17 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
+
+      {/* Image Cropper Modal */}
+      {isCropperOpen && cropperSrc && (
+        <ImageCropper
+          imageSrc={cropperSrc}
+          onCrop={handleCropConfirm}
+          onCancel={handleCropCancel}
+          isUploading={avatarLoading}
+        />
+      )}
     </div>
   )
 }
+

@@ -14,6 +14,8 @@ export interface PaymentChargeResponse {
   qris_url: string | null;
   status: string;
   midtrans_response: any;
+  jumlah_bayar?: number;
+  payment_method?: string;
 }
 
 export async function processPaymentAPI(payload: PaymentChargeRequest): Promise<PaymentChargeResponse> {

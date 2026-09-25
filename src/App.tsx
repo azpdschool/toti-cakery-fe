@@ -3,7 +3,9 @@ import { RouterProvider } from 'react-router-dom'
 import { AuthProvider } from '@/components/common/AuthProvider'
 import { CartProvider } from '@/context/CartContext'
 import { WhatsAppProvider } from '@/context/WhatsAppContext'
+import { WishlistProvider } from '@/hooks/useWishlist'
 import { ToastProvider } from '@/components/ui/Toast'
+import { Toaster } from 'react-hot-toast'
 import { router } from '@/router'
 import '@/lib/i18n'
 
@@ -18,14 +20,17 @@ function Loading() {
 export default function App() {
   return (
     <ToastProvider>
+      <Toaster position="bottom-right" toastOptions={{ duration: 4000 }} />
       <AuthProvider>
-        <CartProvider>
-          <WhatsAppProvider>
-          <Suspense fallback={<Loading />}>
-            <RouterProvider router={router} />
-          </Suspense>
-        </WhatsAppProvider>
-        </CartProvider>
+        <WishlistProvider>
+          <CartProvider>
+            <WhatsAppProvider>
+              <Suspense fallback={<Loading />}>
+                <RouterProvider router={router} />
+              </Suspense>
+            </WhatsAppProvider>
+          </CartProvider>
+        </WishlistProvider>
       </AuthProvider>
     </ToastProvider>
   )

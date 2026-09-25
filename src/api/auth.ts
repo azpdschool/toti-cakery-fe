@@ -102,6 +102,17 @@ export interface BuyerAuthResponse {
   name: string
   email: string
   phone: string
+  avatar_url?: string | null
+}
+
+export interface BuyerProfileResponse {
+  id: number
+  name: string
+  email: string
+  phone: string
+  avatar_url?: string | null
+  is_verified?: boolean
+  is_active?: boolean
 }
 
 export interface MessageResponse {
@@ -143,6 +154,7 @@ export function mapBuyerAuthResponseToUser(data: BuyerAuthResponse): User {
     role: 'buyer',
     email: data.email,
     phone: data.phone,
+    avatar_url: data.avatar_url,
   }
 }
 
@@ -311,3 +323,22 @@ export async function changeBuyerPhone(payload: { current_password: string, phon
   const response = await apiClient.patch<{phone: string}>('/buyers/me/phone', payload)
   return response.data
 }
+
+export async function uploadBuyerAvatar(file: File): Promise<BuyerProfileResponse> {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const response = await apiClient.post<BuyerProfileResponse>('/buyers/me/avatar', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  })
+
+  return response.data
+}
+
+export async function getBuyerProfile(): Promise<BuyerProfileResponse> {
+  const response = await apiClient.get<BuyerProfileResponse>('/buyers/me')
+  return response.data
+}
+

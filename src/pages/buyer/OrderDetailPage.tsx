@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useState, useEffect } from 'react'
 import type React from 'react'
 import { Link, useParams, Navigate } from 'react-router-dom'
+import { toast } from 'react-hot-toast'
 import {
   ArrowLeft,
   Truck,
@@ -16,12 +17,16 @@ import {
   Phone,
   Loader2,
   Star,
+  Upload,
+  Trash2,
+  X,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { downloadInvoice } from '@/services/invoiceService'
 import { Download } from 'lucide-react'
 import { formatRupiah } from '@/services/productService'
-import { submitReview, getProductReviews } from '@/services/reviewService'
+import { submitReview, getProductReviews, deleteReviewImage } from '@/services/reviewService'
+import type { ReviewResponse } from '@/api/review'
 import {
   getBuyerOrderById,
   type BuyerOrder,
@@ -30,6 +35,12 @@ import {
   processPayment,
 } from '@/services/buyerOrderService'
 import { ROUTES } from '@/constants'
+import {
+  PaymentMethodSelector,
+  VirtualAccountPaymentCard,
+  QrisPaymentCard,
+  PaymentInstructions
+} from '@/components/payment'
 
 const statusMap: Record<
   OrderStatus,
@@ -85,7 +96,7 @@ export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { user, isAuthenticated } = useAuth()
 
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [order, setOrder] = useState<BuyerOrder | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -100,30 +111,43 @@ export default function OrderDetailPage() {
   const [reviewModalItem, setReviewModalItem] = useState<{ productId: string; productName: string } | null>(null)
   const [reviewRating, setReviewRating] = useState(0)
   const [reviewComment, setReviewComment] = useState('')
+  const [selectedImageFiles, setSelectedImageFiles] = useState<File[]>([])
+  const [selectedImagePreviews, setSelectedImagePreviews] = useState<string[]>([])
   const [isSubmittingReview, setIsSubmittingReview] = useState(false)
+  const [deletingImageId, setDeletingImageId] = useState<number | null>(null)
+  const [selectedLightBoxUrl, setSelectedLightBoxUrl] = useState<string | null>(null)
   const [reviewError, setReviewError] = useState<string | null>(null)
-  const [reviewSuccessMsg, setReviewSuccessMsg] = useState<string | null>(null)
   const [reviewedProductIds, setReviewedProductIds] = useState<Set<string>>(new Set())
+  const [orderReviewsMap, setOrderReviewsMap] = useState<Record<string, ReviewResponse>>({})
 
   const handleDownloadInvoice = async () => {
     if (!order) return;
     setIsDownloading(true);
     setError(null);
     try {
-      await downloadInvoice(order.id);
+      const lang = i18n.language === 'en' ? 'en' : 'id'
+      await downloadInvoice(order.id, lang);
     } catch (err: any) {
-      setError(err.message || 'Gagal mengunduh invoice.');
+      setError(err.message || t('orders.invoice_download_failed'));
     } finally {
       setIsDownloading(false);
     }
   }
 
   const handlePayRemaining = async () => {
-    if (!order || !order.amountDue) return;
+    if (!order) return;
     setIsPayingRemaining(true);
     setError(null);
     try {
-      const result = await processPayment(order.id, payRemainingMethod, 'dp', order.amountDue);
+      // paymentType is 'dp' if it's an unpaid order with preference 'dp', OR if it's a partial order paying the remaining half
+      const isDp = (order.paymentStatus === 'unpaid' && String(order.paymentMethodPreference).toLowerCase() === 'dp') || order.paymentStatus === 'partial';
+      const paymentType = isDp ? 'dp' : 'full';
+      
+      const amountToPay = (order.paymentStatus === 'unpaid' && isDp) 
+        ? Math.round(order.total / 2) 
+        : (order.amountDue || 0);
+
+      const result = await processPayment(order.id, payRemainingMethod, paymentType, amountToPay);
       
       const resultStatus = String(result.status ?? '').toLowerCase();
       const hasInstruction = !!(result.qris_url || result.va_number || result.midtrans_response?.redirect_url);
@@ -147,47 +171,106 @@ export default function OrderDetailPage() {
     }
   }
 
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    const maxSizeBytes = 5 * 1024 * 1024; // 5 MB
+
+    const newFiles: File[] = [];
+    const newPreviews: string[] = [];
+
+    for (let i = 0; i < e.target.files.length; i++) {
+      const file = e.target.files[i];
+      if (!allowedTypes.includes(file.type)) {
+        toast.error(`${file.name}: ${t('review.invalid_format')}`);
+        continue;
+      }
+      if (file.size > maxSizeBytes) {
+        toast.error(`${file.name}: ${t('review.file_too_large')}`);
+        continue;
+      }
+      newFiles.push(file);
+      newPreviews.push(URL.createObjectURL(file));
+    }
+
+    setSelectedImageFiles((prev) => [...prev, ...newFiles]);
+    setSelectedImagePreviews((prev) => [...prev, ...newPreviews]);
+    e.target.value = '';
+  }
+
+  const handleRemoveSelectedImage = (index: number) => {
+    URL.revokeObjectURL(selectedImagePreviews[index]);
+    setSelectedImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setSelectedImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  }
+
   const handleSubmitReview = async () => {
     if (!order || !reviewModalItem) return;
     if (reviewRating === 0) {
-      setReviewError('Silakan pilih rating (1-5 bintang).');
+      setReviewError(t('review.rating_required'));
       return;
     }
     if (!reviewComment.trim()) {
-      setReviewError('Ulasan tidak boleh kosong.');
+      setReviewError(t('review.review_required'));
       return;
     }
 
     setIsSubmittingReview(true);
     setReviewError(null);
-    setReviewSuccessMsg(null);
 
     try {
-      await submitReview({
+      const newReview = await submitReview({
         orderId: Number(order.id),
         productId: Number(reviewModalItem.productId),
         rating: reviewRating,
         comment: reviewComment.trim(),
+        images: selectedImageFiles.length > 0 ? selectedImageFiles : undefined,
       });
       
-      setReviewSuccessMsg('Review berhasil dikirim!');
+      toast.success(t('review.submitted_success'));
       setReviewedProductIds(prev => new Set(prev).add(reviewModalItem.productId));
-      setTimeout(() => {
-        closeReviewModal();
-      }, 2000);
+      setOrderReviewsMap(prev => ({ ...prev, [reviewModalItem.productId]: newReview }));
+      closeReviewModal();
     } catch (err: any) {
-      setReviewError(err.response?.data?.detail || err.message || 'Terjadi kesalahan saat mengirim review.');
+      toast.error(t('review.submit_failed'));
+      setReviewError(err.response?.data?.detail || err.message || t('review.submit_failed'));
     } finally {
       setIsSubmittingReview(false);
     }
   }
 
+  const handleDeleteReviewImage = async (reviewId: number, imageId: number, productId: string) => {
+    setDeletingImageId(imageId);
+    try {
+      await deleteReviewImage(reviewId, imageId);
+      toast.success('Foto ulasan berhasil dihapus.');
+      setOrderReviewsMap(prev => {
+        const currentRev = prev[productId];
+        if (!currentRev) return prev;
+        const updatedImages = (currentRev.images || []).filter(img => img.id !== imageId);
+        return {
+          ...prev,
+          [productId]: {
+            ...currentRev,
+            images: updatedImages,
+          },
+        };
+      });
+    } catch (err: any) {
+      toast.error('Gagal menghapus foto ulasan.');
+    } finally {
+      setDeletingImageId(null);
+    }
+  }
+
   const closeReviewModal = () => {
+    selectedImagePreviews.forEach(url => URL.revokeObjectURL(url));
     setReviewModalItem(null);
     setReviewRating(0);
     setReviewComment('');
+    setSelectedImageFiles([]);
+    setSelectedImagePreviews([]);
     setReviewError(null);
-    setReviewSuccessMsg(null);
   }
 
   useEffect(() => {
@@ -234,14 +317,17 @@ export default function OrderDetailPage() {
               const reviewsResults = await Promise.all(reviewsPromises);
               
               const reviewedSet = new Set<string>();
+              const revMap: Record<string, ReviewResponse> = {};
               reviewsResults.forEach(reviews => {
                  reviews.forEach(r => {
                     if (String(r.order_id) === String(data.id)) {
                        reviewedSet.add(String(r.product_id));
+                       revMap[String(r.product_id)] = r;
                     }
                  });
               });
               setReviewedProductIds(reviewedSet);
+              setOrderReviewsMap(revMap);
             } catch (err) {
               console.error("Gagal memuat status review produk:", err);
             }
@@ -300,8 +386,10 @@ export default function OrderDetailPage() {
     let info = statusMap[status] || statusMap.pending
 
     if (status === 'ready') {
-      const label = order.deliveryMethod === 'pickup' ? 'Siap Diambil' : 'Siap Dikirim'
+      const label = order.deliveryMethod === 'pickup' ? t('orders.ready_pickup') : t('orders.ready_delivery')
       info = { ...info, label }
+    } else {
+      info = { ...info, label: t(`orders.status_${status}`) }
     }
 
     return (
@@ -348,6 +436,12 @@ export default function OrderDetailPage() {
   const methodInfo = methodMap[order.deliveryMethod] || methodMap.pickup
   const isDelivery = order.deliveryMethod !== 'pickup'
 
+  const activePaymentAmount = paymentInstructions?.jumlah_bayar 
+    ?? paymentInstructions?.amount 
+    ?? ((order.paymentStatus === 'unpaid' && String(order.paymentMethodPreference).toLowerCase() === 'dp')
+      ? Math.round(order.total / 2)
+      : (order.amountDue || 0));
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
       <Link
@@ -367,7 +461,7 @@ export default function OrderDetailPage() {
               </h1>
 
               <p className="text-sm text-[#6f5448]">
-                Dipesan {order.date} · {order.time}
+                {t('order_detail.ordered_on')} {order.date} · {order.time}
               </p>
             </div>
 
@@ -381,12 +475,12 @@ export default function OrderDetailPage() {
                 {isDownloading ? (
                   <>
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Mengunduh...
+                    {t('order_detail.downloading')}
                   </>
                 ) : (
                   <>
                     <Download className="h-3.5 w-3.5" />
-                    Unduh Invoice
+                    {t('order_detail.download_invoice')}
                   </>
                 )}
               </button>
@@ -395,11 +489,11 @@ export default function OrderDetailPage() {
         </div>
 
         <div className="p-6">
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid gap-6 md:grid-cols-2 items-start">
             <div>
               <div className="rounded-xl border border-[#ead8ca] p-4">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-[#6f5448]">
-                  Metode Pengiriman
+                  {t('order_detail.shipping_method')}
                 </h3>
 
                 <div className="mt-3 flex items-center gap-3">
@@ -409,7 +503,7 @@ export default function OrderDetailPage() {
 
                   <div>
                     <p className="font-medium text-[#4b2417]">
-                      {methodInfo.label}
+                      {t(`orders.method_${order.deliveryMethod}`)}
                     </p>
 
                     {isDelivery && order.address ? (
@@ -445,19 +539,31 @@ export default function OrderDetailPage() {
 
               <div className="mt-4 rounded-xl border border-[#ead8ca] p-4">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-[#6f5448]">
-                  Informasi Pembayaran
+                  {t('order_detail.payment_information')}
                 </h3>
 
                 <div className="mt-3 space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-[#6f5448]">{t('order_detail.method', 'Metode')}</span>
+                    <span className="text-[#6f5448]">{t('checkout.payment_preference')}</span>
                     <span className="font-medium capitalize text-[#4b2417]">
-                      {order.paymentMethod}
+                      {String(order.paymentMethodPreference).toLowerCase() === 'dp' ? t('checkout.pay_dp_label') : t('checkout.pay_full_label')}
                     </span>
                   </div>
 
                   <div className="flex justify-between">
-                    <span className="text-[#6f5448]">{t('order_detail.status', 'Status')}</span>
+                    <span className="text-[#6f5448]">{t('order_detail.method')}</span>
+                    <span className="font-medium text-[#4b2417]">
+                      {(() => {
+                        const activeMethod = paymentInstructions?.payment_method || (order.paymentChannel !== '-' ? order.paymentChannel : null);
+                        if (activeMethod === 'qris') return t('checkout.qris');
+                        if (activeMethod === 'bank_transfer') return t('checkout.bca_va');
+                        return i18n.language === 'en' ? 'Not selected' : 'Belum dipilih';
+                      })()}
+                    </span>
+                  </div>
+
+                  <div className="flex justify-between">
+                    <span className="text-[#6f5448]">{t('order_detail.status')}</span>
                     <span
                       className={`font-medium capitalize ${
                         order.paymentStatus === 'paid'
@@ -470,75 +576,68 @@ export default function OrderDetailPage() {
                       }`}
                     >
                       {order.paymentStatus === 'paid'
-                        ? 'Lunas'
+                        ? t('order_detail.paid')
                         : order.paymentStatus === 'partial'
-                          ? 'DP Dibayar'
+                          ? t('order_detail.dp_paid')
                           : order.paymentStatus === 'refunded'
-                            ? 'Dikembalikan'
-                            : 'Belum Dibayar'}
+                            ? t('orders.status_refunded')
+                            : t('order_detail.unpaid')}
                     </span>
                   </div>
 
                   <div className="flex justify-between border-t border-[#ead8ca] pt-2 font-bold">
-                    <span className="text-[#4b2417]">{t('order_detail.total', 'Total')}</span>
+                    <span className="text-[#4b2417]">{t('checkout.due_now')}</span>
+                    <span className="text-red-600">
+                      {formatRupiah(activePaymentAmount)}
+                    </span>
+                  </div>
+                  
+                  <div className="flex justify-between mt-1 text-sm">
+                    <span className="text-[#6f5448]">{t('order_detail.total_paid')}</span>
+                    <span className="text-[#4b2417] font-medium">
+                      {formatRupiah(order.amountPaid || 0)}
+                    </span>
+                  </div>
+                  
+                  <div className="flex justify-between mt-1 text-sm">
+                    <span className="text-[#6f5448]">{t('order_detail.remaining_bill')}</span>
+                    <span className="text-[#4b2417] font-medium">
+                      {formatRupiah(order.amountDue || 0)}
+                    </span>
+                  </div>
+                  
+                  <div className="flex justify-between mt-1 text-sm font-bold">
+                    <span className="text-[#4b2417]">{t('order_detail.total')}</span>
                     <span className="text-[#d85b30]">
                       {formatRupiah(order.total)}
                     </span>
                   </div>
-                  {order.amountPaid !== undefined && (
-                    <div className="flex justify-between mt-1 text-sm">
-                      <span className="text-[#6f5448]">{t('order_detail.total_paid', 'Total Dibayar')}</span>
-                      <span className="text-[#4b2417] font-medium">
-                        {formatRupiah(order.amountPaid)}
-                      </span>
-                    </div>
-                  )}
-                  {order.amountDue !== undefined  && (
-                    <div className="flex justify-between mt-1 text-sm font-bold">
-                      <span className="text-[#4b2417]">{t('order_detail.remaining_bill', 'Sisa Tagihan')}</span>
-                      <span className="text-red-600">
-                        {formatRupiah(order.amountDue)}
-                      </span>
-                    </div>
-                  )}
                 </div>
 
-                {/* Bayar Sisa Tagihan */}
-                {order.paymentStatus === 'partial' && order.amountDue !== undefined && order.amountDue > 0 && !paymentInstructions && (
+                {/* Pembayaran Tagihan (Unpaid / Partial) */}
+                {(order.paymentStatus === 'unpaid' || (order.paymentStatus === 'partial' && order.amountDue !== undefined && order.amountDue > 0)) && !paymentInstructions && (
                   <div className="mt-4 border-t border-[#ead8ca] pt-4">
                     {!showPayRemaining ? (
                       <button
                         onClick={() => setShowPayRemaining(true)}
                         className="flex h-10 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white transition hover:bg-[#c04e28]"
                       >
-                        Bayar Sisa Tagihan
+                        {order.paymentStatus === 'unpaid' ? t('checkout.continue_payment') : t('order_detail.pay_remaining')}
                       </button>
                     ) : (
                       <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-semibold text-[#4b2417] mb-2">{t('order_detail.choose_payment_method', 'Pilih Metode Pelunasan')}</label>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => setPayRemainingMethod('qris')}
-                              className={`flex-1 rounded-lg border-2 p-2 text-xs font-semibold ${payRemainingMethod === 'qris' ? 'border-[#d85b30] text-[#d85b30] bg-[#d85b30]/5' : 'border-gray-200 text-gray-600'}`}
-                            >
-                              QRIS
-                            </button>
-                            <button
-                              onClick={() => setPayRemainingMethod('bank_transfer')}
-                              className={`flex-1 rounded-lg border-2 p-2 text-xs font-semibold ${payRemainingMethod === 'bank_transfer' ? 'border-[#d85b30] text-[#d85b30] bg-[#d85b30]/5' : 'border-gray-200 text-gray-600'}`}
-                            >
-                              Bank Transfer
-                            </button>
-                          </div>
-                        </div>
+                        <PaymentMethodSelector
+                          selectedMethod={payRemainingMethod}
+                          onSelect={setPayRemainingMethod}
+                          disabled={isPayingRemaining}
+                        />
                         <div className="flex gap-2">
                           <button
                             onClick={() => setShowPayRemaining(false)}
                             disabled={isPayingRemaining}
                             className="flex-1 h-10 rounded-xl border border-gray-300 text-sm font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-50"
                           >
-                            Batal
+                            {t('order_detail.cancel')}
                           </button>
                           <button
                             onClick={handlePayRemaining}
@@ -548,10 +647,10 @@ export default function OrderDetailPage() {
                             {isPayingRemaining ? (
                               <>
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Memproses...
+                                {t('order_detail.processing')}
                               </>
                             ) : (
-                              'Dapatkan Kode Bayar'
+                              t('order_detail.get_pay_code')
                             )}
                           </button>
                         </div>
@@ -564,7 +663,7 @@ export default function OrderDetailPage() {
               {order.notes && (
                 <div className="mt-4 rounded-xl border border-[#ead8ca] p-4">
                   <h3 className="text-sm font-bold uppercase tracking-wider text-[#6f5448]">
-                    Catatan
+                    {t('order_detail.notes')}
                   </h3>
 
                   <p className="mt-2 text-sm text-[#6f5448]">
@@ -601,19 +700,56 @@ export default function OrderDetailPage() {
                           </p>
 
                           {order.status === 'completed' && item.productId && (
-                            <div className="mt-2">
+                            <div className="mt-2 space-y-2">
                               {reviewedProductIds.has(item.productId) ? (
-                                <span className="text-xs font-semibold text-green-600 flex items-center gap-1">
-                                  <CheckCircle className="h-3.5 w-3.5" />
-                                  Sudah Diulas
-                                </span>
+                                <div>
+                                  <span className="text-xs font-semibold text-green-600 flex items-center gap-1">
+                                    <CheckCircle className="h-3.5 w-3.5" />
+                                    {t('review.already_reviewed')}
+                                  </span>
+                                  {orderReviewsMap[item.productId] && (
+                                    <div className="mt-1 text-xs text-[#6f5448] bg-[#f8f4f0] p-2.5 rounded-lg border border-[#ead8ca]">
+                                      <div className="flex items-center gap-1 text-[#f59e0b] font-bold mb-1">
+                                        {'★'.repeat(orderReviewsMap[item.productId].rating)}
+                                      </div>
+                                      <p>{orderReviewsMap[item.productId].comment}</p>
+                                      {orderReviewsMap[item.productId].images && orderReviewsMap[item.productId].images!.length > 0 && (
+                                        <div className="mt-2 flex flex-wrap gap-2">
+                                          {orderReviewsMap[item.productId].images!.map((img) => (
+                                            <div key={img.id} className="relative group h-12 w-12 rounded-lg overflow-hidden border border-[#ead8ca]">
+                                              <img
+                                                src={img.image_url}
+                                                alt="Review"
+                                                className="h-full w-full object-cover cursor-pointer"
+                                                onClick={() => setSelectedLightBoxUrl(img.image_url)}
+                                              />
+                                              <button
+                                                type="button"
+                                                onClick={() => handleDeleteReviewImage(orderReviewsMap[item.productId!].id, img.id, item.productId!)}
+                                                disabled={deletingImageId === img.id}
+                                                title={t('review.remove_photo')}
+                                                className="absolute top-0.5 right-0.5 bg-red-600/80 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition hover:bg-red-700"
+                                              >
+                                                {deletingImageId === img.id ? (
+                                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                                ) : (
+                                                  <Trash2 className="h-3 w-3" />
+                                                )}
+                                              </button>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
                               ) : (
                                 <button
                                   onClick={() => setReviewModalItem({ productId: item.productId!, productName: item.productName })}
                                   className="flex items-center gap-1 rounded-md border border-[#d85b30] px-2 py-1 text-xs font-semibold text-[#d85b30] transition hover:bg-[#fff9f6]"
                                 >
                                   <Star className="h-3.5 w-3.5" />
-                                  Beri Review
+                                  {t('review.give_review')}
                                 </button>
                               )}
                             </div>
@@ -630,7 +766,7 @@ export default function OrderDetailPage() {
 
                 <div className="mt-4 space-y-1 border-t border-[#ead8ca] pt-3 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-[#6f5448]">{t('order_detail.subtotal', 'Subtotal')}</span>
+                    <span className="text-[#6f5448]">{t('order_detail.subtotal')}</span>
                     <span className="text-[#4b2417]">
                       {formatRupiah(order.subtotal)}
                     </span>
@@ -639,17 +775,17 @@ export default function OrderDetailPage() {
                   {order.deliveryMethod !== 'pickup' && (
                     <div className="flex justify-between">
                       <span className="text-[#6f5448]">
-                        Biaya Pengiriman
+                        {t('order_detail.shipping_fee')}
                       </span>
                       <span className="text-sm text-[#8b7166]">
-                        Dihitung via WhatsApp
+                        {t('order_detail.calculated_via_wa')}
                       </span>
                     </div>
                   )}
 
                   {order.serviceFee > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-[#6f5448]">{t('order_detail.service_fee', 'Biaya Layanan')}</span>
+                      <span className="text-[#6f5448]">{t('order_detail.service_fee')}</span>
                       <span className="text-[#4b2417]">
                         {formatRupiah(order.serviceFee)}
                       </span>
@@ -681,8 +817,7 @@ export default function OrderDetailPage() {
 
                   {order.deliveryMethod !== 'pickup' && (
                     <p className="mt-2 text-center text-xs text-[#8b7166]">
-                      * Biaya pengiriman akan ditambahkan kemudian dan
-                      diinformasikan via WhatsApp.
+                      {t('order_detail.shipping_fee_note')}
                     </p>
                   )}
                 </div>
@@ -696,22 +831,13 @@ export default function OrderDetailPage() {
                 
                 <div className="mt-3 space-y-3">
                   {paymentInstructions && (
-                    <div className="mb-4 rounded-xl border-2 border-[#d85b30] bg-[#f8f4f0] p-4 text-center">
-                      <h4 className="text-sm font-bold text-[#4b2417] mb-3">{t('order_detail.continue_payment', 'Lanjutkan Pembayaran')}</h4>
+                    <div className="mb-4 grid gap-4">
                       {paymentInstructions.qris_url ? (
-                        <>
-                          <p className="text-xs font-semibold text-[#6f5448] mb-2">{t('order_detail.qris', 'Scan QRIS')}</p>
-                          <img src={paymentInstructions.qris_url} alt="QRIS" className="mx-auto w-48 h-48 bg-white p-2 rounded-lg" />
-                        </>
+                        <QrisPaymentCard qrisUrl={paymentInstructions.qris_url} amount={activePaymentAmount} />
                       ) : paymentInstructions.va_number ? (
-                        <>
-                          <p className="text-xs font-semibold text-[#6f5448] mb-2">{t('order_detail.bank_transfer', 'Virtual Account Bank Transfer')}</p>
-                          <p className="text-2xl font-mono text-[#d85b30]">{paymentInstructions.va_number}</p>
-                        </>
+                        <VirtualAccountPaymentCard bankName="BCA" vaNumber={paymentInstructions.va_number} amount={activePaymentAmount} />
                       ) : null}
-                      <p className="mt-2 text-xs text-[#8b7166]">
-                        {t('order_detail.payment_warning')}
-                      </p>
+                      <PaymentInstructions method={paymentInstructions.qris_url ? 'qris' : 'bank_transfer'} />
                     </div>
                   )}
 
@@ -723,7 +849,7 @@ export default function OrderDetailPage() {
 
                     <div>
                       <p className="text-sm font-medium text-[#4b2417]">
-                        Pesanan Dibuat
+                        {t('order_detail.status_created')}
                       </p>
                       <p className="text-xs text-[#6f5448]">
                         {order.date} · {order.time}
@@ -742,10 +868,10 @@ export default function OrderDetailPage() {
 
                       <div>
                         <p className="text-sm font-medium text-[#4b2417]">
-                          Sedang Diproses
+                          {t('orders.status_processed')}
                         </p>
                         <p className="text-xs text-[#6f5448]">
-                          Estimasi selesai: {order.estimatedDate || '-'}
+                          {t('order_detail.estimated_completion')}: {order.estimatedDate || '-'}
                         </p>
                       </div>
                     </div>
@@ -761,7 +887,7 @@ export default function OrderDetailPage() {
 
                       <div>
                         <p className="text-sm font-medium text-[#4b2417]">
-                          {order.deliveryMethod === 'pickup' ? 'Siap Diambil' : 'Siap Dikirim'}
+                          {order.deliveryMethod === 'pickup' ? t('order_detail.ready_pickup') : t('order_detail.ready_delivery')}
                         </p>
                       </div>
                     </div>
@@ -776,7 +902,7 @@ export default function OrderDetailPage() {
 
                       <div>
                         <p className="text-sm font-medium text-[#4b2417]">
-                          Dalam Pengiriman
+                          {t('order_detail.in_delivery')}
                         </p>
                       </div>
                     </div>
@@ -790,7 +916,7 @@ export default function OrderDetailPage() {
 
                       <div>
                         <p className="text-sm font-medium text-[#4b2417]">
-                          Pesanan Selesai
+                          {t('order_detail.status_completed')}
                         </p>
                         <p className="text-xs text-[#6f5448]">
                           {order.completedDate || order.date}
@@ -807,7 +933,7 @@ export default function OrderDetailPage() {
 
                       <div>
                         <p className="text-sm font-medium text-[#4b2417]">
-                          Pesanan Dibatalkan
+                          {t('order_detail.status_cancelled')}
                         </p>
                       </div>
                     </div>
@@ -821,7 +947,7 @@ export default function OrderDetailPage() {
 
                       <div>
                         <p className="text-sm font-medium text-[#4b2417]">
-                          Pesanan Dikembalikan
+                          {t('order_detail.status_refunded')}
                         </p>
                       </div>
                     </div>
@@ -837,15 +963,8 @@ export default function OrderDetailPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
             <h2 className="text-lg font-bold text-[#4b2417]">
-              Beri Review untuk {reviewModalItem.productName}
+              {t('review.give_review')} — {reviewModalItem.productName}
             </h2>
-
-            {reviewSuccessMsg && (
-              <div className="mt-4 rounded-lg bg-green-50 p-3 text-sm text-green-700 flex items-center gap-2">
-                <CheckCircle className="h-4 w-4" />
-                {reviewSuccessMsg}
-              </div>
-            )}
 
             {reviewError && (
               <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 flex items-center gap-2">
@@ -861,7 +980,7 @@ export default function OrderDetailPage() {
                   type="button"
                   onClick={() => setReviewRating(star)}
                   className="transition-transform hover:scale-110 focus:outline-none"
-                  aria-label={`Beri rating ${star} bintang`}
+                  aria-label={`${t('review.rating')} ${star}`}
                 >
                   <Star
                     className={`h-8 w-8 ${
@@ -876,16 +995,54 @@ export default function OrderDetailPage() {
 
             <div className="mt-6">
               <label htmlFor="review-comment" className="mb-2 block text-sm font-semibold text-[#6f5448]">
-                Ulasan Produk <span className="text-red-500">*</span>
+                {t('review.product_review')} <span className="text-red-500">*</span>
               </label>
               <textarea
                 id="review-comment"
-                rows={4}
+                rows={3}
                 value={reviewComment}
                 onChange={(e) => setReviewComment(e.target.value)}
-                placeholder="{t('order_detail.review_placeholder')}"
+                placeholder={t('review.placeholder')}
                 className="w-full rounded-xl border border-[#ead8ca] p-3 text-sm outline-none focus:border-[#d85b30] focus:ring-1 focus:ring-[#d85b30]"
               ></textarea>
+            </div>
+
+            {/* Photo Upload Section */}
+            <div className="mt-5">
+              <label className="mb-2 block text-sm font-semibold text-[#6f5448]">
+                {t('review.review_photos')}
+              </label>
+              
+              <div className="flex flex-wrap gap-2.5 items-center">
+                {selectedImagePreviews.map((previewUrl, index) => (
+                  <div key={index} className="relative h-16 w-16 rounded-xl overflow-hidden border border-[#ead8ca] group">
+                    <img src={previewUrl} alt={`Preview ${index + 1}`} className="h-full w-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveSelectedImage(index)}
+                      className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 hover:bg-red-600 transition"
+                      title={t('review.remove_photo')}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+
+                <label className="flex h-16 w-16 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#ead8ca] bg-[#f8f4f0] text-[#6f5448] transition hover:border-[#d85b30] hover:text-[#d85b30]">
+                  <Upload className="h-5 w-5 mb-0.5" />
+                  <span className="text-[10px] font-bold">{t('review.add_photos')}</span>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/jpeg,image/png,image/webp"
+                    onChange={handleImageFileChange}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+              <p className="mt-1.5 text-[11px] text-[#8b7166]">
+                JPG, PNG, WEBP (Maks 5 MB per file)
+              </p>
             </div>
 
             <div className="mt-6 flex gap-3">
@@ -894,23 +1051,41 @@ export default function OrderDetailPage() {
                 disabled={isSubmittingReview}
                 className="flex-1 rounded-xl border border-gray-300 py-2.5 text-sm font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-50"
               >
-                Batal
+                {t('review.cancel')}
               </button>
               <button
                 onClick={handleSubmitReview}
-                disabled={isSubmittingReview || reviewRating === 0 || !reviewComment.trim() || !!reviewSuccessMsg}
+                disabled={isSubmittingReview || reviewRating === 0 || !reviewComment.trim()}
                 className="flex flex-1 items-center justify-center rounded-xl bg-[#d85b30] py-2.5 text-sm font-bold text-white hover:bg-[#c04e28] disabled:opacity-60"
               >
                 {isSubmittingReview ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Mengirim...
+                    {t('review.submitting')}
                   </>
                 ) : (
-                  'Kirim Review'
+                  t('review.submit_review')
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Lightbox Modal */}
+      {selectedLightBoxUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setSelectedLightBoxUrl(null)}
+        >
+          <div className="relative max-w-3xl max-h-[90vh]">
+            <img src={selectedLightBoxUrl} alt="Enlarged review photo" className="max-w-full max-h-[85vh] rounded-lg object-contain" />
+            <button
+              onClick={() => setSelectedLightBoxUrl(null)}
+              className="absolute -top-10 right-0 text-white hover:text-gray-300 focus:outline-none"
+            >
+              <X className="h-7 w-7" />
+            </button>
           </div>
         </div>
       )}

@@ -12,11 +12,13 @@ import {
   Sparkles,
   Star,
   Truck,
+  X,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { ROUTES } from '@/constants'
 import { useCart } from '@/context/CartContext'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'react-hot-toast'
 import {
   getActiveProducts,
   getProductReviews,
@@ -37,6 +39,7 @@ interface Stat {
 }
 
 export default function HomePage() {
+  const [selectedTestimonialImage, setSelectedTestimonialImage] = useState<string | null>(null)
   const { addItem } = useCart()
   const { t } = useTranslation()
 
@@ -73,6 +76,7 @@ export default function HomePage() {
       purchasedProductName: string
       productId: string
       productName: string
+      images?: { id: number; image_url: string }[]
     }[]
   >([])
   const [loading, setLoading] = useState(true)
@@ -95,7 +99,7 @@ export default function HomePage() {
   const handleAddToCart = (product: SimpleProduct) => {
     const isPurchasable = product.isAvailable && product.isInStock && product.stockQuantity > 0;
     if (!isPurchasable) {
-      alert(t('home.alert_out_of_stock'));
+      toast.error(t('cart.add_to_cart_failure', 'Gagal menambahkan produk ke keranjang'));
       return;
     }
     
@@ -108,9 +112,10 @@ export default function HomePage() {
       image: product.image,
       minOrder: product.minimumOrder || 1,
       step: 1,
+      category: product.category,
       quantity: product.minimumOrder || 1,
     });
-    alert(t('home.alert_added_to_cart', { productName: product.name }));
+    toast.success(t('cart.add_to_cart_success', 'Ditambahkan ke keranjang'));
   };
 
   // Horizontal scroll carousel behavior (products)
@@ -186,7 +191,7 @@ export default function HomePage() {
             className="absolute inset-0 hidden md:block"
             style={{
               backgroundImage:
-                "url('https://i.pinimg.com/1200x/a1/44/22/a144222b9399e459efd423fc0c7f82d4.jpg')",
+                "url('https://res.cloudinary.com/mrje22up/image/upload/v1790318553/SaveClip.App_618505350_17958279306045799_2574558123171612005_n.jpg')",
               backgroundSize: 'cover',
               backgroundPosition: 'center',
             }}
@@ -407,16 +412,34 @@ export default function HomePage() {
               >
                 {reviews.map((review) => (
                   <article
-                    key={review.productId + review.customerName}
-                    className="snap-start shrink-0 w-[280px] rounded-xl bg-[#F6EFE6] p-5"
+                    key={review.productId + review.customerName + (review.images?.[0]?.id || '')}
+                    className="snap-start shrink-0 w-[280px] rounded-xl bg-[#F6EFE6] p-5 flex flex-col justify-between"
                   >
-                    <div className="flex gap-3">
-                      <Sparkles className="h-8 w-8 shrink-0 fill-[#E0A04E] text-[#E0A04E]" />
-                      <p className="text-xs leading-6 text-[#6B4A3C]">
-                        {review.comment}
-                      </p>
+                    <div>
+                      <div className="flex gap-3">
+                        <Sparkles className="h-8 w-8 shrink-0 fill-[#E0A04E] text-[#E0A04E]" />
+                        <p className="text-xs leading-6 text-[#6B4A3C] line-clamp-4">
+                          {review.comment}
+                        </p>
+                      </div>
+
+                      {review.images && review.images.length > 0 && (
+                        <div className="mt-3 flex gap-2 overflow-x-auto pb-1 scrollbar-none snap-x">
+                          {review.images.map((img) => (
+                            <button
+                              key={img.id}
+                              type="button"
+                              onClick={() => setSelectedTestimonialImage(img.image_url)}
+                              className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-[#EAD8CA] bg-white transition hover:opacity-90 snap-start focus:outline-none"
+                            >
+                              <img src={img.image_url} alt="Testimoni" className="h-full w-full object-cover" />
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    <div className="mt-5">
+
+                    <div className="mt-4 border-t border-[#EAD8CA]/60 pt-3">
                       <p className="text-sm font-black text-[#3A1F16]">
                         {review.customerName}
                       </p>
@@ -443,6 +466,24 @@ export default function HomePage() {
           )}
         </div>
       </section>
+
+      {/* Lightbox Modal */}
+      {selectedTestimonialImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          onClick={() => setSelectedTestimonialImage(null)}
+        >
+          <div className="relative max-w-3xl max-h-[90vh]">
+            <img src={selectedTestimonialImage} alt="Enlarged testimonial photo" className="max-w-full max-h-[85vh] rounded-lg object-contain" />
+            <button
+              onClick={() => setSelectedTestimonialImage(null)}
+              className="absolute -top-10 right-0 text-white hover:text-gray-300 focus:outline-none"
+            >
+              <X className="h-7 w-7" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

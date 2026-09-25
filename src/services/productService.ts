@@ -147,6 +147,26 @@ function makeDefaultVariant(product: ProductOut): ProductVariant {
 
 export function mapProductOutToProduct(product: ProductOut): Product {
   const price = parseNumber(product.harga_jual);
+  const cacheKey = product.updated_at ?? product.created_at;
+
+  let mappedImages: { id: number; productId?: number; imageUrl: string; isPrimary: boolean }[] = [];
+  if (product.images && product.images.length > 0) {
+    mappedImages = product.images.map((img) => ({
+      id: img.id,
+      productId: img.product_id ?? product.id,
+      imageUrl: resolveImageUrl(img.image_url, cacheKey),
+      isPrimary: img.is_primary,
+    }));
+  } else if (product.image_url) {
+    mappedImages = [
+      {
+        id: -1,
+        productId: product.id,
+        imageUrl: resolveImageUrl(product.image_url, cacheKey),
+        isPrimary: true,
+      },
+    ];
+  }
 
   return {
     id: String(product.id),
@@ -162,13 +182,14 @@ export function mapProductOutToProduct(product: ProductOut): Product {
      * Kalau backend kirim "/static/products/12.jpg",
      * maka image jadi "http://localhost:8000/static/products/12.jpg?v=..."
      */
-    image: resolveImageUrl(product.image_url, product.updated_at ?? product.created_at),
+    image: resolveImageUrl(product.image_url, cacheKey),
 
     /**
      * imageUrlRaw = path asli dari backend.
      * Ini berguna kalau nanti perlu debug atau kirim balik image_url.
      */
     imageUrlRaw: product.image_url,
+    images: mappedImages,
 
     price,
     hppTotal: parseNumber(product.hpp_total),
@@ -217,6 +238,7 @@ export function mapProductOutToSimpleProduct(product: ProductOut): SimpleProduct
 
     image: mapped.image,
     imageUrlRaw: mapped.imageUrlRaw,
+    images: mapped.images,
 
     price: mapped.price,
     hppTotal: mapped.hppTotal,
@@ -370,13 +392,26 @@ export async function getCategories(): Promise<CategorySummary[]> {
     }));
 }
 
+import { getLatestReviewsAPI, ReviewImageOut } from '@/api/review';
+
 export async function getProductReviews(
-  _limit?: number
-): Promise<(ProductReview & { productId: string; productName: string })[]> {
-  void _limit;
-  // BE GAP: aggregate/latest review endpoint belum tersedia.
-  // Tidak feasible memanggil /reviews/product/{id} untuk seluruh produk secara berulang (N+1 issue).
-  return [];
+  limit: number = 10
+): Promise<{ customerName: string; rating: number; comment: string; purchasedProductName: string; productId: string; productName: string; images: ReviewImageOut[] }[]> {
+  try {
+    const list = await getLatestReviewsAPI(limit);
+    return list.map(item => ({
+      customerName: item.customer_name || 'Pelanggan Toti',
+      rating: item.rating,
+      comment: item.comment || '',
+      purchasedProductName: item.product_name || '',
+      productId: String(item.product_id),
+      productName: item.product_name || '',
+      images: item.images || [],
+    }));
+  } catch (err) {
+    console.error('Failed to fetch latest reviews for testimonials:', err);
+    return [];
+  }
 }
 
 export async function createProduct(
@@ -507,5 +542,8 @@ export {
   getBackendCategories, 
   createBackendCategory, 
   updateBackendCategory, 
-  deleteBackendCategory 
+  deleteBackendCategory,
+  uploadProductImages,
+  setPrimaryProductImage,
+  deleteProductImage,
 } from '../api/product';

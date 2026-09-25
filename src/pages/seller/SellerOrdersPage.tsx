@@ -1,6 +1,7 @@
 // src/pages/seller/SellerOrdersPage.tsx
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Eye,
   Trash2,
@@ -18,6 +19,7 @@ import {
 import { MultiFilterPopover } from '@/components/ui/MultiFilterPopover';
 import { PaginationControls } from '@/components/ui/PaginationControls';
 import { useToast } from '@/components/ui/Toast';
+import { toast } from 'react-hot-toast';
 
 import { formatRupiah } from '@/services/productService';
 import { downloadInvoice } from '@/services/invoiceService';
@@ -116,7 +118,7 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.customerName || !formData.customerPhone) {
-      alert('Name and WhatsApp number are required');
+      toast.error('Name and WhatsApp number are required');
       return;
     }
     onSave({
@@ -410,6 +412,7 @@ interface OrderDetailModalProps {
 }
 
 function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManageOrders }: OrderDetailModalProps) {
+  const { t } = useTranslation();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -424,7 +427,7 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
     try {
       await downloadInvoice(orderId);
     } catch (err: any) {
-      alert(err.message || 'Gagal mengunduh invoice.');
+      toast.error(err.message || t('orders.invoice_download_failed'));
     } finally {
       setIsDownloading(false);
     }
@@ -443,11 +446,11 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
         })
         .catch(err => {
           console.error(err);
-          setError('Gagal memuat detail pesanan');
+          setError(t('seller_orders.failed_load_details'));
           setLoading(false);
         });
     }
-  }, [isOpen, orderId]);
+  }, [isOpen, orderId, t]);
 
   const executeStatusUpdate = async () => {
     if (!orderId || !selectedStatus || selectedStatus === order?.status) return;
@@ -457,10 +460,10 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
       const updated = await updateOrderStatus(orderId, selectedStatus as OrderStatus);
       setOrder(updated);
       onStatusUpdated(updated);
-      alert('Status successfully updated!');
+      toast.success(t('seller_orders.status_updated_success'));
     } catch (err) {
       console.error(err);
-      alert('Gagal memperbarui status');
+      toast.error(t('seller_orders.status_updated_error'));
     } finally {
       setUpdating(false);
     }
@@ -481,7 +484,7 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-black text-[#4b2417]">Order Details</h2>
+            <h2 className="text-2xl font-black text-[#4b2417]">{t('seller_orders.order_details')}</h2>
             {order && (
               <button
                 onClick={handleDownloadInvoice}
@@ -491,12 +494,12 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
                 {isDownloading ? (
                   <>
                     <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#d85b30] border-t-transparent" />
-                    Mengunduh...
+                    {t('seller_orders.downloading')}
                   </>
                 ) : (
                   <>
                     <Download className="h-3.5 w-3.5" />
-                    Download Invoice
+                    {t('seller_orders.download_invoice')}
                   </>
                 )}
               </button>
@@ -517,61 +520,61 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
           <div className="space-y-6">
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <p className="text-gray-500">ID Order</p>
+                <p className="text-gray-500">{t('seller_orders.order_id')}</p>
                 <p className="font-bold text-[#4b2417]">{order.orderNumber}</p>
               </div>
               <div>
-                <p className="text-gray-500">Date</p>
+                <p className="text-gray-500">{t('seller_orders.date')}</p>
                 <p className="font-semibold">{order.date} {order.time}</p>
               </div>
               <div>
-                <p className="text-gray-500">Pelanggan</p>
+                <p className="text-gray-500">{t('seller_orders.customer')}</p>
                 <p className="font-semibold">{order.customerName}</p>
                 <p className="text-xs text-gray-500">{order.customerPhone}</p>
               </div>
               <div>
-                <p className="text-gray-500">Sumber</p>
+                <p className="text-gray-500">{t('seller_orders.source')}</p>
                 <p className="font-semibold capitalize">{order.createdVia || 'web'}</p>
               </div>
               <div>
-                <p className="text-gray-500">Delivery Method</p>
+                <p className="text-gray-500">{t('seller_orders.delivery_method')}</p>
                 <p className="font-semibold">{order.method}</p>
               </div>
               <div>
-                <p className="text-gray-500">Preferensi Pembayaran</p>
+                <p className="text-gray-500">{t('seller_orders.payment_preference')}</p>
                 <p className="font-semibold">{order.paymentMethod}</p>
               </div>
               <div>
-                <p className="text-gray-500">Status Pembayaran</p>
+                <p className="text-gray-500">{t('seller_orders.payment_status')}</p>
                 <p className="font-semibold">
                   {order.amountPaid !== undefined
                     ? order.amountDue === 0 
-                      ? 'Lunas' 
+                      ? t('seller_orders.paid') 
                       : order.amountPaid > 0 
-                        ? 'DP' 
-                        : 'Belum Dibayar'
-                    : 'Belum Dibayar'}
+                        ? t('seller_orders.dp') 
+                        : t('seller_orders.unpaid')
+                    : t('seller_orders.unpaid')}
                 </p>
               </div>
               <div>
-                <p className="text-gray-500">Notes</p>
+                <p className="text-gray-500">{t('seller_orders.notes')}</p>
                 <p className="font-semibold">{order.notes || '-'}</p>
               </div>
               <div>
-                <p className="text-gray-500">Due Date</p>
+                <p className="text-gray-500">{t('seller_orders.due_date')}</p>
                 <p className="font-semibold">{order.dueDate}</p>
               </div>
             </div>
 
             <div>
-              <h3 className="font-bold text-[#4b2417] border-b pb-2 mb-2">Order Items</h3>
+              <h3 className="font-bold text-[#4b2417] border-b pb-2 mb-2">{t('seller_orders.order_items')}</h3>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-left text-gray-500">
-                    <th className="pb-2">Produk</th>
-                    <th className="pb-2 text-right">Price</th>
-                    <th className="pb-2 text-center">Qty</th>
-                    <th className="pb-2 text-right">Total</th>
+                    <th className="pb-2">{t('seller_orders.product')}</th>
+                    <th className="pb-2 text-right">{t('seller_orders.price')}</th>
+                    <th className="pb-2 text-center">{t('seller_orders.qty')}</th>
+                    <th className="pb-2 text-right">{t('seller_orders.total')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -584,7 +587,7 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
                     </tr>
                   ))}
                   <tr className="font-bold text-[#4b2417]">
-                    <td colSpan={3} className="py-3 text-right">Total Tagihan</td>
+                    <td colSpan={3} className="py-3 text-right">{t('seller_orders.total_due')}</td>
                     <td className="py-3 text-right">{formatRupiah(order.total)}</td>
                   </tr>
                 </tbody>
@@ -595,7 +598,7 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
               <div className="bg-gray-50 p-4 rounded-lg flex items-end gap-4 border border-gray-200">
                 <div className="flex-1">
                   <label className="block text-sm font-semibold text-[#4b2417] mb-1">
-                    Ubah Status Pesanan
+                    {t('seller_orders.update_order_status')}
                   </label>
                   <select
                     value={selectedStatus}
@@ -603,14 +606,14 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
                     className="w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
                     disabled={updating}
                   >
-                    <option value="pending">Pending</option>
-                    <option value="in_process">In Process</option>
-                    <option value="ready">Ready</option>
-                    <option value="delivered">Delivered</option>
-                    <option value="picked_up">Picked Up</option>
-                    <option value="completed">Completed</option>
-                    <option value="cancelled">Cancelled</option>
-                    <option value="refunded">Refunded</option>
+                    <option value="pending">{t('seller_orders.status.pending')}</option>
+                    <option value="in_process">{t('seller_orders.status.in_process')}</option>
+                    <option value="ready">{t('seller_orders.status.ready')}</option>
+                    <option value="delivered">{t('seller_orders.status.delivered')}</option>
+                    <option value="picked_up">{t('seller_orders.status.picked_up')}</option>
+                    <option value="completed">{t('seller_orders.status.completed')}</option>
+                    <option value="cancelled">{t('seller_orders.status.cancelled')}</option>
+                    <option value="refunded">{t('seller_orders.status.refunded')}</option>
                   </select>
                 </div>
                 <button
@@ -618,7 +621,7 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
                   disabled={updating || selectedStatus === order.status}
                   className="rounded-lg bg-[#d85b30] px-6 py-2 text-sm font-semibold text-white hover:bg-[#c04e28] disabled:opacity-50"
                 >
-                  {updating ? 'Menyimpan...' : 'Update Status'}
+                  {updating ? t('seller_orders.saving') : t('seller_orders.update_status')}
                 </button>
               </div>
             )}
@@ -629,9 +632,9 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
         {showRefundConfirm && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
             <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-              <h3 className="mb-4 text-xl font-bold text-[#4b2417]">Konfirmasi Pengembalian Dana</h3>
+              <h3 className="mb-4 text-xl font-bold text-[#4b2417]">{t('seller_orders.refund_confirm_title')}</h3>
               <p className="mb-6 text-sm text-gray-600 leading-relaxed">
-                Pesanan ini akan ditandai sebagai dikembalikan. Status invoice dan pembayaran akan ikut diperbarui. Tindakan ini tidak dapat dibatalkan melalui alur status biasa.
+                {t('seller_orders.refund_confirm_desc')}
               </p>
               <div className="flex justify-end gap-3">
                 <button
@@ -639,14 +642,14 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
                   className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
                   disabled={updating}
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   onClick={executeStatusUpdate}
                   className="rounded-lg bg-[#d85b30] px-4 py-2 text-sm font-semibold text-white hover:bg-[#c04e28]"
                   disabled={updating}
                 >
-                  {updating ? 'Memproses...' : 'Ya, Tandai sebagai Dikembalikan'}
+                  {updating ? t('seller_orders.processing') : t('seller_orders.refund_confirm_btn')}
                 </button>
               </div>
             </div>

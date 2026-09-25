@@ -1,4 +1,6 @@
 import { SellerModal } from '@/components/ui/SellerModal';
+import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
+import { toast } from 'react-hot-toast';
 import { useEffect, useState } from 'react';
 import type React from 'react';
 import { Plus, Edit, Trash2 } from 'lucide-react';
@@ -62,13 +64,17 @@ export default function SupplierManagementModal({ isOpen, onClose }: SupplierMan
     setMode('edit');
   };
 
-  const handleDelete = async (id: number, name: string) => {
-    if (!window.confirm(`Hapus supplier "${name}"?`)) return;
-    
+  const [supplierToDelete, setSupplierToDelete] = useState<{ id: number; name: string } | null>(null);
+
+  const confirmDeleteSupplier = async () => {
+    if (!supplierToDelete) return;
+    const { id } = supplierToDelete;
+    setSupplierToDelete(null);
     try {
       setError(null);
       await supplierService.deleteSupplier(id);
       await loadSuppliers();
+      toast.success('Supplier berhasil dihapus');
     } catch (err) {
       console.error(err);
       setError('Gagal menghapus supplier');
@@ -78,7 +84,7 @@ export default function SupplierManagementModal({ isOpen, onClose }: SupplierMan
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.nama_supplier.trim()) {
-      alert('Nama supplier wajib diisi');
+      toast.error('Nama supplier wajib diisi');
       return;
     }
 
@@ -164,7 +170,7 @@ export default function SupplierManagementModal({ isOpen, onClose }: SupplierMan
                             <Edit className="h-4 w-4" />
                           </button>
                           <button
-                            onClick={() => handleDelete(supplier.id, supplier.nama_supplier)}
+                            onClick={() => setSupplierToDelete({ id: supplier.id, name: supplier.nama_supplier })}
                             className="rounded p-1 text-red-600 hover:bg-red-50 transition"
                             title="Delete"
                           >
@@ -249,6 +255,17 @@ export default function SupplierManagementModal({ isOpen, onClose }: SupplierMan
           </div>
         </form>
       )}
+
+      <ConfirmationModal
+        isOpen={supplierToDelete !== null}
+        title="Hapus Supplier"
+        message={`Are you sure you want to delete supplier "${supplierToDelete?.name || ''}"?`}
+        confirmText="Hapus"
+        cancelText="Batal"
+        isDestructive={true}
+        onConfirm={confirmDeleteSupplier}
+        onCancel={() => setSupplierToDelete(null)}
+      />
     </SellerModal>
   );
 }

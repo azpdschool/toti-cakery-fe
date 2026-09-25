@@ -3,7 +3,8 @@ import { createContext, useEffect, useMemo, useState, useCallback, useRef, type 
 import type { AuthState, SellerRole, User, UserRole } from '@/types'
 import { TOKEN_KEY, USER_KEY } from '@/constants'
 import { jwtDecode } from 'jwt-decode'
-import { logoutApi } from '@/api/auth'
+import { logoutApi, getBuyerProfile } from '@/api/auth'
+import { toast } from 'react-hot-toast'
 
 export interface AuthContextType extends AuthState {
   login: (token: string, user: User) => void
@@ -81,27 +82,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Handle Automatic Expiry using JWT exp
-  useEffect(() => {
-    if (auth.accessToken) {
-      try {
-        const decoded = jwtDecode(auth.accessToken)
-        if (decoded.exp) {
-          const timeUntilExpiry = decoded.exp * 1000 - Date.now()
-          if (timeUntilExpiry > 0) {
-            const timer = setTimeout(() => {
-              logout()
-            }, timeUntilExpiry)
-            return () => clearTimeout(timer)
-          } else {
-            logout()
-          }
-        }
-      } catch {
-        logout()
+  const updateUser = useCallback((updatedFields: Partial<User>) => {
+    setAuth((prev) => {
+      if (!prev.user) return prev
+      const newUser: User = { ...prev.user, ...updatedFields }
+      localStorage.setItem(USER_KEY, JSON.stringify(newUser))
+      return {
+        ...prev,
+        user: newUser,
       }
-    }
-  }, [auth.accessToken, logout])
+    })
+  }, [])
 
   const login = useCallback((token: string, user: User) => {
     localStorage.setItem(TOKEN_KEY, token)
@@ -114,17 +105,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  const updateUser = useCallback((updatedFields: Partial<User>) => {
-    setAuth((prev) => {
-      if (!prev.user) return prev
-      const newUser: User = { ...prev.user, ...updatedFields }
-      localStorage.setItem(USER_KEY, JSON.stringify(newUser))
-      return {
-        ...prev,
-        user: newUser,
-      }
-    })
-  }, [])
+  // Sync latest Buyer profile (avatar_url) on load
+  useEffect(() => {
+    if (auth.isAuthenticated && auth.user?.role === 'buyer') {
+      getBuyerProfile()
+        .then((profile) => {
+          if (profile && profile.avatar_url !== undefined) {
+            updateUser({ avatar_url: profile.avatar_url })
+          }
+        })
+        .catch(() => {
+          // Silent fallback if network/auth fails
+        })
+    }
+  }, [auth.isAuthenticated, auth.user?.role, updateUser])
 
   // Sync auth state across multiple tabs (e.g., if logged out in another tab)
   useEffect(() => {
@@ -193,7 +187,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (Date.now() - mostRecentActivity >= IDLE_TIMEOUT_MS) {
         logout()
-        alert('Anda telah logout otomatis karena tidak ada aktivitas selama 1 jam.')
+        toast.error('Anda telah logout otomatis karena tidak ada aktivitas selama 1 jam.')
       }
     }, 10000) // Check every 10 seconds
 

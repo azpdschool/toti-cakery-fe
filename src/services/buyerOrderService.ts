@@ -37,7 +37,8 @@ export interface BuyerOrder {
   recipientName?: string | null
   recipientPhone?: string | null
 
-  paymentMethod: string
+  paymentMethodPreference: string
+  paymentChannel: string
   paymentStatus: PaymentStatus
 
   items: BuyerOrderItem[]
@@ -127,6 +128,8 @@ interface ApiOrder {
   recipientPhone?: string | null
   telepon_penerima?: string | null
 
+  payment_method_preference?: string
+  paymentMethodPreference?: string
   payment_method?: string
   paymentMethod?: string
   metode_pembayaran?: string
@@ -375,7 +378,11 @@ function mapApiOrder(order: ApiOrder): BuyerOrder {
       order.telepon_penerima ??
       null,
 
-    paymentMethod:
+    paymentMethodPreference:
+      order.payment_method_preference ??
+      order.paymentMethodPreference ??
+      'lunas',
+    paymentChannel:
       order.payment_method ??
       order.paymentMethod ??
       order.metode_pembayaran ??

@@ -1,7 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Heart } from 'lucide-react'
+import { Heart, ArrowLeft, ShoppingBag } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'react-hot-toast'
 import { ProductCard } from '@/components/common/ProductCard'
 import { useWishlist } from '@/hooks/useWishlist'
 import { useAuth } from '@/hooks/useAuth'
@@ -9,7 +10,6 @@ import { useCart } from '@/context/CartContext'
 import { ROUTES } from '@/constants'
 import { type ProductOut } from '@/api/product'
 import { getBuyerWishlist } from '@/services/wishlistService'
-import { useState } from 'react'
 
 export default function WishlistPage() {
   const { t } = useTranslation()
@@ -53,10 +53,31 @@ export default function WishlistPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      {/* Navigation Header */}
+      <div className="mb-6 flex items-center justify-between gap-4 border-b border-[#EAD8CA] pb-4">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center gap-2 text-sm font-bold text-[#3A1F16] transition hover:text-[#9B4A2F]"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span>{t('wishlist.back')}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => navigate(ROUTES.CATALOG)}
+          className="inline-flex items-center gap-2 rounded-xl bg-[#FAF0E6] px-4 py-2 text-xs font-bold text-[#9B4A2F] transition hover:bg-[#F5E6D8]"
+        >
+          <ShoppingBag className="h-4 w-4" />
+          <span>{t('wishlist.explore_products')}</span>
+        </button>
+      </div>
+
       <h1 className="mb-8 text-2xl font-bold text-gray-900">{t('wishlist.title')}</h1>
 
       {displayProducts.length === 0 ? (
-        <div className="flex min-h-[40vh] flex-col items-center justify-center rounded-2xl bg-white p-8 text-center shadow-sm">
+        <div className="flex min-h-[40vh] flex-col items-center justify-center rounded-2xl bg-white p-8 text-center shadow-sm border border-[#EAD8CA]">
           <div className="mb-4 rounded-full bg-red-50 p-4">
             <Heart className="h-12 w-12 text-red-300" />
           </div>
@@ -90,8 +111,10 @@ export default function WishlistPage() {
                   image: p.image,
                   minOrder: v.minOrder,
                   step: v.step,
+                  category: (p as any).category,
                   quantity: q,
                 })
+                toast.success(t('cart.add_to_cart_success'))
               }} 
             />
           ))}
@@ -100,3 +123,4 @@ export default function WishlistPage() {
     </div>
   )
 }
+

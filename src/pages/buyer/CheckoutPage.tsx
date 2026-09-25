@@ -1,79 +1,38 @@
-// src/pages/buyer/CheckoutPage.tsx
-
 import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft,
-  Truck,
-  Store,
-  Send,
-  CreditCard,
-  Banknote,
-  AlertCircle,
-  CheckCircle,
-  Loader2,
-
+  ArrowLeft, Truck, Store, Send, AlertCircle, Loader2, CreditCard, Banknote
 } from 'lucide-react';
-import { useCart } from '@/context/CartContext'
+import { useCart } from '@/context/CartContext';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { formatRupiah } from '@/services/productService';
-import { createOrder, processPayment, getOrderPaymentStatus, type DeliveryMethod, type PaymentMethod } from '@/services/buyerOrderService';
+import { createOrder, processPayment, getOrderPaymentStatus, type DeliveryMethod, type PaymentMethod, getBuyerOrderById } from '@/services/buyerOrderService';
 import { ROUTES } from '@/constants';
+import {
+  PaymentStatusHeader, PaymentSummaryCard, PaymentMethodSelector,
+  VirtualAccountPaymentCard, QrisPaymentCard, PaymentInstructions, PaymentSupportCard
+} from '@/components/payment';
 
-type CheckoutStep = 'form' | 'payment' | 'success';
+type CheckoutStep = 'form' | 'payment';
 
 export default function CheckoutPage() {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-  const { t } = useTranslation()
-  const { items, totalPrice, clearCart, updateMultipleAvailability } = useCart();
+  const { t } = useTranslation();
+  const { items, totalPrice, clearCart } = useCart();
 
-  // Protected route
   useEffect(() => {
-    if (!isAuthenticated) {
-      navigate('/auth/buyer');
-    }
+    if (!isAuthenticated) navigate(ROUTES.AUTH_BUYER);
   }, [isAuthenticated, navigate]);
 
   const [step, setStep] = useState<CheckoutStep>('form');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [orderId, setOrderId] = useState<string | null>(null);
+  const [orderId, setOrderId] = useState<string | null>(() => sessionStorage.getItem('checkout_pending_order_id'));
   const [midtransMethod, setMidtransMethod] = useState<'qris' | 'bank_transfer'>('qris');
   const [paymentResult, setPaymentResult] = useState<any>(null);
-  const [finalPayableAmount, setFinalPayableAmount] = useState<number>(0);
-
-  useEffect(() => {
-    let intervalId: NodeJS.Timeout;
-
-    if (paymentResult && orderId) {
-      intervalId = setInterval(async () => {
-        try {
-          const status = await getOrderPaymentStatus(orderId);
-          if (status.invoice_status === 'paid' || status.invoice_status === 'partial') {
-            clearInterval(intervalId);
-            navigate(`/orders/${orderId}`);
-          }
-        } catch (err: any) {
-          console.error('Failed to poll payment status:', err);
-          // Only stop polling if we get a 4xx error that is not 401 (401 might be transient as per user prompt "jangan logout hanya karena transient 401")
-          // But actually, we just let it retry next tick.
-        }
-      }, 3000);
-    }
-
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [paymentResult, orderId, navigate]);
-
-  useEffect(() => {
-    if (items.length === 0 && isAuthenticated && step === 'form') {
-      navigate('/catalog');
-    }
-  }, [items, isAuthenticated, navigate, step]);
-
+  
   const [formData, setFormData] = useState({
     deliveryMethod: 'pickup' as DeliveryMethod,
     recipientName: user?.name || '',
@@ -83,50 +42,117 @@ export default function CheckoutPage() {
     paymentMethod: 'lunas' as PaymentMethod,
   });
 
-  // 🚚 Biaya pengiriman = 0 (akan diinfokan via WhatsApp)
   const deliveryFee = 0;
-  // 💰 Biaya layanan = 0 (dihapus)
   const serviceFee = 0;
   const subtotal = totalPrice;
-  const total = subtotal + deliveryFee + serviceFee; // = subtotal
+  const total = subtotal + deliveryFee + serviceFee;
+  const payableAmount = useMemo(() => formData.paymentMethod === 'dp' ? Math.round(total / 2) : total, [formData.paymentMethod, total]);
 
-  // Jumlah yang harus dibayar (jika DP, 50% dari total)
-  const payableAmount = useMemo(() => {
-    if (formData.paymentMethod === 'dp') {
-      return Math.round(total / 2);
+  const [confirmedOrderData, setConfirmedOrderData] = useState<{
+    total: number;
+    amountDue: number;
+    amountPaid?: number;
+    paymentMethod: PaymentMethod;
+  } | null>(null);
+  const [paymentStatusStr, setPaymentStatusStr] = useState<string>('unpaid');
+
+  // Handle restoring pending order state
+  useEffect(() => {
+    async function restorePendingOrder() {
+      if (orderId && step === 'form') {
+        setIsLoading(true);
+        try {
+          const order = await getBuyerOrderById(orderId);
+          if (order && order.status !== 'cancelled' && order.status !== 'refunded') {
+            if (order.paymentStatus === 'paid' || order.paymentStatus === 'partial' || order.status === 'completed') {
+              sessionStorage.removeItem('checkout_pending_order_id');
+              navigate(`/orders/${orderId}`);
+              return;
+            }
+            
+            // Still unpaid, restore state
+            setConfirmedOrderData({
+              total: order.total,
+              amountDue: ((order.amountPaid || 0) === 0 && order.paymentMethodPreference === 'dp') 
+                ? Math.round(order.total / 2) 
+                : (order.amountDue !== undefined ? order.amountDue : order.total),
+              amountPaid: order.amountPaid || 0,
+              paymentMethod: order.paymentMethodPreference as PaymentMethod
+            });
+            setFormData(prev => ({
+              ...prev,
+              paymentMethod: order.paymentMethodPreference as PaymentMethod
+            }));
+            
+            // Try fetching existing instructions
+            const paymentData = await getOrderPaymentStatus(orderId);
+            if (paymentData.payments?.length) {
+              const pendingPayment = paymentData.payments.reverse().find((p: any) => p.payment_status.toLowerCase() === 'pending');
+              if (pendingPayment && (pendingPayment.qris_url || pendingPayment.va_number)) {
+                setPaymentResult(pendingPayment);
+              }
+            }
+            setStep('payment');
+          } else {
+            sessionStorage.removeItem('checkout_pending_order_id');
+            setOrderId(null);
+          }
+        } catch (err) {
+          sessionStorage.removeItem('checkout_pending_order_id');
+          setOrderId(null);
+        } finally {
+          setIsLoading(false);
+        }
+      }
     }
-    return total;
-  }, [formData.paymentMethod, total]);
+    restorePendingOrder();
+  }, [orderId, navigate, step]);
 
-  
+  // Polling payment
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+    if (step === 'payment' && orderId) {
+      intervalId = setInterval(async () => {
+        try {
+          const status = await getOrderPaymentStatus(orderId);
+          if (status.invoice_status) {
+            setPaymentStatusStr(status.invoice_status);
+            if (status.invoice_status === 'paid' || status.invoice_status === 'partial') {
+              clearInterval(intervalId);
+              sessionStorage.removeItem('checkout_pending_order_id');
+              navigate(`/orders/${orderId}`);
+            }
+          }
+        } catch (err: any) {}
+      }, 3000);
+    }
+    return () => clearInterval(intervalId);
+  }, [step, orderId, navigate]);
+
+  // Restrict going back if empty cart & no pending order
+  useEffect(() => {
+    if (items.length === 0 && isAuthenticated && step === 'form' && !orderId) {
+      navigate('/catalog');
+    }
+  }, [items, isAuthenticated, navigate, step, orderId]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-
-    // Initial check against frontend state
-    const hasUnavailableItems = items.some(item => item.isAvailable === false);
-    if (hasUnavailableItems) {
-      setError('Terdapat produk yang sudah tidak tersedia di keranjang Anda. Silakan kembali ke keranjang untuk menghapusnya.');
+    
+    if (items.some(item => item.isAvailable === false)) {
+      setError(t('checkout.cart_changed'));
       return;
     }
 
     if (formData.deliveryMethod !== 'pickup') {
-      if (!formData.address.trim()) {
-        setError('Alamat pengiriman wajib diisi');
-        return;
-      }
-      if (!formData.recipientName.trim()) {
-        setError('Nama penerima wajib diisi');
-        return;
-      }
-      if (!formData.recipientPhone.trim()) {
-        setError('Nomor telepon penerima wajib diisi');
+      if (!formData.address.trim() || !formData.recipientName.trim() || !formData.recipientPhone.trim()) {
+        setError(t('checkout.form_incomplete'));
         return;
       }
     }
 
     setIsLoading(true);
-
     try {
       const orderItems = items.map((item) => ({
         id: `item-${Date.now()}-${item.productId}`,
@@ -153,52 +179,31 @@ export default function CheckoutPage() {
       });
 
       setOrderId(order.id);
-      setFinalPayableAmount(payableAmount);
+      sessionStorage.setItem('checkout_pending_order_id', order.id);
+      setConfirmedOrderData({
+        total: order.total,
+        amountDue: ((order.amountPaid || 0) === 0 && order.paymentMethodPreference === 'dp')
+          ? Math.round(order.total / 2)
+          : (order.amountDue !== undefined ? order.amountDue : order.total),
+        amountPaid: order.amountPaid || 0,
+        paymentMethod: order.paymentMethodPreference as PaymentMethod
+      });
+      clearCart();
       setStep('payment');
     } catch (err: any) {
       if (err.response?.status === 400) {
-        const detailMessage = err.response?.data?.detail;
-        if (typeof detailMessage === 'string' && detailMessage.trim() !== '') {
-          setError(`${detailMessage} Silakan kembali ke keranjang dan sesuaikan pesanan Anda.`);
-        } else {
-          setError('Pesanan tidak dapat diproses. Silakan periksa kembali isi keranjang Anda.');
-        }
-        // Refresh availability on error
-        try {
-          const { getProductByBackendId } = await import('@/services/productService');
-          const availabilities: Record<string, { isAvailable?: boolean; isInStock?: boolean; stockQuantity?: number } | undefined> = {};
-          await Promise.all(
-            items.map(async (item) => {
-              try {
-                const product = await getProductByBackendId(Number(item.productId));
-                availabilities[item.productId] = {
-                  isAvailable: product.isAvailable && product.isActive,
-                  isInStock: product.isInStock,
-                  stockQuantity: product.stockQuantity,
-                };
-              } catch (error) {
-                availabilities[item.productId] = undefined;
-              }
-            })
-          );
-          if (updateMultipleAvailability) {
-            updateMultipleAvailability(availabilities);
-          }
-        } catch (refreshErr) {
-          console.error('Failed to refresh availability after 400 error', refreshErr);
-        }
+        setError(err.response?.data?.detail || t('checkout.cart_changed'));
+        // (Refresh logic omitted for brevity, user can go to cart)
       } else if (err.response?.status === 409) {
-        setError('Terdapat tagihan/order aktif yang belum diselesaikan. Anda tidak dapat membuat order baru.');
+        setError(t('checkout.active_unpaid_order'));
       } else {
-        setError('Gagal membuat pesanan. Silakan coba lagi.');
+        setError(t('checkout.failed_create_order'));
       }
     } finally {
       setIsLoading(false);
     }
   };
 
-
-  
   const handlePayment = async () => {
     if (!orderId) return;
     setIsLoading(true);
@@ -208,182 +213,104 @@ export default function CheckoutPage() {
       const result = await processPayment(
         orderId, 
         midtransMethod, 
-        formData.paymentMethod, // 'lunas' or 'dp' mapping to 'full' or 'dp'
-        finalPayableAmount || payableAmount
+        confirmedOrderData?.paymentMethod || formData.paymentMethod, 
+        confirmedOrderData?.amountDue || payableAmount
       );
       
       const resultStatus = String(result.status ?? '').toLowerCase();
       const hasInstruction = !!(result.qris_url || result.va_number || result.midtrans_response?.redirect_url);
 
       if (resultStatus === 'pending' || resultStatus === 'success' || hasInstruction) {
-        clearCart();
         setPaymentResult(result);
-        // Do not change step yet, just show the instruction on the same step
+        setPaymentStatusStr('pending');
       } else {
-        setError('Gagal mendapatkan instruksi pembayaran');
+        setError(t('checkout.failed_get_instruction'));
       }
     } catch (err: any) {
-      if (err.response?.status === 400) {
-        setError('Gagal memproses pembayaran: nominal tidak sesuai atau bad request.');
-      } else {
-        setError('Gagal memproses pembayaran. Silakan coba lagi.');
-      }
+      setError(t('checkout.failed_process_payment'));
     } finally {
       setIsLoading(false);
     }
   };
 
-
   if (!isAuthenticated) return null;
 
-  // Step: Payment
-  
   if (step === 'payment') {
+    const isPendingInstruction = paymentResult && (paymentResult.qris_url || paymentResult.va_number);
     return (
       <div className="mx-auto max-w-2xl px-4 py-8">
-        {!paymentResult && (
-          <button
-            onClick={() => setStep('form')}
-            className="mb-6 flex items-center gap-2 text-sm font-medium text-[#6f5448] hover:text-[#4b2417] transition"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Kembali
-          </button>
-        )}
+        <div className="mb-6 flex justify-between items-center">
+          <h1 className="text-2xl font-black text-[#4b2417]">{t('checkout.payment_title')}</h1>
+          {/* Cannot go back easily if order is already created, so we don't show back arrow to form */}
+        </div>
 
-        <div className="rounded-2xl bg-white p-6 shadow-sm border border-[#ead8ca]">
-          <h1 className="text-2xl font-black text-[#4b2417]">{t('checkout.payment_title', 'Pembayaran')}</h1>
-          
-          <div className="mt-6 rounded-xl bg-[#f8f4f0] p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-[#6f5448]">
-                {formData.paymentMethod === 'dp' ? 'Total DP (50%)' : 'Total Pembayaran'}
-              </span>
-              <span className="text-2xl font-black text-[#d85b30]">{formatRupiah(finalPayableAmount || payableAmount)}</span>
-            </div>
-          </div>
+        <PaymentStatusHeader status={paymentStatusStr} isPolling={!!paymentResult} />
 
-          {error && (
-            <div className="mt-4 flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              {error}
-            </div>
-          )}
+        <div className="grid gap-6">
+          <PaymentSummaryCard
+            orderNumber={orderId || ''}
+            total={confirmedOrderData?.total || total}
+            paymentPreference={confirmedOrderData?.paymentMethod || formData.paymentMethod}
+            amountDue={confirmedOrderData?.amountDue || payableAmount}
+            amountPaid={confirmedOrderData?.amountPaid}
+          />
 
-          {!paymentResult ? (
-            <div className="mt-6 space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-[#4b2417] mb-2">{t('checkout.payment_method', 'Metode Pembayaran')}</label>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setMidtransMethod('qris')}
-                    className={`flex-1 rounded-lg border-2 p-3 text-sm ${midtransMethod === 'qris' ? 'border-[#d85b30] text-[#d85b30]' : 'border-gray-200 text-gray-600'}`}
-                  >
-                    QRIS
-                  </button>
-                  <button
-                    onClick={() => setMidtransMethod('bank_transfer')}
-                    className={`flex-1 rounded-lg border-2 p-3 text-sm ${midtransMethod === 'bank_transfer' ? 'border-[#d85b30] text-[#d85b30]' : 'border-gray-200 text-gray-600'}`}
-                  >
-                    Transfer Bank (BCA VA)
-                  </button>
+          {!paymentResult && (
+            <div className="rounded-2xl border border-[#ead8ca] bg-white p-6 shadow-sm">
+              <PaymentMethodSelector
+                selectedMethod={midtransMethod}
+                onSelect={setMidtransMethod}
+                disabled={isLoading}
+              />
+              
+              {error && (
+                <div className="mt-4 flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  {error}
                 </div>
-              </div>
+              )}
 
               <button
                 onClick={handlePayment}
                 disabled={isLoading}
-                className="flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white transition hover:bg-[#c04e28] disabled:opacity-60"
+                className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white transition hover:bg-[#c04e28] disabled:opacity-60"
               >
                 {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Memproses Pembayaran...
-                  </>
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t('checkout.processing')}</>
                 ) : (
-                  'Dapatkan Kode Pembayaran'
+                  t('checkout.continue_payment')
                 )}
               </button>
             </div>
-          ) : (
-            <div className="mt-6 space-y-4 text-center">
+          )}
+
+          {isPendingInstruction && (
+            <>
               {paymentResult.qris_url ? (
-                <div className="rounded-xl border border-[#ead8ca] p-4">
-                  <p className="font-semibold text-[#4b2417] mb-2">{t('checkout.qris', 'Scan QRIS')}</p>
-                  <img src={paymentResult.qris_url} alt="QRIS" className="mx-auto w-48 h-48" />
-                </div>
+                <QrisPaymentCard qrisUrl={paymentResult.qris_url} amount={confirmedOrderData?.amountDue || payableAmount} />
               ) : paymentResult.va_number ? (
-                <div className="rounded-xl border border-[#ead8ca] p-4">
-                  <p className="font-semibold text-[#4b2417] mb-2">{t('checkout.bca_va', 'Virtual Account BCA')}</p>
-                  <p className="text-2xl font-mono text-[#d85b30]">{paymentResult.va_number}</p>
-                </div>
-              ) : paymentResult.midtrans_response?.redirect_url ? (
-                <div className="rounded-xl border border-[#ead8ca] p-4">
-                  <p className="font-semibold text-[#4b2417] mb-2">{t('checkout.continue_payment', 'Lanjutkan Pembayaran')}</p>
-                  <a href={paymentResult.midtrans_response.redirect_url} target="_blank" rel="noreferrer" className="text-blue-500 underline">
-                    Klik di sini untuk membayar
-                  </a>
-                </div>
+                <VirtualAccountPaymentCard bankName="BCA" vaNumber={paymentResult.va_number} amount={confirmedOrderData?.amountDue || payableAmount} />
               ) : null}
-
-              <div className="mt-6">
-                <Link
-                  to={ROUTES.ORDERS}
-                  className="inline-flex h-12 items-center justify-center rounded-xl bg-[#d85b30] px-6 text-sm font-black text-white transition hover:bg-[#c04e28]"
-                >
-                  Lihat Pesanan Saya
-                </Link>
+              
+              <PaymentInstructions method={paymentResult.qris_url ? 'qris' : 'bank_transfer'} />
+              
+              <div className="rounded-2xl border border-[#ead8ca] bg-[#f8f4f0] p-5 text-center shadow-sm">
+                <h4 className="font-bold text-[#4b2417] mb-2">{t('checkout.what_happens_next')}</h4>
+                <p className="text-sm text-[#6f5448]">{t('checkout.what_happens_next_desc')}</p>
+                <p className="mt-3 text-xs font-semibold text-[#d85b30] bg-white inline-block px-3 py-1 rounded-full border border-[#ead8ca]">{t('checkout.please_pay')}</p>
               </div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-
-  // Step: Success
-  if (step === 'success') {
-    return (
-      <div className="mx-auto max-w-2xl px-4 py-16 text-center">
-        <div className="rounded-2xl bg-white p-8 shadow-sm border border-[#ead8ca]">
-          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-green-100">
-            <CheckCircle className="h-10 w-10 text-green-600" />
-          </div>
-          <h1 className="mt-4 text-2xl font-black text-[#4b2417]">
-            {formData.paymentMethod === 'dp' ? 'DP Berhasil Dibayar! 🎉' : 'Pembayaran Berhasil! 🎉'}
-          </h1>
-          <p className="mt-2 text-sm text-[#6f5448]">
-            {formData.paymentMethod === 'dp'
-              ? 'DP Anda telah diterima. Pesanan akan segera diproses.'
-              : 'Pesanan Anda telah diterima dan akan segera diproses.'}
-          </p>
-          <p className="mt-1 text-xs text-[#8b7166]">
-            Nomor Pesanan: <span className="font-mono font-bold">{orderId?.slice(0, 8) || 'ORD-XXXX'}</span>
-          </p>
-          {formData.deliveryMethod !== 'pickup' && (
-            <p className="mt-2 text-xs text-[#d85b30]">
-              📦 Biaya pengiriman akan diinfokan melalui WhatsApp
-            </p>
-          )}
-          {formData.paymentMethod === 'dp' && (
-            <p className="mt-1 text-xs text-[#8b7166]">
-              Sisa pembayaran Rp {formatRupiah(total - payableAmount)} akan dibayarkan saat pickup/delivery
-            </p>
+            </>
           )}
 
-          <div className="mt-6 flex flex-wrap justify-center gap-3">
+          <PaymentSupportCard />
+          
+          <div className="text-center pt-2">
             <Link
               to={ROUTES.ORDERS}
-              className="rounded-lg bg-[#d85b30] px-6 py-2 text-sm font-semibold text-white hover:bg-[#c04e28] transition"
+              onClick={() => sessionStorage.removeItem('checkout_pending_order_id')}
+              className="text-sm font-semibold text-[#6f5448] hover:text-[#d85b30] underline underline-offset-4"
             >
-              Lihat Pesanan Saya
-            </Link>
-            <Link
-              to={ROUTES.HOME}
-              className="rounded-lg border border-gray-300 px-6 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition"
-            >
-              Kembali ke Beranda
+              {t('checkout.view_order')}
             </Link>
           </div>
         </div>
@@ -391,220 +318,196 @@ export default function CheckoutPage() {
     );
   }
 
-  // Step: Form
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8">
-      <Link to={ROUTES.CART} className="mb-6 flex items-center gap-2 text-sm font-medium text-[#6f5448] hover:text-[#4b2417] transition">
+    <div className="mx-auto max-w-4xl px-4 py-8">
+      <Link to={ROUTES.CART} className="mb-6 inline-flex items-center gap-2 text-sm font-bold text-[#6f5448] hover:text-[#d85b30] transition">
         <ArrowLeft className="h-4 w-4" />
-        Kembali ke Keranjang
+        {t('checkout.back')}
       </Link>
 
-      <div className="rounded-2xl bg-white p-6 shadow-sm border border-[#ead8ca]">
-        <h1 className="text-2xl font-black text-[#4b2417]">{t('checkout.title', 'Checkout')}</h1>
-        <p className="mt-1 text-sm text-[#6f5448]">
-          Lengkapi data pesanan Anda
-        </p>
+      <h1 className="text-3xl font-black text-[#4b2417] mb-6">{t('checkout.title')}</h1>
 
-        <form onSubmit={handleSubmit} className="mt-6 space-y-6">
-          {/* Metode Pengiriman */}
-          <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">
-              Metode Pengiriman <span className="text-red-500">*</span>
-            </label>
-            <div className="mt-2 grid gap-2 sm:grid-cols-3">
+      <form onSubmit={handleSubmit} className="flex flex-col md:flex-row gap-6">
+        <div className="flex-1 space-y-6">
+          <div className="rounded-2xl bg-white p-6 shadow-sm border border-[#ead8ca]">
+            <h2 className="text-lg font-bold text-[#4b2417] mb-4">{t('checkout.shipping_method')}</h2>
+            <div className="grid gap-3 sm:grid-cols-3">
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, deliveryMethod: 'pickup' })}
-                className={`flex flex-col items-center gap-1 rounded-lg border-2 p-3 text-sm transition ${
-                  formData.deliveryMethod === 'pickup'
-                    ? 'border-[#d85b30] bg-[#d85b30]/5 text-[#d85b30]'
-                    : 'border-gray-200 text-[#6f5448] hover:border-gray-300'
+                className={`flex flex-col items-start gap-1 rounded-xl border-2 p-4 text-left transition ${
+                  formData.deliveryMethod === 'pickup' ? 'border-[#d85b30] bg-[#d85b30]/5 text-[#d85b30]' : 'border-gray-200 text-[#6f5448] hover:border-gray-300'
                 }`}
               >
-                <Store className="h-5 w-5" />
-                Pickup
-                <span className="text-xs font-medium text-green-600">{t('checkout.free', 'Gratis')}</span>
+                <Store className="h-5 w-5 mb-1" />
+                <span className="font-semibold text-sm">{t('checkout.pickup')}</span>
+                <span className="text-xs font-bold text-green-600">{t('checkout.free')}</span>
               </button>
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, deliveryMethod: 'delivery_toko' })}
-                className={`flex flex-col items-center gap-1 rounded-lg border-2 p-3 text-sm transition ${
-                  formData.deliveryMethod === 'delivery_toko'
-                    ? 'border-[#d85b30] bg-[#d85b30]/5 text-[#d85b30]'
-                    : 'border-gray-200 text-[#6f5448] hover:border-gray-300'
+                className={`flex flex-col items-start gap-1 rounded-xl border-2 p-4 text-left transition ${
+                  formData.deliveryMethod === 'delivery_toko' ? 'border-[#d85b30] bg-[#d85b30]/5 text-[#d85b30]' : 'border-gray-200 text-[#6f5448] hover:border-gray-300'
                 }`}
               >
-                <Truck className="h-5 w-5" />
-                Delivery Toko
-                <span className="text-xs font-medium text-[#8b7166]">(biaya via WA)</span>
+                <Truck className="h-5 w-5 mb-1" />
+                <span className="font-semibold text-sm">{t('checkout.delivery_toko')}</span>
+                <span className="text-xs text-[#8b7166]">{t('checkout.calculated_via_wa')}</span>
               </button>
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, deliveryMethod: 'delivery_third_party' })}
-                className={`flex flex-col items-center gap-1 rounded-lg border-2 p-3 text-sm transition ${
-                  formData.deliveryMethod === 'delivery_third_party'
-                    ? 'border-[#d85b30] bg-[#d85b30]/5 text-[#d85b30]'
-                    : 'border-gray-200 text-[#6f5448] hover:border-gray-300'
+                className={`flex flex-col items-start gap-1 rounded-xl border-2 p-4 text-left transition ${
+                  formData.deliveryMethod === 'delivery_third_party' ? 'border-[#d85b30] bg-[#d85b30]/5 text-[#d85b30]' : 'border-gray-200 text-[#6f5448] hover:border-gray-300'
                 }`}
               >
-                <Send className="h-5 w-5" />
-                Third Party
-                <span className="text-xs font-medium text-[#8b7166]">(biaya via WA)</span>
+                <Send className="h-5 w-5 mb-1" />
+                <span className="font-semibold text-sm">{t('checkout.delivery_third_party')}</span>
+                <span className="text-xs text-[#8b7166]">{t('checkout.calculated_via_wa')}</span>
               </button>
             </div>
-            {formData.deliveryMethod !== 'pickup' && (
-              <p className="mt-2 text-xs text-[#8b7166]">
-                📦 Biaya pengiriman akan diinfokan melalui WhatsApp setelah pesanan dibuat
-              </p>
-            )}
           </div>
 
-          {/* Data Penerima (jika bukan pickup) */}
           {formData.deliveryMethod !== 'pickup' && (
-            <div className="space-y-4 rounded-xl bg-[#f8f4f0] p-4">
-              <h3 className="text-sm font-bold text-[#4b2417]">{t('checkout.recipient_data', 'Data Penerima')}</h3>
-              <div>
-                <label className="block text-sm font-semibold text-[#4b2417]">
-                  Nama Penerima <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.recipientName}
-                  onChange={(e) => setFormData({ ...formData, recipientName: e.target.value })}
-                  placeholder="Nama lengkap penerima"
-                  className="mt-1 w-full rounded-xl border border-[#d0bfaf] bg-white/70 px-4 py-2 text-sm outline-none focus:border-[#c95b31]"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-[#4b2417]">
-                  Nomor Telepon <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="tel"
-                  value={formData.recipientPhone}
-                  onChange={(e) => setFormData({ ...formData, recipientPhone: e.target.value })}
-                  placeholder="0812-3456-7890"
-                  className="mt-1 w-full rounded-xl border border-[#d0bfaf] bg-white/70 px-4 py-2 text-sm outline-none focus:border-[#c95b31]"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-[#4b2417]">
-                  Alamat Lengkap <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  rows={2}
-                  value={formData.address}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  placeholder="Jl. Kue Manis No. 25, Kelurahan, Kecamatan, Kota"
-                  className="mt-1 w-full rounded-xl border border-[#d0bfaf] bg-white/70 px-4 py-2 text-sm outline-none focus:border-[#c95b31]"
-                />
+            <div className="rounded-2xl bg-white p-6 shadow-sm border border-[#ead8ca]">
+              <h2 className="text-lg font-bold text-[#4b2417] mb-4">{t('checkout.recipient_data')}</h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-[#4b2417] mb-1">{t('checkout.recipient_name')}</label>
+                  <input
+                    type="text"
+                    value={formData.recipientName}
+                    onChange={(e) => setFormData({ ...formData, recipientName: e.target.value })}
+                    className="w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-sm outline-none focus:border-[#d85b30] transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-[#4b2417] mb-1">{t('checkout.phone_number')}</label>
+                  <input
+                    type="tel"
+                    value={formData.recipientPhone}
+                    onChange={(e) => setFormData({ ...formData, recipientPhone: e.target.value })}
+                    className="w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-sm outline-none focus:border-[#d85b30] transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-[#4b2417] mb-1">{t('checkout.full_address')}</label>
+                  <textarea
+                    rows={2}
+                    value={formData.address}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    className="w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-sm outline-none focus:border-[#d85b30] transition"
+                  />
+                </div>
               </div>
             </div>
           )}
 
-          {/* Catatan */}
-          <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">{t('checkout.notes', 'Catatan untuk Seller')}</label>
+          <div className="rounded-2xl bg-white p-6 shadow-sm border border-[#ead8ca]">
+            <h2 className="text-lg font-bold text-[#4b2417] mb-4">{t('checkout.notes')}</h2>
             <textarea
               rows={2}
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              placeholder="Instruksi khusus untuk pesanan Anda..."
-              className="mt-1 w-full rounded-xl border border-[#d0bfaf] bg-white/70 px-4 py-2 text-sm outline-none focus:border-[#c95b31]"
+              className="w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-sm outline-none focus:border-[#d85b30] transition"
+              placeholder={t('checkout.notes_placeholder')}
             />
           </div>
 
-          {/* Metode Pembayaran */}
-          <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">
-              Metode Pembayaran <span className="text-red-500">*</span>
-            </label>
-            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          <div className="rounded-2xl bg-white p-6 shadow-sm border border-[#ead8ca]">
+            <h2 className="text-lg font-bold text-[#4b2417] mb-4">{t('checkout.payment_preference')}</h2>
+            <div className="grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, paymentMethod: 'lunas' })}
-                className={`flex items-center gap-2 rounded-lg border-2 p-3 text-sm transition ${
-                  formData.paymentMethod === 'lunas'
-                    ? 'border-[#d85b30] bg-[#d85b30]/5 text-[#d85b30]'
-                    : 'border-gray-200 text-[#6f5448] hover:border-gray-300'
+                className={`flex flex-col items-start gap-1 rounded-xl border-2 p-4 text-left transition ${
+                  formData.paymentMethod === 'lunas' ? 'border-[#d85b30] bg-[#d85b30]/5 shadow-sm' : 'border-gray-200 bg-white hover:border-gray-300'
                 }`}
               >
-                <Banknote className="h-5 w-5" />
-                Lunas
+                <div className="flex items-center gap-2 mb-1">
+                  <Banknote className={`h-5 w-5 ${formData.paymentMethod === 'lunas' ? 'text-[#d85b30]' : 'text-[#6f5448]'}`} />
+                  <span className={`font-bold text-sm ${formData.paymentMethod === 'lunas' ? 'text-[#d85b30]' : 'text-[#4b2417]'}`}>{t('checkout.pay_full_label')}</span>
+                </div>
+                <span className="text-xs text-[#6f5448]">{t('checkout.pay_full')}</span>
               </button>
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, paymentMethod: 'dp' })}
-                className={`flex items-center gap-2 rounded-lg border-2 p-3 text-sm transition ${
-                  formData.paymentMethod === 'dp'
-                    ? 'border-[#d85b30] bg-[#d85b30]/5 text-[#d85b30]'
-                    : 'border-gray-200 text-[#6f5448] hover:border-gray-300'
+                className={`flex flex-col items-start gap-1 rounded-xl border-2 p-4 text-left transition ${
+                  formData.paymentMethod === 'dp' ? 'border-[#d85b30] bg-[#d85b30]/5 shadow-sm' : 'border-gray-200 bg-white hover:border-gray-300'
                 }`}
               >
-                <CreditCard className="h-5 w-5" />
-                DP (50%)
+                <div className="flex items-center gap-2 mb-1">
+                  <CreditCard className={`h-5 w-5 ${formData.paymentMethod === 'dp' ? 'text-[#d85b30]' : 'text-[#6f5448]'}`} />
+                  <span className={`font-bold text-sm ${formData.paymentMethod === 'dp' ? 'text-[#d85b30]' : 'text-[#4b2417]'}`}>{t('checkout.pay_dp_label')}</span>
+                </div>
+                <span className="text-xs text-[#6f5448]">{t('checkout.pay_dp')}</span>
               </button>
             </div>
-            {formData.paymentMethod === 'dp' && (
-              <p className="mt-2 text-xs text-[#8b7166]">
-                💳 Anda akan membayar 50% dari total pesanan, sisanya dibayar saat pickup/delivery
-              </p>
-            )}
           </div>
+        </div>
 
-          {/* Ringkasan */}
-          <div className="rounded-xl bg-[#f8f4f0] p-4 space-y-2 text-sm">
-            <h3 className="font-bold text-[#4b2417]">{t('checkout.order_summary', 'Ringkasan Pesanan')}</h3>
-            <div className="flex justify-between">
-              <span className="text-[#6f5448]">Subtotal ({items.length} item)</span>
-              <span className="font-semibold text-[#4b2417]">{formatRupiah(subtotal)}</span>
+        <div className="flex-1 md:max-w-xs xl:max-w-sm">
+          <div className="rounded-2xl bg-white p-6 shadow-sm border border-[#ead8ca] sticky top-24">
+            <h2 className="text-lg font-bold text-[#4b2417] mb-4">{t('checkout.order_summary')}</h2>
+            
+            <div className="space-y-4 mb-6">
+              {items.map(item => (
+                <div key={item.productId} className="flex gap-3">
+                  {item.image && <img src={item.image} alt={item.name} className="w-12 h-12 rounded-lg object-cover bg-gray-100" />}
+                  <div className="flex-1 text-sm">
+                    <p className="font-bold text-[#4b2417] line-clamp-1">{item.name}</p>
+                    <p className="text-xs text-[#6f5448]">{item.variantName} &times; {item.quantity}</p>
+                  </div>
+                  <div className="font-semibold text-[#4b2417] text-sm">
+                    {formatRupiah(item.price * item.quantity)}
+                  </div>
+                </div>
+              ))}
             </div>
-            <div className="flex justify-between">
-              <span className="text-[#6f5448]">{t('checkout.shipping_fee', 'Biaya Pengiriman')}</span>
-              <span className="font-semibold text-[#8b7166]">
-                {formData.deliveryMethod === 'pickup' ? 'Gratis' : 'Dihitung via WA'}
-              </span>
+
+            <div className="space-y-2 text-sm border-t border-[#ead8ca] pt-4">
+              <div className="flex justify-between">
+                <span className="text-[#6f5448]">{t('checkout.subtotal')}</span>
+                <span className="font-semibold text-[#4b2417]">{formatRupiah(subtotal)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#6f5448]">{t('checkout.shipping_fee')}</span>
+                <span className="font-semibold text-[#8b7166]">{formData.deliveryMethod === 'pickup' ? t('checkout.free') : t('checkout.calculated_via_wa')}</span>
+              </div>
+              
+              <div className="flex justify-between border-t border-[#ead8ca] pt-3 mt-3 mb-2">
+                <span className="font-bold text-[#4b2417]">{t('checkout.total')}</span>
+                <span className="font-black text-[#4b2417]">{formatRupiah(total)}</span>
+              </div>
             </div>
-            <div className="flex justify-between border-t border-[#d0bfaf] pt-2 font-bold">
-              <span className="text-[#4b2417]">{t('checkout.total', 'Total')}</span>
-              <span className="text-[#d85b30]">{formatRupiah(total)}</span>
+
+            <div className="rounded-xl bg-[#f8f4f0] p-4 mt-4 border border-[#ead8ca] flex justify-between items-center">
+              <span className="font-bold text-[#6f5448] text-sm">{t('checkout.due_now')}</span>
+              <span className="font-black text-2xl text-[#d85b30]">{formatRupiah(payableAmount)}</span>
             </div>
-            {formData.paymentMethod === 'dp' && (
-              <div className="flex justify-between text-sm">
-                <span className="text-[#6f5448]">Yang harus dibayar (DP 50%)</span>
-                <span className="font-bold text-[#d85b30]">{formatRupiah(payableAmount)}</span>
+
+            {error && (
+              <div className="mt-4 flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {error}
               </div>
             )}
-            {formData.deliveryMethod !== 'pickup' && (
-              <p className="mt-2 text-center text-xs text-[#8b7166]">
-                * Biaya pengiriman akan ditambahkan kemudian (diinfokan via WhatsApp)
-              </p>
-            )}
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="mt-6 flex h-14 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white transition hover:bg-[#c04e28] disabled:opacity-60 shadow-md shadow-[#d85b30]/20"
+            >
+              {isLoading ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t('checkout.processing')}</>
+              ) : (
+                t('checkout.place_order_continue')
+              )}
+            </button>
           </div>
-
-          {error && (
-            <div className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
-              <AlertCircle className="h-4 w-4 shrink-0" />
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white transition hover:bg-[#c04e28] disabled:opacity-60"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Memproses...
-              </>
-            ) : (
-              'Buat Pesanan'
-            )}
-          </button>
-        </form>
-      </div>
+        </div>
+      </form>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, Loader2, AlertCircle } from 'lucide-react';
 import { SellerModal } from '@/components/ui/SellerModal';
+import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import { getProductRecipes, addRecipeIngredient, deleteRecipeIngredient, type RecipeOut } from '@/api/recipe';
 import { getInventoryOptions, type InventoryOption } from '@/services/sellerInventoryService';
 
@@ -67,8 +68,12 @@ export default function RecipeManagementModal({ productId, productName, onClose 
     }
   };
 
-  const handleDelete = async (recipeId: number) => {
-    if (!window.confirm('Delete this ingredient from recipe?')) return;
+  const [recipeToDeleteId, setRecipeToDeleteId] = useState<number | null>(null);
+
+  const confirmDeleteRecipe = async () => {
+    if (!recipeToDeleteId) return;
+    const recipeId = recipeToDeleteId;
+    setRecipeToDeleteId(null);
     setError(null);
     try {
       await deleteRecipeIngredient(productId, recipeId);
@@ -158,7 +163,7 @@ export default function RecipeManagementModal({ productId, productName, onClose 
                   <td className="px-4 py-3 text-gray-500">{recipe.satuan}</td>
                   <td className="px-4 py-3 text-center">
                     <button
-                      onClick={() => handleDelete(recipe.id)}
+                      onClick={() => setRecipeToDeleteId(recipe.id)}
                       className="rounded p-1 text-red-500 hover:bg-red-50"
                       title="Delete"
                     >
@@ -171,6 +176,17 @@ export default function RecipeManagementModal({ productId, productName, onClose 
           </tbody>
         </table>
       </div>
+
+      <ConfirmationModal
+        isOpen={recipeToDeleteId !== null}
+        title="Hapus Bahan"
+        message="Are you sure you want to delete this ingredient from the recipe?"
+        confirmText="Hapus"
+        cancelText="Batal"
+        isDestructive={true}
+        onConfirm={confirmDeleteRecipe}
+        onCancel={() => setRecipeToDeleteId(null)}
+      />
     </SellerModal>
   );
 }

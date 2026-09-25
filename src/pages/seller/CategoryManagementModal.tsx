@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type React from 'react';
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import { SellerModal } from '@/components/ui/SellerModal';
+import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import {
   getBackendCategories,
   createBackendCategory,
@@ -69,8 +70,12 @@ export default function CategoryManagementModal({ isOpen, onClose, onCategoriesC
     setSuccess(null);
   };
 
-  const handleDelete = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this category?')) return;
+  const [categoryToDeleteId, setCategoryToDeleteId] = useState<number | null>(null);
+
+  const confirmDeleteCategory = async () => {
+    if (!categoryToDeleteId) return;
+    const id = categoryToDeleteId;
+    setCategoryToDeleteId(null);
     try {
       setError(null);
       await deleteBackendCategory(id);
@@ -169,7 +174,7 @@ export default function CategoryManagementModal({ isOpen, onClose, onCategoriesC
                             <Edit className="h-4 w-4" />
                           </button>
                           <button
-                            onClick={() => handleDelete(cat.id)}
+                            onClick={() => setCategoryToDeleteId(cat.id)}
                             className="rounded p-1 text-red-600 hover:bg-red-50 transition"
                             title="Delete"
                           >
@@ -224,6 +229,17 @@ export default function CategoryManagementModal({ isOpen, onClose, onCategoriesC
           </div>
         </form>
       )}
+
+      <ConfirmationModal
+        isOpen={categoryToDeleteId !== null}
+        title="Hapus Kategori"
+        message="Are you sure you want to delete this category?"
+        confirmText="Hapus"
+        cancelText="Batal"
+        isDestructive={true}
+        onConfirm={confirmDeleteCategory}
+        onCancel={() => setCategoryToDeleteId(null)}
+      />
     </SellerModal>
   );
 }

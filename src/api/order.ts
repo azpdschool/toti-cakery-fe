@@ -19,8 +19,9 @@ export async function createBuyerOrderAPI(payload: BuyerOrderCreate) {
   return response.data;
 }
 
-export async function downloadOrderInvoicePdfAPI(orderId: number | string) {
+export async function downloadOrderInvoicePdfAPI(orderId: number | string, lang?: string) {
   return apiClient.get(`/orders/${orderId}/invoice/pdf`, {
     responseType: 'blob',
+    params: { lang },
   });
 }

@@ -6,6 +6,7 @@ import {
   FormEvent,
   useMemo } from 'react';
 import { Navigate } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 
 import {
   DollarSign,
@@ -656,7 +657,7 @@ export default function SellerFinancePage() {
       loadStats(); 
       loadExpenses();
     } catch (err: any) {
-      alert(err?.response?.data?.detail || 'Unable to add expense.');
+      toast.error(err?.response?.data?.detail || 'Unable to add expense.');
     } finally {
       setSubmittingExpense(false);
     }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/components/ui/Toast';
+import { toast } from 'react-hot-toast';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import { SellerModal } from '@/components/ui/SellerModal';
 import {
@@ -672,18 +673,18 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.username || !formData.email || !formData.phone_number) {
-      alert('All fields are required');
+      toast.error('All fields are required');
       return;
     }
     
     const usernameRegex = /^[a-zA-Z0-9_-]+$/;
     if (!usernameRegex.test(formData.username)) {
-      alert('Username can only contain letters, numbers, underscore (_), or hyphen (-). No spaces allowed.');
+      toast.error('Username can only contain letters, numbers, underscore (_), or hyphen (-). No spaces allowed.');
       return;
     }
 
     if (!initialData && !formData.password) {
-      alert('Password is required for new user');
+      toast.error('Password is required for new user');
       return;
     }
     onSave(formData);
@@ -893,8 +894,12 @@ function UsersTab() {
     }
   };
 
-  const handleDeleteUser = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this user?')) return;
+  const [userToDeleteId, setUserToDeleteId] = useState<number | null>(null);
+
+  const confirmDeleteUser = async () => {
+    if (!userToDeleteId) return;
+    const id = userToDeleteId;
+    setUserToDeleteId(null);
     try {
       await deleteUser(id);
       setUsers(users.filter((u) => u.id !== id));
@@ -987,7 +992,7 @@ function UsersTab() {
                     <Edit className="h-4 w-4" />
                   </button>
                   <button
-                    onClick={() => handleDeleteUser(user.id)}
+                    onClick={() => setUserToDeleteId(user.id)}
                     className="rounded p-1 text-red-500 hover:bg-red-50"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -1004,6 +1009,17 @@ function UsersTab() {
         onClose={closeModal}
         onSave={editingUser ? handleEditUser : handleAddUser}
         initialData={editingUser}
+      />
+
+      <ConfirmationModal
+        isOpen={userToDeleteId !== null}
+        title="Delete User"
+        message="Are you sure you want to delete this user?"
+        confirmText="Delete"
+        cancelText="Cancel"
+        isDestructive={true}
+        onConfirm={confirmDeleteUser}
+        onCancel={() => setUserToDeleteId(null)}
       />
     </div>
   );
