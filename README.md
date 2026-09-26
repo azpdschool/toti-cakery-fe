@@ -35,12 +35,9 @@ npm install
 ```
 > Proses ini akan mengunduh semua package yang dibutuhkan (React, Vite, Tailwind, dll.).
 
-### 3. (Opsional) Buat File Environment
-Buat file `.env` di root folder jika ingin mengubah nomor WhatsApp default:
-```env
-VITE_WHATSAPP_NUMBER=6282283088019
-```
-> Jika tidak dibuat, aplikasi akan menggunakan nomor fallback `6282283088019`.
+### 3. Nomor WhatsApp
+Nomor WhatsApp toko tidak diatur di sini: aplikasi mengambilnya saat runtime dari
+backend lewat `GET /public/kontak-toko`, dan nomornya diganti dari Admin Site.
 
 ### 4. Jalankan Development Server
 ```bash

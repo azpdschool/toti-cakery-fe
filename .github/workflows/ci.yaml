@@ -97,17 +97,6 @@ jobs:
             echo "::error::bundle memuat http://localhost:8000 — VITE_API_BASE_URL salah"
             exit 1
           fi
-          
-          WA=$(sed -n 's/^ARG VITE_WHATSAPP_NUMBER=//p' Dockerfile)
-          if [ -z "$WA" ]; then
-            echo "::error::ARG VITE_WHATSAPP_NUMBER kosong di Dockerfile"
-            exit 1
-          fi
-          if ! docker run --rm "$TAG" \
-                 grep -rqF "$WA" /usr/share/nginx/html/assets/; then
-            echo "::error::nomor WhatsApp ($WA) tidak ikut terpanggang ke bundle"
-            exit 1
-          fi
 
           echo "smoke test lolos"
           docker rm -f fe > /dev/null
