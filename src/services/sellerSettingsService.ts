@@ -33,6 +33,7 @@ export interface UserAdminUpdate {
   phone_number?: string;
   nomor_wa_admin?: string;
   role_id?: number;
+  handles_takeover?: boolean;
   is_active?: boolean;
   password?: string;
 }

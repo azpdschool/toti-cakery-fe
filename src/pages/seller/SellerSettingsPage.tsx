@@ -647,6 +647,7 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
     email: '',
     phone_number: '',
     role_id: 3,
+    handles_takeover: false,
     password: '',
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -658,6 +659,7 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
         email: initialData.email || '',
         phone_number: initialData.phone_number || '',
         role_id: initialData.role_id,
+        handles_takeover: initialData.handles_takeover,
         password: '',
       });
     } else {
@@ -666,6 +668,7 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
         email: '',
         phone_number: '',
         role_id: 3,
+        handles_takeover: false,
         password: '',
       });
     }
@@ -771,6 +774,16 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
             <option value={2}>Owner</option>
           </select>
         </div>
+
+        <label className="flex items-center gap-2 text-sm font-semibold text-[#4b2417]">
+          <input
+            type="checkbox"
+            checked={formData.handles_takeover}
+            onChange={e => setFormData({...formData, handles_takeover: e.target.checked})}
+            className="h-4 w-4 accent-[#d85b30]"
+          />
+          Receives WhatsApp escalations (human takeover)
+        </label>
 
         {!initialData && (
           <div>
