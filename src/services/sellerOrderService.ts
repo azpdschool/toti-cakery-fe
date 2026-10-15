@@ -46,6 +46,7 @@ export interface Order {
   status: OrderStatus;
   items?: OrderItem[];
   notes?: string;
+  fulfillmentDate?: string;
   customDesignFee?: number;
   createdVia?: string;
   invoiceId?: string;
@@ -99,6 +100,9 @@ export function mapOrderResponse(o: any): Order {
     paymentMethod: ['full', 'lunas'].includes(o.payment_method_preference) ? 'LUNAS' : 'DP',
     dueDate: o.due_date ? new Date(o.due_date).toLocaleDateString('id-ID') : '-',
     status: o.status,
+    fulfillmentDate: o.fulfillment_date ? new Date(o.fulfillment_date).toLocaleDateString('id-ID', {
+      day: 'numeric', month: 'long', year: 'numeric'
+    }) : undefined,
     items: o.order_items?.map((item: any) => ({
       id: item.id.toString(),
       productName: item.custom_product_name || (item.product ? item.product.nama : `Product #${item.product_id}`),
@@ -185,43 +189,23 @@ export async function getOrderStats(_ordersData?: any[]): Promise<{
 
 export async function addOrder(orderData: any): Promise<Order> {
   const payload = {
-    customer_name: orderData.customerName,
-    customer_phone: orderData.customerPhone,
-    customer_address: orderData.address,
-    metode_pengiriman: orderData.deliveryMethod === 'Pickup' ? 'pickup' : 'delivery',
-    payment_method_preference: orderData.paymentMethod === 'LUNAS' ? 'full' : 'dp',
-    notes: orderData.notes,
-    due_date: orderData.dueDate ? new Date(orderData.dueDate).toISOString() : null,
-    items: orderData.items.map((item: any) => ({
-      custom_product_name: item.name,
-      price: item.price,
-      qty: item.qty,
-      custom_decoration_charge: 0,
-    }))
+    customer_name: orderData.customer_name ?? orderData.customerName,
+    customer_phone: orderData.customer_phone ?? orderData.customerPhone,
+    customer_address: orderData.customer_address ?? orderData.address ?? '',
+    metode_pengiriman: orderData.metode_pengiriman ?? (orderData.deliveryMethod === 'Pickup' ? 'pickup' : 'delivery'),
+    payment_method_preference: orderData.payment_method_preference ?? (orderData.paymentMethod === 'LUNAS' ? 'full' : 'dp'),
+    notes: orderData.notes || '',
+    fulfillment_date: orderData.fulfillment_date ?? (orderData.fulfillmentDate ? (orderData.fulfillmentDate.includes('T') ? orderData.fulfillmentDate : `${orderData.fulfillmentDate}T12:00:00+07:00`) : ''),
+    items: (orderData.items || []).map((item: any) => ({
+      product_id: Number(item.product_id ?? item.productId),
+      qty: Number(item.qty ?? item.quantity ?? 1),
+      custom_decoration_charge: Number(item.custom_decoration_charge ?? 0),
+    })),
+    accessories: (orderData.accessories || []).map((acc: any) => ({
+      stock_item_id: Number(acc.stock_item_id ?? acc.stockItemId),
+      quantity: Number(acc.quantity ?? acc.qty ?? 1),
+    })),
   };
   const response = await apiClient.post('/orders/custom', payload);
-  const o = response.data;
-  return {
-      id: o.id.toString(),
-      orderNumber: `#${o.id}`,
-      customerName: o.customer?.nama || orderData.customerName,
-      customerPhone: o.customer?.nomor_wa || orderData.customerPhone,
-      address: o.customer?.alamat || '',
-      total: parseFloat(o.total_harga_pesanan) || 0,
-      date: new Date(o.created_at).toLocaleDateString('id-ID', {
-        day: 'numeric', month: 'long', year: 'numeric'
-      }),
-      time: new Date(o.created_at).toLocaleTimeString('id-ID', {
-        hour: '2-digit', minute: '2-digit'
-      }),
-      method: o.metode_pengiriman === 'pickup' ? 'Pickup' : 'Delivery Toko',
-      paymentMethod: ['full', 'lunas'].includes(o.payment_method_preference) ? 'LUNAS' : 'DP',
-      dueDate: o.due_date ? new Date(o.due_date).toLocaleDateString('id-ID') : '-',
-      status: o.status,
-      items: [],
-      notes: o.notes || '',
-      customDesignFee: 0,
-      invoiceId: o.invoice?.nomor_invoice || '',
-      createdVia: o.created_via,
-  };
+  return mapOrderResponse(response.data);
 }

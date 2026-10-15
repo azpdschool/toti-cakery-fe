@@ -12,6 +12,7 @@ export interface BuyerOrderCreate {
   created_via: string;
   notes?: string;
   payment_method_preference?: string;
+  fulfillment_date: string;
 }
 
 export async function createBuyerOrderAPI(payload: BuyerOrderCreate) {

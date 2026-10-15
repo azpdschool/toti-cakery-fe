@@ -6,6 +6,7 @@ import type React from 'react';
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import { supplierService } from '@/services/supplierService';
 import type { SupplierOut } from '@/api/supplier';
+import { friendlyError } from '@/utils/inventoryLabels';
 
 interface SupplierManagementModalProps {
   isOpen: boolean;
@@ -35,7 +36,7 @@ export default function SupplierManagementModal({ isOpen, onClose }: SupplierMan
       setSuppliers(data);
     } catch (err) {
       console.error(err);
-      setError('Gagal memuat supplier');
+      setError(friendlyError(err));
     } finally {
       setLoading(false);
     }
@@ -77,7 +78,7 @@ export default function SupplierManagementModal({ isOpen, onClose }: SupplierMan
       toast.success('Supplier berhasil dihapus');
     } catch (err) {
       console.error(err);
-      setError('Gagal menghapus supplier');
+      setError(friendlyError(err));
     }
   };
 
@@ -107,7 +108,7 @@ export default function SupplierManagementModal({ isOpen, onClose }: SupplierMan
       await loadSuppliers();
     } catch (err) {
       console.error(err);
-      setError(mode === 'add' ? 'Gagal menambah supplier' : 'Gagal mengupdate supplier');
+      setError(friendlyError(err));
     } finally {
       setSubmitting(false);
     }

@@ -611,6 +611,9 @@ export default function ProfilePage() {
       {isCropperOpen && cropperSrc && (
         <ImageCropper
           imageSrc={cropperSrc}
+          title={t('profile.change_avatar_title', 'Ubah Foto Profil')}
+          cropShape="round"
+          aspectRatio={1}
           onCrop={handleCropConfirm}
           onCancel={handleCropCancel}
           isUploading={avatarLoading}

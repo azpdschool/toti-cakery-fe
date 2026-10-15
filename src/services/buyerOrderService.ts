@@ -46,6 +46,7 @@ export interface BuyerOrder {
   subtotal: number
   serviceFee: number
   total: number
+  fulfillmentDate?: string
   amountPaid?: number
   amountDue?: number
 
@@ -112,6 +113,8 @@ interface ApiOrder {
 
   status?: string
   order_status?: string
+  fulfillment_date?: string
+  fulfillmentDate?: string
 
   delivery_method?: string
   deliveryMethod?: string
@@ -402,6 +405,7 @@ function mapApiOrder(order: ApiOrder): BuyerOrder {
     total,
     amountPaid: (order.amount_paid ?? order.amountPaid) != null ? toNumber(order.amount_paid ?? order.amountPaid) : undefined,
     amountDue: (order.amount_due ?? order.amountDue) != null ? toNumber(order.amount_due ?? order.amountDue) : undefined,
+    fulfillmentDate: order.fulfillment_date ?? order.fulfillmentDate,
 
     notes: order.notes ?? order.catatan ?? null,
     estimatedDate: order.estimated_date ?? order.estimatedDate ?? null,
@@ -484,6 +488,7 @@ export interface CreateOrderPayload {
   recipientName?: string
   recipientPhone?: string
   notes?: string
+  fulfillmentDate: string
 }
 
 /**
@@ -509,7 +514,8 @@ export async function createOrder(payload: CreateOrderPayload): Promise<BuyerOrd
     })),
     created_via: 'web',
     notes: finalNotes,
-    payment_method_preference: payload.paymentMethod
+    payment_method_preference: payload.paymentMethod,
+    fulfillment_date: payload.fulfillmentDate ? new Date(payload.fulfillmentDate).toISOString() : new Date().toISOString()
   };
 
   const responseData = await createBuyerOrderAPI(buyerPayload);

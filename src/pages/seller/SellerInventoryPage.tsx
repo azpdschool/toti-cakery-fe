@@ -13,7 +13,9 @@ import {
   ChevronRight,
   Edit,
   Trash2,
-  TrendingDown
+  TrendingDown,
+  History,
+  SlidersHorizontal
 } from 'lucide-react';
 import {
   getInventoryItems,
@@ -30,9 +32,12 @@ import { formatRupiah } from '@/services/productService';
 import { hasPermission } from '@/services/rbacService';
 import { useAuth } from '@/hooks/useAuth';
 import { UserRole } from '@/services/sellerSettingsService';
-import { supplierService } from '@/services/supplierService';
-import type { SupplierOut } from '@/api/supplier';
+
+
 import SupplierManagementModal from './SupplierManagementModal';
+import PurchaseManagementModal from './PurchaseManagementModal';
+import StockAdjustmentModal from './StockAdjustmentModal';
+import StockMovementModal from './StockMovementModal';
 import { toast } from 'react-hot-toast';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import { PaginationControls } from '@/components/ui/PaginationControls';
@@ -50,9 +55,11 @@ const UNIT_OPTIONS: { value: InventoryUnit; label: string }[] = [
   { value: 'pcs', label: 'pcs' },
 ];
 
+import { friendlyError, categoryLabel } from '@/utils/inventoryLabels';
+
 const CATEGORY_OPTIONS: { value: InventoryCategory; label: string }[] = [
-  { value: 'Bahan', label: 'Bahan Baku' },
-  { value: 'Kemasan', label: 'Kemasan' },
+  { value: 'Bahan', label: categoryLabel('Bahan') },
+  { value: 'Kemasan', label: categoryLabel('Kemasan') },
 ];
 
 const FILTER_FIELDS: FilterField[] = [
@@ -145,7 +152,6 @@ interface StockFormData {
   stock: number;
   minStock: number;
   pricePerUnit: number;
-  supplierId: number | null;
 }
 
 interface StockModalProps {
@@ -154,7 +160,6 @@ interface StockModalProps {
   initialData?: InventoryItem | null;
   onClose: () => void;
   onSave: (data: StockFormData) => Promise<void>;
-  suppliers: SupplierOut[];
 }
 
 function StockModal({
@@ -162,8 +167,7 @@ function StockModal({
   mode,
   initialData,
   onClose,
-  onSave,
-  suppliers
+  onSave
 }: StockModalProps) {
   const [submitting, setSubmitting] = useState(false);
 
@@ -174,13 +178,11 @@ function StockModal({
     stock: 0,
     minStock: 1,
     pricePerUnit: 0,
-    supplierId: null,
   });
 
   const [stockInput, setStockInput] = useState('0');
   const [priceInput, setPriceInput] = useState('0');
   const [minStockInput, setMinStockInput] = useState('1');
-  const [supplierInput, setSupplierInput] = useState<string>('');
 
   useEffect(() => {
     if (!isOpen) return;
@@ -193,12 +195,10 @@ function StockModal({
         stock: initialData.stock,
         minStock: initialData.minStock,
         pricePerUnit: initialData.pricePerUnit,
-        supplierId: initialData.supplierId,
       });
       setStockInput(String(initialData.stock));
       setPriceInput(String(initialData.pricePerUnit));
       setMinStockInput(String(initialData.minStock));
-      setSupplierInput(initialData.supplierId !== null ? String(initialData.supplierId) : '');
     } else {
       setFormData({
         name: '',
@@ -207,12 +207,10 @@ function StockModal({
         stock: 0,
         minStock: 1,
         pricePerUnit: 0,
-        supplierId: null,
       });
       setStockInput('0');
       setPriceInput('0');
       setMinStockInput('1');
-      setSupplierInput('');
     }
   }, [isOpen, mode, initialData]);
 
@@ -229,8 +227,10 @@ function StockModal({
     const minStock = normalizeDecimalInput(minStockInput);
 
     if (!formData.name.trim()) errors.push('Item Name is required.');
-    if (stock < 0) errors.push('Available Inventory cannot be negative.');
-    if (pricePerUnit < 0) errors.push('Price per Unit cannot be negative.');
+    if (mode === 'add') {
+      if (stock < 0) errors.push('Available Inventory cannot be negative.');
+      if (pricePerUnit < 0) errors.push('Average Cost cannot be negative.');
+    }
     if (minStock < 0) errors.push('Minimum Stock Alert cannot be negative.');
 
     if (errors.length > 0) {
@@ -243,10 +243,9 @@ function StockModal({
       await onSave({
         ...formData,
         name: formData.name.trim(),
-        stock,
+        stock: mode === 'add' ? stock : formData.stock,
         minStock,
-        pricePerUnit,
-        supplierId: supplierInput ? parseInt(supplierInput, 10) : null,
+        pricePerUnit: mode === 'add' ? pricePerUnit : formData.pricePerUnit,
       });
       onClose();
     } catch (error) {
@@ -260,7 +259,14 @@ function StockModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <form onSubmit={handleSubmit} className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-2xl bg-white shadow-xl overflow-hidden">
         <div className="flex items-center justify-between border-b border-gray-200 p-6 shrink-0">
-          <h2 className="text-2xl font-black text-[#4b2417]">{title}</h2>
+          <div>
+            <h2 className="text-2xl font-black text-[#4b2417]">{title}</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              {mode === 'add' 
+                ? 'Stock and price here are starting values. To add stock later, use Purchases.' 
+                : 'To change stock, use Purchases or the correct stock count icon.'}
+            </p>
+          </div>
           <button
             type="button"
             onClick={onClose}
@@ -286,23 +292,6 @@ function StockModal({
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">
-              Supplier <span className="text-red-500">(Optional)</span>
-            </label>
-            <select
-              value={supplierInput}
-              onChange={(e) => setSupplierInput(e.target.value)}
-              className="mt-1 w-full rounded-xl border border-[#d0bfaf] bg-white py-2 px-4 text-sm focus:border-[#c95b31] outline-none"
-            >
-              <option value="">Not set</option>
-              {suppliers.map((supplier) => (
-                <option key={supplier.id} value={supplier.id}>
-                  {supplier.nama_supplier}
-                </option>
-              ))}
-            </select>
-          </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
@@ -350,35 +339,37 @@ function StockModal({
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-semibold text-[#4b2417]">
-                Available Inventory <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. 20"
-                value={stockInput}
-                onChange={(e) => setStockInput(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
-                required
-              />
-            </div>
+          {mode === 'add' && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-semibold text-[#4b2417]">
+                  Available Inventory <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 20"
+                  value={stockInput}
+                  onChange={(e) => setStockInput(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
+                  required
+                />
+              </div>
 
-            <div>
-              <label className="block text-sm font-semibold text-[#4b2417]">
-                Price per Unit <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. 20000"
-                value={priceInput}
-                onChange={(e) => setPriceInput(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
-                required
-              />
+              <div>
+                <label className="block text-sm font-semibold text-[#4b2417]" title="Average buying price. Updates when a purchase is received.">
+                  Average Cost <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. 20000"
+                  value={priceInput}
+                  onChange={(e) => setPriceInput(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
+                  required
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           <div>
             <label className="block text-sm font-semibold text-[#4b2417]">
@@ -429,7 +420,6 @@ export default function SellerInventoryPage() {
 
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [stats, setStats] = useState<InventoryStats | null>(null);
-  const [suppliers, setSuppliers] = useState<SupplierOut[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -444,6 +434,9 @@ export default function SellerInventoryPage() {
 
   const [showStockModal, setShowStockModal] = useState(false);
   const [showSupplierModal, setShowSupplierModal] = useState(false);
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
+  const [showMovementModal, setShowMovementModal] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   
@@ -473,14 +466,6 @@ export default function SellerInventoryPage() {
     }
   }, []);
 
-  const loadSuppliers = useCallback(async () => {
-    try {
-      const data = await supplierService.fetchSuppliers();
-      setSuppliers(data);
-    } catch (err) {
-      console.error('Failed to load suppliers:', err);
-    }
-  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -489,12 +474,7 @@ export default function SellerInventoryPage() {
     async function initialLoad() {
       setLoading(true);
       await Promise.all([
-        loadInventory(controller.signal),
-        supplierService.fetchSuppliers().then((data) => {
-          if (!ignore) setSuppliers(data);
-        }).catch((err) => {
-          console.error('Failed to load suppliers:', err);
-        }),
+        loadInventory(controller.signal)
       ]);
       if (!ignore) setLoading(false);
     }
@@ -558,12 +538,6 @@ export default function SellerInventoryPage() {
     return { label: 'Safe', className: 'bg-green-100 text-green-700' };
   };
 
-  const getSupplierName = (supplierId: number | null) => {
-    if (!supplierId) return 'Not set';
-    const supplier = suppliers.find(s => s.id === supplierId);
-    return supplier ? supplier.nama_supplier : 'Not set';
-  };
-
   const openAddModal = () => {
     setModalMode('add');
     setEditingItem(null);
@@ -580,15 +554,14 @@ export default function SellerInventoryPage() {
     try {
       if (modalMode === 'add') {
         await addInventoryItem(data);
-        toast.success('Inventory item added successfully.');
+        toast.success('Ingredient added.');
       } else if (modalMode === 'edit' && editingItem) {
         await updateInventoryItem(editingItem.id, data);
-        toast.success('Inventory item updated successfully.');
+        toast.success('Ingredient updated.');
       }
       await loadInventory();
     } catch (err) {
-      const message = parseAxiosError(err, 'Failed to save inventory item.');
-      toast.error(message);
+      toast.error(friendlyError(err));
       throw err;
     }
   };
@@ -598,10 +571,9 @@ export default function SellerInventoryPage() {
     try {
       await deleteInventoryItem(deleteConfirm.id);
       await loadInventory();
-      toast.success('Inventory item removed successfully.');
+      toast.success('Ingredient deleted.');
     } catch (err) {
-      const message = parseAxiosError(err, 'Failed to remove inventory item.');
-      toast.error(message);
+      toast.error(friendlyError(err));
     } finally {
       setDeleteConfirm(null);
     }
@@ -643,6 +615,14 @@ export default function SellerInventoryPage() {
               className="flex items-center justify-center gap-1 rounded-lg border border-[#d85b30] px-4 py-2 text-sm font-semibold text-[#d85b30] hover:bg-[#fff5f0] whitespace-nowrap"
             >
               Manage Supplier
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowPurchaseModal(true)}
+              className="flex items-center justify-center gap-1 rounded-lg border border-[#d85b30] px-4 py-2 text-sm font-semibold text-[#d85b30] hover:bg-[#fff5f0] whitespace-nowrap"
+            >
+              Purchases
             </button>
 
             <button
@@ -821,11 +801,10 @@ export default function SellerInventoryPage() {
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase text-gray-500">
                 <th className="p-4">Item Name</th>
-                <th className="p-4">Supplier</th>
                 <th className="p-4">Category</th>
                 <th className="p-4">Unit</th>
                 <th className="p-4">Available Inventory</th>
-                <th className="p-4">Price per Unit</th>
+                <th className="p-4" title="Average buying price. Updates when a purchase is received.">Average Cost</th>
                 <th className="p-4">Status</th>
                 <th className="p-4 text-right">Actions</th>
               </tr>
@@ -834,7 +813,7 @@ export default function SellerInventoryPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="py-12">
+                  <td colSpan={7} className="py-12">
                     <div className="flex justify-center">
                       <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-gray-700" />
                     </div>
@@ -842,7 +821,7 @@ export default function SellerInventoryPage() {
                 </tr>
               ) : paginatedItems.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-12 text-center text-sm text-gray-500">
+                  <td colSpan={7} className="py-12 text-center text-sm text-gray-500">
                     {searchQuery || Object.keys(filters).length > 0 
                       ? "No inventory items match your current filters." 
                       : "No inventory items found."}
@@ -858,10 +837,7 @@ export default function SellerInventoryPage() {
                         <p className="font-semibold text-gray-900">{item.name}</p>
                       </td>
                       <td className="p-4 text-gray-600">
-                        {getSupplierName(item.supplierId)}
-                      </td>
-                      <td className="p-4 text-gray-600">
-                        {item.category}
+                        {categoryLabel(item.category)}
                       </td>
                       <td className="p-4 text-gray-600">
                         {item.unit}
@@ -879,6 +855,28 @@ export default function SellerInventoryPage() {
                       </td>
                       <td className="p-4">
                         <div className="flex items-center justify-end gap-2">
+                          <button
+                            title="Stock history"
+                            onClick={() => {
+                              setEditingItem(item);
+                              setShowMovementModal(true);
+                            }}
+                            className="p-1.5 text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                            aria-label="Stock history"
+                          >
+                            <History className="h-4 w-4" />
+                          </button>
+                          <button
+                            title="Correct stock count"
+                            onClick={() => {
+                              setEditingItem(item);
+                              setShowAdjustmentModal(true);
+                            }}
+                            className="p-1.5 text-orange-600 hover:bg-orange-50 rounded-md transition-colors"
+                            aria-label="Correct stock count"
+                          >
+                            <SlidersHorizontal className="h-4 w-4" />
+                          </button>
                           <button
                             title="Edit"
                             onClick={() => openEditModal(item)}
@@ -923,15 +921,39 @@ export default function SellerInventoryPage() {
         initialData={editingItem}
         onClose={() => setShowStockModal(false)}
         onSave={handleSaveStock}
-        suppliers={suppliers}
       />
 
       <SupplierManagementModal
         isOpen={showSupplierModal}
         onClose={() => {
           setShowSupplierModal(false);
-          loadSuppliers();
         }}
+      />
+
+      <PurchaseManagementModal
+        isOpen={showPurchaseModal}
+        onClose={() => setShowPurchaseModal(false)}
+        onSuccess={() => loadInventory()}
+      />
+
+      <StockAdjustmentModal
+        isOpen={showAdjustmentModal}
+        item={editingItem}
+        onClose={() => {
+          setShowAdjustmentModal(false);
+          setEditingItem(null);
+        }}
+        onSuccess={() => loadInventory()}
+      />
+
+      <StockMovementModal
+        isOpen={showMovementModal}
+        item={editingItem}
+        onClose={() => {
+          setShowMovementModal(false);
+          setEditingItem(null);
+        }}
+        onSuccess={() => loadInventory()}
       />
 
       <ConfirmationModal

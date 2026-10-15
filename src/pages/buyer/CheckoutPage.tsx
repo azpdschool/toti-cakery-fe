@@ -33,6 +33,24 @@ export default function CheckoutPage() {
   const [midtransMethod, setMidtransMethod] = useState<'qris' | 'bank_transfer'>('qris');
   const [paymentResult, setPaymentResult] = useState<any>(null);
   
+  const getJakartaDates = () => {
+    const today = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Jakarta" }));
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const maxDate = new Date(today);
+    maxDate.setDate(maxDate.getDate() + 30);
+    
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    const formatStr = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    
+    return {
+      tomorrowStr: formatStr(tomorrow),
+      maxStr: formatStr(maxDate)
+    };
+  };
+
+  const { tomorrowStr, maxStr } = getJakartaDates();
+
   const [formData, setFormData] = useState({
     deliveryMethod: 'pickup' as DeliveryMethod,
     recipientName: user?.name || '',
@@ -40,6 +58,7 @@ export default function CheckoutPage() {
     address: '',
     notes: '',
     paymentMethod: 'lunas' as PaymentMethod,
+    fulfillmentDate: tomorrowStr,
   });
 
   const deliveryFee = 0;
@@ -152,6 +171,16 @@ export default function CheckoutPage() {
       }
     }
 
+    if (!formData.fulfillmentDate) {
+      setError(t('checkout.form_incomplete'));
+      return;
+    }
+    
+    if (formData.fulfillmentDate < tomorrowStr || formData.fulfillmentDate > maxStr) {
+      setError('Fulfillment Date must be between tomorrow and 30 days from now.');
+      return;
+    }
+
     setIsLoading(true);
     try {
       const orderItems = items.map((item) => ({
@@ -176,6 +205,7 @@ export default function CheckoutPage() {
         recipientName: formData.recipientName,
         recipientPhone: formData.recipientPhone,
         notes: formData.notes,
+        fulfillmentDate: new Date(formData.fulfillmentDate).toISOString(),
       });
 
       setOrderId(order.id);
@@ -365,6 +395,21 @@ export default function CheckoutPage() {
                 <span className="font-semibold text-sm">{t('checkout.delivery_third_party')}</span>
                 <span className="text-xs text-[#8b7166]">{t('checkout.calculated_via_wa')}</span>
               </button>
+            </div>
+
+            <div className="mt-6">
+              <label className="block text-sm font-semibold text-[#4b2417] mb-1">
+                {t('checkout.fulfillment_date', 'Date Needed / Fulfillment Date')} <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                value={formData.fulfillmentDate}
+                min={tomorrowStr}
+                max={maxStr}
+                onChange={(e) => setFormData({ ...formData, fulfillmentDate: e.target.value })}
+                className="w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-sm outline-none focus:border-[#d85b30] transition"
+                required
+              />
             </div>
           </div>
 

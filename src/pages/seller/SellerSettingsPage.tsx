@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useToast } from '@/components/ui/Toast';
 import { toast } from 'react-hot-toast';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
@@ -36,64 +36,7 @@ import {
   resetWhatsAppNumber,
   type WhatsAppStatus
 } from "@/services/whatsappService";
-import Cropper from 'react-easy-crop';
-
-// ============================================================
-// UTILS FOR IMAGE CROPPING
-// ============================================================
-const createImage = (url: string): Promise<HTMLImageElement> =>
-  new Promise((resolve, reject) => {
-    const image = new Image();
-    image.addEventListener('load', () => resolve(image));
-    image.addEventListener('error', (error) => reject(error));
-    image.setAttribute('crossOrigin', 'anonymous');
-    image.src = url;
-  });
-
-async function getCroppedImg(
-  imageSrc: string,
-  pixelCrop: { x: number; y: number; width: number; height: number }
-): Promise<File | null> {
-  const image = await createImage(imageSrc);
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-
-  if (!ctx) return null;
-
-  canvas.width = image.width;
-  canvas.height = image.height;
-  ctx.drawImage(image, 0, 0);
-
-  const croppedCanvas = document.createElement('canvas');
-  const croppedCtx = croppedCanvas.getContext('2d');
-
-  if (!croppedCtx) return null;
-
-  croppedCanvas.width = pixelCrop.width;
-  croppedCanvas.height = pixelCrop.height;
-
-  croppedCtx.drawImage(
-    canvas,
-    pixelCrop.x,
-    pixelCrop.y,
-    pixelCrop.width,
-    pixelCrop.height,
-    0,
-    0,
-    pixelCrop.width,
-    pixelCrop.height
-  );
-
-  return new Promise((resolve) => {
-    croppedCanvas.toBlob((blob) => {
-      if (blob) {
-        resolve(new File([blob], 'avatar.jpg', { type: 'image/jpeg' }));
-      } else {
-        resolve(null);
-      }
-    }, 'image/jpeg');
-  });
-}
+import ImageCropper from '@/components/common/ImageCropper';
 
 // ============================================================
 // KOMPONEN TAB NAVIGATION
@@ -127,6 +70,7 @@ function TabButton({ label, icon: Icon, isActive, onClick }: TabButtonProps) {
 // ============================================================
 
 function ProfileTab() {
+  const { t } = useTranslation();
   const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -145,9 +89,6 @@ function ProfileTab() {
   // Avatar Modal State
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
-  const [crop, setCrop] = useState({ x: 0, y: 0 });
-  const [zoom, setZoom] = useState(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -277,26 +218,15 @@ function ProfileTab() {
     }
   };
 
-  const onCropComplete = useCallback((_croppedArea: any, croppedAreaPixels: any) => {
-    setCroppedAreaPixels(croppedAreaPixels);
-  }, []);
-
-  const handleAvatarConfirm = async () => {
-    if (!avatarPreviewUrl || !croppedAreaPixels) return;
-
+  const handleAvatarConfirm = async (croppedFile: File) => {
     try {
       setIsUploadingAvatar(true);
-      const croppedImageFile = await getCroppedImg(avatarPreviewUrl, croppedAreaPixels);
-      
-      if (!croppedImageFile) {
-        showToast({ message: 'Failed to process image.', type: 'error' });
-        return;
-      }
-
-      const updated = await uploadAvatar(croppedImageFile);
+      const updated = await uploadAvatar(croppedFile);
       setProfile(updated);
       showToast({ message: 'Profile photo updated successfully.', type: 'success' });
       setShowAvatarModal(false);
+      if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl);
+      setAvatarPreviewUrl(null);
     } catch (err) {
       console.error(err);
       showToast({ message: 'Unable to update profile photo right now.', type: 'error' });
@@ -307,9 +237,8 @@ function ProfileTab() {
 
   const handleAvatarCancel = () => {
     setShowAvatarModal(false);
+    if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl);
     setAvatarPreviewUrl(null);
-    setZoom(1);
-    setCrop({ x: 0, y: 0 });
   };
 
   // Password Handlers
@@ -576,55 +505,15 @@ function ProfileTab() {
 
       {/* Avatar Edit Modal */}
       {showAvatarModal && avatarPreviewUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h2 className="mb-4 text-xl font-bold text-[#4b2417]">Edit Photo</h2>
-            
-            <div className="relative h-64 w-full bg-gray-100 rounded-lg overflow-hidden">
-              <Cropper
-                image={avatarPreviewUrl}
-                crop={crop}
-                zoom={zoom}
-                aspect={1}
-                cropShape="round"
-                showGrid={false}
-                onCropChange={setCrop}
-                onCropComplete={onCropComplete}
-                onZoomChange={setZoom}
-              />
-            </div>
-            
-            <div className="mt-4">
-              <label className="text-sm font-medium text-gray-700">Zoom</label>
-              <input
-                type="range"
-                value={zoom}
-                min={1}
-                max={3}
-                step={0.1}
-                onChange={(e) => setZoom(Number(e.target.value))}
-                className="w-full mt-2"
-              />
-            </div>
-
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                onClick={handleAvatarCancel}
-                disabled={isUploadingAvatar}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAvatarConfirm}
-                disabled={isUploadingAvatar}
-                className="rounded-lg bg-[#d85b30] px-4 py-2 text-sm font-semibold text-white hover:bg-[#c04e28] disabled:opacity-50"
-              >
-                {isUploadingAvatar ? 'Saving...' : 'Confirm'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ImageCropper
+          imageSrc={avatarPreviewUrl}
+          title={t('profile.change_avatar_title', 'Ubah Foto Profil')}
+          cropShape="round"
+          aspectRatio={1}
+          onCrop={handleAvatarConfirm}
+          onCancel={handleAvatarCancel}
+          isUploading={isUploadingAvatar}
+        />
       )}
     </div>
   );

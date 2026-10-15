@@ -1,5 +1,3 @@
-// src/api/stock.ts
-
 import { apiClient } from './client';
 
 export type ApiDecimal = string | number;
@@ -15,7 +13,6 @@ export interface StockOut {
   harga_per_satuan: ApiDecimal;
   stok_tersedia: ApiDecimal;
   alert_min_stok: ApiDecimal;
-  supplier_id: number | null;
   version: number;
   created_at: string | null;
   updated_at: string | null;
@@ -28,17 +25,32 @@ export interface StockCreate {
   harga_per_satuan: number | string;
   stok_tersedia: number | string;
   alert_min_stok?: number | string;
-  supplier_id: number | null;
 }
 
 export interface StockUpdate {
   nama_item?: string;
   satuan?: StockUnitApi;
   kategori?: StockCategoryApi;
-  harga_per_satuan?: number | string;
-  stok_tersedia?: number | string;
   alert_min_stok?: number | string;
-  supplier_id?: number | null;
+}
+
+export interface StockAdjustmentCreate {
+  quantity_difference: number | string;
+  reason: string;
+  unit_cost?: number | string;
+}
+
+export interface StockMovementOut {
+  id: number;
+  stock_item_id: number;
+  movement_type: string;
+  quantity: ApiDecimal;
+  unit_cost: ApiDecimal;
+  reference_type: string | null;
+  reference_id: number | null;
+  created_by: number | null;
+  reason: string | null;
+  created_at: string | null;
 }
 
 const stockItemsPromises = new Map<string, Promise<StockOut[]>>();
@@ -54,7 +66,6 @@ export async function getStockItems(
   const key = kategori || 'ALL';
   
   if (stockItemsPromises.has(key)) {
-    // Return existing in-flight request unless the signal is already aborted
     if (signal?.aborted) {
       throw new DOMException('Aborted', 'AbortError');
     }
@@ -75,8 +86,6 @@ export async function getStockItems(
       throw err;
     });
 
-  // If the caller aborts the request, we must eagerly remove it from the cache
-  // so subsequent callers don't reuse the aborted promise before the catch block runs.
   signal?.addEventListener('abort', () => {
     if (stockItemsPromises.get(key) === promise) {
       stockItemsPromises.delete(key);
@@ -90,14 +99,12 @@ export async function getStockItems(
 
 export async function getStockItemById(id: number): Promise<StockOut> {
   const response = await apiClient.get<StockOut>(`/stock/${id}`);
-
   return response.data;
 }
 
 export async function createStockItem(payload: StockCreate): Promise<StockOut> {
   invalidateStockCache();
   const response = await apiClient.post<StockOut>('/stock/', payload);
-
   return response.data;
 }
 
@@ -107,13 +114,22 @@ export async function updateStockItem(
 ): Promise<StockOut> {
   invalidateStockCache();
   const response = await apiClient.put<StockOut>(`/stock/${id}`, payload);
-
   return response.data;
 }
 
 export async function deleteStockItem(id: number): Promise<boolean> {
   invalidateStockCache();
   const response = await apiClient.delete<boolean>(`/stock/${id}`);
+  return response.data;
+}
 
+export async function adjustStock(id: number, payload: StockAdjustmentCreate): Promise<StockOut> {
+  invalidateStockCache();
+  const response = await apiClient.post<StockOut>(`/stock/${id}/adjustments`, payload);
+  return response.data;
+}
+
+export async function getStockMovements(id: number): Promise<StockMovementOut[]> {
+  const response = await apiClient.get<StockMovementOut[]>(`/stock/${id}/movements`);
   return response.data;
 }

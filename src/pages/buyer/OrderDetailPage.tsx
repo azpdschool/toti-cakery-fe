@@ -139,8 +139,8 @@ export default function OrderDetailPage() {
     setIsPayingRemaining(true);
     setError(null);
     try {
-      // paymentType is 'dp' if it's an unpaid order with preference 'dp', OR if it's a partial order paying the remaining half
-      const isDp = (order.paymentStatus === 'unpaid' && String(order.paymentMethodPreference).toLowerCase() === 'dp') || order.paymentStatus === 'partial';
+      // paymentType is 'dp' if it's an unpaid order with preference 'dp'; for partial orders it should be 'full'
+      const isDp = order.paymentStatus === 'unpaid' && String(order.paymentMethodPreference).toLowerCase() === 'dp';
       const paymentType = isDp ? 'dp' : 'full';
       
       const amountToPay = (order.paymentStatus === 'unpaid' && isDp) 
@@ -463,6 +463,11 @@ export default function OrderDetailPage() {
               <p className="text-sm text-[#6f5448]">
                 {t('order_detail.ordered_on')} {order.date} · {order.time}
               </p>
+              {order.fulfillmentDate && (
+                <p className="text-sm font-medium text-[#d85b30] mt-1">
+                  Fulfillment Date: {new Date(order.fulfillmentDate).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}
+                </p>
+              )}
             </div>
 
             <div className="flex items-center gap-3">

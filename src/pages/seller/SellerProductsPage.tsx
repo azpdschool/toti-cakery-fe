@@ -108,6 +108,48 @@ export default function SellerProductsPage() {
 
   const [formData, setFormData] = useState<ProductCreate>(defaultFormState)
 
+  const computedFormAvailability = useMemo(() => {
+    const validIngredients = ingredients.filter(
+      (item) => item.inventoryId && item.quantity > 0
+    )
+    if (validIngredients.length === 0) {
+      return false
+    }
+    for (const item of validIngredients) {
+      const inv = inventoryOptions.find((opt) => String(opt.id) === String(item.inventoryId))
+      if (!inv || (inv.stock ?? 0) <= 0 || (inv.stock ?? 0) < item.quantity) {
+        return false
+      }
+    }
+    return true
+  }, [ingredients, inventoryOptions])
+
+  const isFormValid = useMemo(() => {
+    const isNameValid = (formData.nama_produk || '').trim().length > 0
+    const isDescriptionValid = (formData.deskripsi || '').trim().length > 0
+    const isCategoryValid = (formData.kategori || '').trim().length > 0
+    const isPriceValid = Number(formData.harga_jual) > 0
+    const isMinOrderValid = Number(formData.minimum_order) >= 1
+    const isRecipesValid =
+      ingredients.length > 0 &&
+      ingredients.every(
+        (item) =>
+          Boolean(item.inventoryId && String(item.inventoryId).trim().length > 0 && Number(item.inventoryId) > 0) &&
+          Number(item.quantity) > 0
+      )
+    const isImagesValid = existingImages.length + draftImages.length > 0
+
+    return Boolean(
+      isNameValid &&
+      isDescriptionValid &&
+      isCategoryValid &&
+      isPriceValid &&
+      isMinOrderValid &&
+      isRecipesValid &&
+      isImagesValid
+    )
+  }, [formData, ingredients, existingImages.length, draftImages.length])
+
 
   const fetchProducts = async () => {
     try {
@@ -171,6 +213,10 @@ export default function SellerProductsPage() {
     setPage(1)
   }, [filters, viewMode, pageSize])
 
+  const isProductAvailable = (p: SimpleProduct): boolean => {
+    return Boolean(p.isInStock && (p.stockQuantity ?? 0) > 0)
+  }
+
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
       // Archive View vs Active View (Soft delete)
@@ -189,8 +235,9 @@ export default function SellerProductsPage() {
         if (filters.status === 'inactive' && p.isActive) return false;
       }
       if (filters.availability) {
-        if (filters.availability === 'available' && !p.isAvailable) return false;
-        if (filters.availability === 'unavailable' && p.isAvailable) return false;
+        const isAvail = isProductAvailable(p);
+        if (filters.availability === 'available' && !isAvail) return false;
+        if (filters.availability === 'unavailable' && isAvail) return false;
       }
       if (filters.priceMin && p.price < Number(filters.priceMin)) return false;
       if (filters.priceMax && p.price > Number(filters.priceMax)) return false;
@@ -303,7 +350,7 @@ export default function SellerProductsPage() {
       harga_jual: product.price.toString(),
       minimum_order: product.minimumOrder,
       is_active: product.isActive,
-      is_available: product.isAvailable,
+      is_available: true,
     })
     setExistingImages(product.images || [])
     draftImages.forEach((img) => URL.revokeObjectURL(img.previewUrl))
@@ -454,6 +501,10 @@ export default function SellerProductsPage() {
       setError('Unauthorized to manage products.')
       return
     }
+    if (!isFormValid) {
+      toast.error(t('products.form_incomplete', 'Mohon lengkapi seluruh data formulir produk terlebih dahulu.'))
+      return
+    }
     if (!formData.nama_produk.trim()) {
       setError('Product name is required.')
       return
@@ -499,7 +550,7 @@ export default function SellerProductsPage() {
           harga_jual,
           minimum_order,
           is_active: formData.is_active,
-          is_available: formData.is_available,
+          is_available: true,
         }
         await updateProduct(editId, updatePayload)
         isProductCreatedOrUpdated = true
@@ -553,6 +604,7 @@ export default function SellerProductsPage() {
       } else {
         const createPayload: ProductCreate = {
           ...formData,
+          is_available: true,
           harga_jual,
           minimum_order,
         }
@@ -734,7 +786,7 @@ export default function SellerProductsPage() {
 
               <div className="sm:col-span-2">
                 <label className="mb-1 block text-sm font-semibold text-[#4b2417]">
-                  Description <span className="text-red-500">(Optional)</span>
+                  Description <span className="text-red-500">*</span>
                 </label>
                 <textarea
                   name="deskripsi"
@@ -748,7 +800,7 @@ export default function SellerProductsPage() {
 
               <div>
                 <label className="mb-1 block text-sm font-semibold text-[#4b2417]">
-                  Category <span className="text-red-500">(Optional)</span>
+                  Category <span className="text-red-500">*</span>
                 </label>
                 <select
                   name="kategori"
@@ -766,7 +818,7 @@ export default function SellerProductsPage() {
 
               <div>
                 <label className="mb-1 block text-sm font-semibold text-[#4b2417]">
-                  Price <span className="text-red-500">(Optional)</span>
+                  Price <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -781,7 +833,7 @@ export default function SellerProductsPage() {
 
               <div className="sm:col-span-2">
                 <label className="mb-1 block text-sm font-semibold text-[#4b2417]">
-                  Minimum Order <span className="text-red-500">(Optional)</span>
+                  Minimum Order <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -795,42 +847,70 @@ export default function SellerProductsPage() {
 
               {/* Status and Availability side-by-side */}
               <div className="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4 border-t border-[#ead8ca] pt-4 mt-2">
-                <div>
-                  <label className="mb-1 block text-sm font-semibold text-[#4b2417]">
-                    Status <span className="text-red-500">*</span>
-                  </label>
-                  <div className="mt-2 flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      name="is_active"
-                      id="is_active"
-                      checked={formData.is_active}
-                      onChange={handleInputChange}
-                      className="h-4 w-4 rounded border-[#d0bfaf] text-[#d85b30] focus:ring-[#c95b31]"
-                    />
-                    <label htmlFor="is_active" className="text-sm text-[#4b2417]">
-                      {formData.is_active ? 'Active' : 'Archived'}
-                    </label>
+                {/* Status Toggle Switch */}
+                <div className="flex flex-col justify-between rounded-xl border border-[#ead8ca] bg-[#fcf8f5] p-3.5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-sm font-semibold text-[#4b2417]">
+                        {formData.is_active
+                          ? t('products.status_active_badge', 'Status: Active')
+                          : t('products.status_inactive_badge', 'Status: Inactive')}
+                      </span>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {formData.is_active
+                          ? t('products.status_active_help', 'Produk aktif dan ditampilkan di katalog toko.')
+                          : t('products.status_inactive_help', 'Produk dinonaktifkan dan disembunyikan dari katalog toko.')}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={formData.is_active}
+                      onClick={() => setFormData((prev) => ({ ...prev, is_active: !prev.is_active }))}
+                      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#d85b30] focus:ring-offset-2 ml-3 ${
+                        formData.is_active ? 'bg-[#d85b30]' : 'bg-gray-300'
+                      }`}
+                      aria-label="Toggle product status"
+                    >
+                      <span
+                        aria-hidden="true"
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                          formData.is_active ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
                   </div>
                 </div>
 
-                <div>
-                  <label className="mb-1 block text-sm font-semibold text-[#4b2417]">
-                    Availability <span className="text-red-500">*</span>
-                  </label>
-                  <div className="mt-2 flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      name="is_available"
-                      id="is_available"
-                      checked={formData.is_available ?? true}
-                      onChange={handleInputChange}
-                      className="h-4 w-4 rounded border-[#d0bfaf] text-[#d85b30] focus:ring-[#c95b31]"
-                    />
-                    <label htmlFor="is_available" className="text-sm text-[#4b2417]">
-                      {formData.is_available ? 'Available' : 'Unavailable'}
-                    </label>
+                {/* Read-only Automatic Availability Card */}
+                <div className="flex flex-col justify-between rounded-xl border border-dashed border-[#ead8ca] bg-[#fcf8f5] p-3.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-gray-600">
+                      {t('products.availability_label', 'Availability')}
+                    </span>
+                    <span
+                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold ${
+                        computedFormAvailability
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-rose-100 text-rose-800'
+                      }`}
+                    >
+                      <span
+                        className={`h-2 w-2 rounded-full ${
+                          computedFormAvailability ? 'bg-emerald-500' : 'bg-rose-500'
+                        }`}
+                      />
+                      {computedFormAvailability
+                        ? t('products.available', 'Available')
+                        : t('products.unavailable', 'Unavailable')}
+                    </span>
                   </div>
+                  <p className="mt-2 text-xs text-gray-500 leading-relaxed">
+                    {t(
+                      'products.availability_auto_help',
+                      'Auto-calculated based on recipe ingredients & inventory stock. (Otomatis ditentukan berdasarkan ketersediaan stok bahan resep).'
+                    )}
+                  </p>
                 </div>
               </div>
               
@@ -1098,8 +1178,8 @@ export default function SellerProductsPage() {
               </button>
               <button
                 type="submit"
-                disabled={isLoading}
-                className="flex items-center gap-2 rounded-lg bg-[#d85b30] px-6 py-2 text-sm font-semibold text-white hover:bg-[#c04e28] disabled:opacity-60"
+                disabled={!isFormValid || isLoading}
+                className="flex items-center gap-2 rounded-lg bg-[#d85b30] px-6 py-2 text-sm font-semibold text-white hover:bg-[#c04e28] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading && <Loader2 className="h-4 w-4 animate-spin" />}
                 {editId ? 'Save Changes' : 'Create Product'}
@@ -1304,20 +1384,27 @@ export default function SellerProductsPage() {
                         <td className="p-4">{product.minimumOrder}</td>
                         <td className="p-4">
                           <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                            product.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            product.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-700'
                           }`}>
-                            {product.isActive ? 'Active' : 'Archived'}
+                            {product.isActive
+                              ? t('products.status_active_badge', 'Status: Active')
+                              : t('products.status_inactive_badge', 'Status: Inactive')}
                           </span>
                         </td>
                         <td className="p-4">
-                          <div className="flex items-center gap-1.5">
-                            <span className={`text-sm ${product.isAvailable ? 'text-green-500' : 'text-red-500'}`}>
-                              {product.isAvailable ? '🟢' : '🔴'}
-                            </span>
-                            <span className="text-sm font-medium text-gray-700">
-                              {product.isAvailable ? 'Available' : 'Unavailable'}
-                            </span>
-                          </div>
+                          {(() => {
+                            const isAvail = isProductAvailable(product);
+                            return (
+                              <div className="flex items-center gap-1.5">
+                                <span className={`text-sm ${isAvail ? 'text-green-500' : 'text-red-500'}`}>
+                                  {isAvail ? '🟢' : '🔴'}
+                                </span>
+                                <span className={`text-sm font-medium ${isAvail ? 'text-green-700' : 'text-red-700'}`}>
+                                  {isAvail ? t('products.available', 'Available') : t('products.unavailable', 'Unavailable')}
+                                </span>
+                              </div>
+                            );
+                          })()}
                         </td>
                         <td className="p-4 text-center">
                           <div className="flex items-center justify-center gap-2">
@@ -1448,6 +1535,9 @@ export default function SellerProductsPage() {
       {cropperSource && (
         <ImageCropper
           imageSrc={cropperSource}
+          title={t('products.upload_image_title', 'Unggah Foto Produk')}
+          cropShape="rect"
+          aspectRatio={1}
           onCrop={handleCropConfirm}
           onCancel={() => {
             if (cropperSource) URL.revokeObjectURL(cropperSource)
