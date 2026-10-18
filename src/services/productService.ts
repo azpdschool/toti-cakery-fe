@@ -13,6 +13,7 @@ import {
   type ProductUpdate,
   type ProductOut,
   type SetPriceRequest,
+  type SetPriceResponse,
 } from '@/api/product';
 import type {
   CategorySummary,
@@ -38,8 +39,8 @@ export type {
   ProductOut,
 };
 
-// Re-export SetPriceRequest for use in components
-export type { SetPriceRequest };
+// Re-export SetPriceRequest and SetPriceResponse for use in components
+export type { SetPriceRequest, SetPriceResponse };
 
 export interface ArchivedProduct extends SimpleProduct {
   archivedAt: string | null;
@@ -146,8 +147,19 @@ function makeDefaultVariant(product: ProductOut): ProductVariant {
 }
 
 export function mapProductOutToProduct(product: ProductOut): Product {
-  const price = parseNumber(product.harga_jual);
+  const price = parseNumber(product.harga_jual ?? product.harga_jual_baru);
+  const hppTotal = parseNumber(product.hpp_total);
   const cacheKey = product.updated_at ?? product.created_at;
+
+  const warningBelowHpp = product.warning_below_hpp !== undefined
+    ? product.warning_below_hpp
+    : (price < hppTotal && hppTotal > 0);
+
+  const marginPersen = product.margin_persen !== undefined && product.margin_persen !== null
+    ? parseNumber(product.margin_persen)
+    : (product.markup_percentage !== null && product.markup_percentage !== undefined
+        ? parseNumber(product.markup_percentage)
+        : (hppTotal > 0 ? ((price - hppTotal) / hppTotal) * 100 : null));
 
   let mappedImages: { id: number; productId?: number; imageUrl: string; isPrimary: boolean }[] = [];
   if (product.images && product.images.length > 0) {
@@ -192,10 +204,15 @@ export function mapProductOutToProduct(product: ProductOut): Product {
     images: mappedImages,
 
     price,
-    hppTotal: parseNumber(product.hpp_total),
+    hppTotal,
+    warningBelowHpp,
+    hargaJualBaru: product.harga_jual_baru !== undefined && product.harga_jual_baru !== null
+      ? parseNumber(product.harga_jual_baru)
+      : price,
+    marginPersen,
     markupPercentage:
       product.markup_percentage === null || product.markup_percentage === undefined
-        ? null
+        ? marginPersen
         : parseNumber(product.markup_percentage),
 
     rating: product.rating ?? 0,
@@ -242,6 +259,9 @@ export function mapProductOutToSimpleProduct(product: ProductOut): SimpleProduct
 
     price: mapped.price,
     hppTotal: mapped.hppTotal,
+    warningBelowHpp: mapped.warningBelowHpp,
+    hargaJualBaru: mapped.hargaJualBaru,
+    marginPersen: mapped.marginPersen,
     markupPercentage: mapped.markupPercentage,
 
     rating: mapped.rating,
@@ -495,11 +515,16 @@ export async function createProductWithOptionalPrice(
       harga_jual: price,
     };
 
-    await setProductPrice(created.id, request);
+    const priceResponse = await setProductPrice(created.id, request);
 
     const refreshed = await getProductById(created.id);
+    const mapped = mapProductOutToSimpleProduct(refreshed);
+    mapped.warningBelowHpp = priceResponse.warning_below_hpp;
+    mapped.hppTotal = parseNumber(priceResponse.hpp_total);
+    mapped.marginPersen = priceResponse.margin_persen;
+    mapped.hargaJualBaru = parseNumber(priceResponse.harga_jual_baru);
 
-    return mapProductOutToSimpleProduct(refreshed);
+    return mapped;
   }
 
   return mapProductOutToSimpleProduct(created);
@@ -511,13 +536,14 @@ export async function createProductWithOptionalPriceAndImage(
   imageFile?: File | null
 ): Promise<SimpleProduct> {
   const created = await createProductApi(payload);
+  let priceResponse: SetPriceResponse | undefined;
 
   if (price !== null && price !== undefined && price !== '') {
     const request: SetPriceRequest = {
       harga_jual: price,
     };
 
-    await setProductPrice(created.id, request);
+    priceResponse = await setProductPrice(created.id, request);
   }
 
   if (imageFile) {
@@ -525,17 +551,25 @@ export async function createProductWithOptionalPriceAndImage(
   }
 
   const refreshed = await getProductById(created.id);
+  const mapped = mapProductOutToSimpleProduct(refreshed);
+  if (priceResponse) {
+    mapped.warningBelowHpp = priceResponse.warning_below_hpp;
+    mapped.hppTotal = parseNumber(priceResponse.hpp_total);
+    mapped.marginPersen = priceResponse.margin_persen;
+    mapped.hargaJualBaru = parseNumber(priceResponse.harga_jual_baru);
+  }
 
-  return mapProductOutToSimpleProduct(refreshed);
+  return mapped;
 }
 
 export async function updateProductPrice(
   id: number,
   price: number | string
-): Promise<void> {
-  await setProductPrice(id, {
+): Promise<SetPriceResponse> {
+  const response = await setProductPrice(id, {
     harga_jual: price,
   });
+  return response;
 }
 
 export { 
@@ -546,4 +580,5 @@ export {
   uploadProductImages,
   setPrimaryProductImage,
   deleteProductImage,
+  getProductPricing,
 } from '../api/product';

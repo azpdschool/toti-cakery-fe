@@ -959,13 +959,77 @@ export default function SellerOrdersPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, itemsPerPage, filterValues, debouncedSearch]); // Include debouncedSearch when backend supports search
+  }, [currentPage, itemsPerPage, filterValues.status]);
 
   useEffect(() => {
     const controller = new AbortController();
     loadData(controller.signal);
     return () => controller.abort();
   }, [loadData]);
+
+  const filteredOrders = useMemo(() => {
+    return orders.filter((order) => {
+      // 1. Filter Source:
+      // 'Web' hanya menampilkan order dengan created_via === "web"
+      // 'Chatbot' hanya menampilkan order dengan created_via === "chatbot"
+      if (filterValues.source && filterValues.source !== 'All') {
+        const orderSource = (order.createdVia || (order as any).created_via || '').toLowerCase();
+        const selectedSource = filterValues.source.toLowerCase();
+        if (selectedSource === 'web' && orderSource !== 'web') {
+          return false;
+        }
+        if (selectedSource === 'chatbot' && orderSource !== 'chatbot') {
+          return false;
+        }
+        if (!['web', 'chatbot'].includes(selectedSource) && orderSource !== selectedSource) {
+          return false;
+        }
+      }
+
+      // 2. Filter Due Date:
+      // Cocokkan tanggal dengan due_date order (bukan fulfillment_date atau tanggal order dibuat).
+      // Jika due_date bernilai null, abaikan (jangan ikut tampilkan baris tersebut) saat tanggal tertentu dipilih oleh filter.
+      if (filterValues.due_date) {
+        const orderDueDate = order.rawDueDate || (order as any).due_date;
+        if (!orderDueDate || String(orderDueDate).trim() === '' || String(orderDueDate).toLowerCase() === 'null') {
+          return false;
+        }
+        const filterDate = filterValues.due_date.trim();
+        const rawDateStr = String(orderDueDate).trim();
+        
+        let matches = false;
+        if (rawDateStr.startsWith(filterDate)) {
+          matches = true;
+        } else {
+          const d = new Date(rawDateStr);
+          if (!isNaN(d.getTime())) {
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            if (`${yyyy}-${mm}-${dd}` === filterDate) {
+              matches = true;
+            }
+          }
+        }
+        if (!matches) {
+          return false;
+        }
+      }
+
+      // Filter search query
+      if (debouncedSearch && debouncedSearch.trim()) {
+        const q = debouncedSearch.toLowerCase().trim();
+        const matchOrderNum = order.orderNumber?.toLowerCase().includes(q);
+        const matchCustomer = order.customerName?.toLowerCase().includes(q);
+        const matchPhone = order.customerPhone?.toLowerCase().includes(q);
+        if (!matchOrderNum && !matchCustomer && !matchPhone) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [orders, filterValues.source, filterValues.due_date, debouncedSearch]);
 
   const handleAddOrder = async (orderData: any) => {
     try {
@@ -1180,16 +1244,15 @@ export default function SellerOrdersPage() {
               },
               {
                 id: 'source',
-                label: 'Source (Not Supported via API)',
+                label: 'Source',
                 options: [
                   { label: 'Web', value: 'Web' },
-                  { label: 'Seller', value: 'Seller' },
                   { label: 'Chatbot', value: 'Chatbot' }
                 ]
               },
               {
                 id: 'due_date',
-                label: 'Due Date (Not Supported via API)',
+                label: 'Due Date',
                 type: 'date'
               }
             ]}
@@ -1254,17 +1317,17 @@ export default function SellerOrdersPage() {
                     <td className="p-4"><div className="h-6 w-16 bg-gray-200 rounded ml-auto"></div></td>
                   </tr>
                 ))
-              ) : orders.length === 0 ? (
+              ) : filteredOrders.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="py-12 text-center">
                     <p className="text-gray-500 mb-2">
-                      {Object.keys(filterValues).length > 0 
+                      {Object.keys(filterValues).length > 0 || debouncedSearch
                         ? 'No orders match your current filters.'
                         : 'No orders found.'}
                     </p>
-                    {Object.keys(filterValues).length > 0 && (
+                    {(Object.keys(filterValues).length > 0 || debouncedSearch) && (
                       <button 
-                        onClick={() => { setFilterValues({}); setCurrentPage(1); }}
+                        onClick={() => { setFilterValues({}); setSearchQuery(''); setCurrentPage(1); }}
                         className="text-[#d85b30] hover:underline font-medium text-sm"
                       >
                         Clear Filters
@@ -1273,14 +1336,14 @@ export default function SellerOrdersPage() {
                   </td>
                 </tr>
               ) : (
-                orders.map((order) => {
+                filteredOrders.map((order) => {
                   const statusBadge = getStatusBadge(order.status);
                   return (
                     <tr key={order.id} className="hover:bg-gray-50/50 transition-colors group">
                       <td className="p-4 font-bold text-[#4b2417]">{order.orderNumber}</td>
                       <td className="p-4">
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 capitalize">
-                          {order.createdVia || "Web"}
+                          {order.createdVia || (order as any).created_via || "Web"}
                         </span>
                       </td>
                       <td className="p-4">

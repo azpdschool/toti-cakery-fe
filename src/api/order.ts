@@ -26,3 +26,9 @@ export async function downloadOrderInvoicePdfAPI(orderId: number | string, lang?
     params: { lang },
   });
 }
+
+export async function cancelBuyerOrderAPI(orderId: number | string) {
+  const response = await apiClient.post(`/orders/buyer/${orderId}/cancel`, {});
+  return response.data;
+}
+

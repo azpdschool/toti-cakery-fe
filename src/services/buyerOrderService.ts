@@ -1,4 +1,4 @@
-import { createBuyerOrderAPI, BuyerOrderCreate } from '@/api/order';
+import { createBuyerOrderAPI, BuyerOrderCreate, cancelBuyerOrderAPI } from '@/api/order';
 import { processPaymentAPI, PaymentChargeRequest, PaymentChargeResponse, getPaymentStatusAPI } from '@/api/payment';
 // src/services/buyerOrderService.ts
 import { apiClient } from '@/api/client'
@@ -542,3 +542,8 @@ export async function processPayment(
 export async function getOrderPaymentStatus(orderId: string) {
   return await getPaymentStatusAPI(orderId);
 }
+
+export async function cancelBuyerOrder(orderId: string | number): Promise<{ status?: string; message?: string }> {
+  return await cancelBuyerOrderAPI(orderId);
+}
+

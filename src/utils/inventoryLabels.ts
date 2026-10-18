@@ -39,7 +39,8 @@ export function categoryLabel(category: string): string {
   return category;
 }
 
-export function purchaseStatusLabel(isReceived: boolean): string {
+export function purchaseStatusLabel(isReceived: boolean, isCancelled?: boolean): string {
+  if (isCancelled) return 'Cancelled';
   return isReceived ? 'Received' : 'Waiting for Delivery';
 }
 

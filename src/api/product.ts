@@ -18,6 +18,9 @@ export interface ProductOut {
   kategori: string | null;
   hpp_total: ApiDecimal;
   harga_jual: ApiDecimal | null;
+  warning_below_hpp?: boolean;
+  harga_jual_baru?: ApiDecimal | null;
+  margin_persen?: number | null;
   markup_percentage: ApiDecimal | null;
   is_active: boolean;
   is_available: boolean;

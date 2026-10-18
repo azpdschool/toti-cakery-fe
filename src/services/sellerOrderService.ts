@@ -49,11 +49,13 @@ export interface Order {
   fulfillmentDate?: string;
   customDesignFee?: number;
   createdVia?: string;
+  created_via?: string;
   invoiceId?: string;
   amountPaid?: number;
   amountDue?: number;
   createdAt?: string;
   rawDueDate?: string;
+  due_date?: string;
 }
 
 export interface Invoice {
@@ -114,11 +116,13 @@ export function mapOrderResponse(o: any): Order {
     customDesignFee: 0,
     invoiceId: o.invoice?.nomor_invoice || '',
     createdVia: o.created_via,
+    created_via: o.created_via,
     // Extensions
     amountPaid: o.amount_paid !== undefined && o.amount_paid !== null ? parseFloat(o.amount_paid) : undefined,
     amountDue: o.amount_due !== undefined && o.amount_due !== null ? parseFloat(o.amount_due) : undefined,
     createdAt: o.created_at,
     rawDueDate: o.due_date,
+    due_date: o.due_date,
   } as any;
 }
 

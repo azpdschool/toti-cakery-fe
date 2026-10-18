@@ -1,6 +1,6 @@
 // src/pages/buyer/OrderDetailPage.tsx
 import { useTranslation } from 'react-i18next'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import type React from 'react'
 import { Link, useParams, Navigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
@@ -33,6 +33,7 @@ import {
   getOrderPaymentStatus,
   type OrderStatus,
   processPayment,
+  cancelBuyerOrder,
 } from '@/services/buyerOrderService'
 import { ROUTES } from '@/constants'
 import {
@@ -273,80 +274,111 @@ export default function OrderDetailPage() {
     setReviewError(null);
   }
 
-  useEffect(() => {
-    async function loadOrder() {
-      if (!id) {
-        setError(t('order_detail.not_found'))
-        setLoading(false)
-        return
-      }
-
-      setLoading(true)
-      setError(null)
-
-      try {
-        const data = await getBuyerOrderById(id)
-
-        if (!data) {
-          setError(t('order_detail.not_found'))
-        } else {
-          setOrder(data)
-          
-          const needsPayment = data.paymentStatus === 'unpaid' || (data.paymentStatus === 'partial' && (data.amountDue === undefined || data.amountDue > 0));
-          if (data.status !== 'cancelled' && needsPayment) {
-            try {
-              const paymentData = await getOrderPaymentStatus(id)
-              if (paymentData.payments && paymentData.payments.length > 0) {
-                // Find the latest pending payment
-                const pendingPayment = paymentData.payments.reverse().find((p: any) => p.payment_status.toLowerCase() === 'pending');
-                if (pendingPayment && (pendingPayment.qris_url || pendingPayment.va_number)) {
-                  setPaymentInstructions(pendingPayment);
-                } else {
-                  setPaymentInstructions(null);
-                }
-              }
-            } catch (err) {
-              console.error('Gagal memuat status pembayaran:', err)
-            }
-          }
-
-          if (data.status === 'completed') {
-            try {
-              const uniqueProductIds = Array.from(new Set(data.items.map(item => Number(item.productId)).filter(Boolean)));
-              const reviewsPromises = uniqueProductIds.map(pid => getProductReviews(pid));
-              const reviewsResults = await Promise.all(reviewsPromises);
-              
-              const reviewedSet = new Set<string>();
-              const revMap: Record<string, ReviewResponse> = {};
-              reviewsResults.forEach(reviews => {
-                 reviews.forEach(r => {
-                    if (String(r.order_id) === String(data.id)) {
-                       reviewedSet.add(String(r.product_id));
-                       revMap[String(r.product_id)] = r;
-                    }
-                 });
-              });
-              setReviewedProductIds(reviewedSet);
-              setOrderReviewsMap(revMap);
-            } catch (err) {
-              console.error("Gagal memuat status review produk:", err);
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Gagal memuat detail pesanan:', err)
-        setError(t('order_detail.failed_load'))
-      } finally {
-        setLoading(false)
-      }
+  const loadOrder = useCallback(async () => {
+    if (!id) {
+      setError(t('order_detail.not_found'))
+      setLoading(false)
+      return
     }
 
+    setLoading(true)
+    setError(null)
+
+    try {
+      const data = await getBuyerOrderById(id)
+
+      if (!data) {
+        setError(t('order_detail.not_found'))
+      } else {
+        setOrder(data)
+        
+        const needsPayment = data.paymentStatus === 'unpaid' || (data.paymentStatus === 'partial' && (data.amountDue === undefined || data.amountDue > 0));
+        if (data.status !== 'cancelled' && needsPayment) {
+          try {
+            const paymentData = await getOrderPaymentStatus(id)
+            if (paymentData.payments && paymentData.payments.length > 0) {
+              // Find the latest pending payment
+              const pendingPayment = paymentData.payments.reverse().find((p: any) => p.payment_status.toLowerCase() === 'pending');
+              if (pendingPayment && (pendingPayment.qris_url || pendingPayment.va_number)) {
+                setPaymentInstructions(pendingPayment);
+              } else {
+                setPaymentInstructions(null);
+              }
+            } else {
+              setPaymentInstructions(null);
+            }
+          } catch (err) {
+            console.error('Gagal memuat status pembayaran:', err)
+          }
+        } else {
+          setPaymentInstructions(null);
+        }
+
+        if (data.status === 'completed') {
+          try {
+            const uniqueProductIds = Array.from(new Set(data.items.map(item => Number(item.productId)).filter(Boolean)));
+            const reviewsPromises = uniqueProductIds.map(pid => getProductReviews(pid));
+            const reviewsResults = await Promise.all(reviewsPromises);
+            
+            const reviewedSet = new Set<string>();
+            const revMap: Record<string, ReviewResponse> = {};
+            reviewsResults.forEach(reviews => {
+               reviews.forEach(r => {
+                  if (String(r.order_id) === String(data.id)) {
+                     reviewedSet.add(String(r.product_id));
+                     revMap[String(r.product_id)] = r;
+                  }
+               });
+            });
+            setReviewedProductIds(reviewedSet);
+            setOrderReviewsMap(revMap);
+          } catch (err) {
+            console.error("Gagal memuat status review produk:", err);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Gagal memuat detail pesanan:', err)
+      setError(t('order_detail.failed_load'))
+    } finally {
+      setLoading(false)
+    }
+  }, [id, t]);
+
+  useEffect(() => {
     if (isAuthenticated && user?.role === 'buyer') {
       loadOrder()
     } else {
       setLoading(false)
     }
-  }, [id, isAuthenticated, user])
+  }, [loadOrder, isAuthenticated, user])
+
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  const handleCancelOrder = async () => {
+    if (!order || !id) return;
+    if (!window.confirm('Apakah Anda yakin ingin membatalkan pesanan ini?')) {
+      return;
+    }
+
+    setIsCancelling(true);
+    try {
+      const res = await cancelBuyerOrder(id);
+      toast.success(res?.message || 'Pesanan berhasil dibatalkan');
+      await loadOrder();
+    } catch (err: any) {
+      if (err.response?.status === 409) {
+        const detailMsg = err.response.data?.detail || 'Pesanan tidak dapat dibatalkan.';
+        toast.error(detailMsg);
+        await loadOrder();
+      } else {
+        const errorMsg = err.response?.data?.detail || err.message || 'Gagal membatalkan pesanan.';
+        toast.error(errorMsg);
+      }
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
   // Polling for payment status if there are instructions (pending payment)
   useEffect(() => {
@@ -472,6 +504,22 @@ export default function OrderDetailPage() {
 
             <div className="flex items-center gap-3">
               {getStatusBadge(order)}
+              {order.status === 'pending' && (
+                <button
+                  onClick={handleCancelOrder}
+                  disabled={isCancelling}
+                  className="flex items-center gap-1.5 rounded-lg border border-red-500 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                >
+                  {isCancelling ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Membatalkan...
+                    </>
+                  ) : (
+                    'Batalkan Pesanan'
+                  )}
+                </button>
+              )}
               <button
                 onClick={handleDownloadInvoice}
                 disabled={isDownloading}

@@ -65,6 +65,9 @@ export interface Product {
   price: number;
   hppTotal: number;
   markupPercentage: number | null;
+  warningBelowHpp?: boolean;
+  hargaJualBaru?: number | null;
+  marginPersen?: number | null;
 
   rating: number;
   reviewCount: number;
@@ -116,6 +119,9 @@ export interface SimpleProduct {
   price: number;
   hppTotal: number;
   markupPercentage: number | null;
+  warningBelowHpp?: boolean;
+  hargaJualBaru?: number | null;
+  marginPersen?: number | null;
 
   rating: number;
   reviewCount: number;

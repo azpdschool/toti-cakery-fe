@@ -15,7 +15,8 @@ import {
   uploadProductImages,
   setPrimaryProductImage,
   deleteProductImage,
-  archiveProduct
+  archiveProduct,
+  getProductPricing,
 } from '@/services/productService'
 import type { ProductCreate, ProductUpdate } from '@/api/product'
 import { getBackendCategories, type CategoryResponse } from '@/api/product'
@@ -96,7 +97,11 @@ export default function SellerProductsPage() {
   const [cropperSource, setCropperSource] = useState<string | null>(null)
   const [viewImageSource, setViewImageSource] = useState<string | null>(null)
 
-  const defaultFormState: ProductCreate = {
+  interface ProductFormData extends ProductCreate {
+    hpp_total?: number
+  }
+
+  const defaultFormState: ProductFormData = {
     nama_produk: '',
     deskripsi: '',
     kategori: 'Kue Basah',
@@ -104,9 +109,11 @@ export default function SellerProductsPage() {
     minimum_order: 1,
     is_active: true,
     is_available: true,
+    hpp_total: 0,
   }
 
-  const [formData, setFormData] = useState<ProductCreate>(defaultFormState)
+  const [formData, setFormData] = useState<ProductFormData>(defaultFormState)
+  const [formHpp, setFormHpp] = useState<number>(0)
 
   const computedFormAvailability = useMemo(() => {
     const validIngredients = ingredients.filter(
@@ -324,7 +331,8 @@ export default function SellerProductsPage() {
 
   const handleAddClick = () => {
     setEditId(null)
-    setFormData({ ...defaultFormState, kategori: categories.length > 0 ? categories[0].name : 'Kue Basah' })
+    setFormData({ ...defaultFormState, kategori: categories.length > 0 ? categories[0].name : 'Kue Basah', hpp_total: 0 })
+    setFormHpp(0)
     setIngredients([])
     setDeletedRecipeIds([])
     setExistingImages([])
@@ -342,7 +350,9 @@ export default function SellerProductsPage() {
   }
 
   const handleEditClick = async (product: SimpleProduct) => {
+    const initialHpp = Number(product.hppTotal) || 0
     setEditId(product.backendId)
+    setFormHpp(initialHpp)
     setFormData({
       nama_produk: product.name,
       deskripsi: product.description || '',
@@ -351,6 +361,7 @@ export default function SellerProductsPage() {
       minimum_order: product.minimumOrder,
       is_active: product.isActive,
       is_available: true,
+      hpp_total: initialHpp,
     })
     setExistingImages(product.images || [])
     draftImages.forEach((img) => URL.revokeObjectURL(img.previewUrl))
@@ -365,18 +376,27 @@ export default function SellerProductsPage() {
 
     setIsLoadingRecipe(true)
     try {
-      const [options, recipeSummary, freshProduct] = await Promise.all([
+      const [options, recipeSummary, freshProduct, pricingData] = await Promise.all([
         getInventoryOptions().catch(() => []),
         getProductRecipes(product.backendId).catch((err) => {
           console.error('Failed to get product recipes:', err)
           return { bahan: [] }
         }),
         getProductByBackendId(product.backendId).catch(() => null),
+        getProductPricing(product.backendId).catch(() => null),
       ])
       setInventoryOptions(options)
       if (freshProduct && freshProduct.images) {
         setExistingImages(freshProduct.images)
       }
+
+      const loadedHpp = pricingData?.hpp !== undefined && pricingData.hpp !== null
+        ? Number(pricingData.hpp)
+        : (freshProduct?.hppTotal !== undefined && freshProduct.hppTotal !== null
+            ? Number(freshProduct.hppTotal)
+            : initialHpp)
+      setFormHpp(loadedHpp || 0)
+      setFormData((prev) => ({ ...prev, hpp_total: loadedHpp || 0 }))
 
       const mappedIngredients: ProductFormIngredient[] = recipeSummary.bahan.map((recipe) => ({
         recipeId: recipe.id,
@@ -388,7 +408,7 @@ export default function SellerProductsPage() {
       }))
       setIngredients(mappedIngredients)
     } catch (err) {
-      console.error('Gagal load detail recipe/product:', err)
+      console.error('Failed to load detail recipe/product:', err)
     } finally {
       setIsLoadingRecipe(false)
     }
@@ -538,12 +558,21 @@ export default function SellerProductsPage() {
       duplicateSet.add(ingredient.inventoryId)
     }
 
+    const harga_jual = formData.harga_jual ? Number(formData.harga_jual) : null
+    const minimum_order = formData.minimum_order ? Number(formData.minimum_order) : 1
+
+    if (formHpp > 0 && harga_jual !== null && harga_jual < formHpp) {
+      const confirmSave = window.confirm(
+        `Selling price ${formatRupiah(harga_jual)} is ${formatRupiah(formHpp - harga_jual)} below HPP ${formatRupiah(formHpp)} per product. Are you sure you want to proceed and save?`
+      )
+      if (!confirmSave) {
+        return
+      }
+    }
+
     setIsLoading(true)
     let isProductCreatedOrUpdated = false
     try {
-      const harga_jual = formData.harga_jual ? Number(formData.harga_jual) : null
-      const minimum_order = formData.minimum_order ? Number(formData.minimum_order) : 1
-
       if (editId) {
         const updatePayload: ProductUpdate = {
           deskripsi: formData.deskripsi,
@@ -552,8 +581,15 @@ export default function SellerProductsPage() {
           is_active: formData.is_active,
           is_available: true,
         }
-        await updateProduct(editId, updatePayload)
+        const updatedProduct = await updateProduct(editId, updatePayload)
         isProductCreatedOrUpdated = true
+
+        if (updatedProduct.warningBelowHpp) {
+          toast(
+            `Warning: Saved selling price ${formatRupiah(updatedProduct.price)} is below HPP (${formatRupiah(updatedProduct.hppTotal)}).`,
+            { icon: '⚠️' }
+          )
+        }
 
         // Delete removed recipes
         if (deletedRecipeIds.length > 0) {
@@ -609,8 +645,15 @@ export default function SellerProductsPage() {
           minimum_order,
         }
 
-        const created = await createProductWithOptionalPrice(createPayload, harga_jual)
+        const createdProduct = await createProductWithOptionalPrice(createPayload, harga_jual)
         isProductCreatedOrUpdated = true
+
+        if (createdProduct.warningBelowHpp) {
+          toast(
+            `Warning: Saved selling price ${formatRupiah(createdProduct.price)} is below HPP (${formatRupiah(createdProduct.hppTotal)}).`,
+            { icon: '⚠️' }
+          )
+        }
 
         // Create recipe entries sequentially
         const recipePayloads: RecipeCreate[] = ingredients
@@ -623,14 +666,14 @@ export default function SellerProductsPage() {
 
         if (recipePayloads.length > 0) {
           for (const payload of recipePayloads) {
-            await addRecipeIngredient(created.backendId, payload)
+            await addRecipeIngredient(createdProduct.backendId, payload)
           }
         }
 
         if (draftImages.length > 0) {
           try {
             await uploadProductImages(
-              created.backendId,
+              createdProduct.backendId,
               draftImages.map((d) => d.file),
               primaryDraftIndex
             )
@@ -647,6 +690,7 @@ export default function SellerProductsPage() {
       if (!error && isProductCreatedOrUpdated) {
         setIsFormOpen(false)
         setFormData(defaultFormState)
+        setFormHpp(0)
         setEditId(null)
         setIngredients([])
         setDeletedRecipeIds([])
@@ -755,6 +799,7 @@ export default function SellerProductsPage() {
                   setIsFormOpen(false)
                   setEditId(null)
                   setFormData(defaultFormState)
+                  setFormHpp(0)
                   setExistingImages([])
                   draftImages.forEach((img) => URL.revokeObjectURL(img.previewUrl))
                   setDraftImages([])
@@ -827,8 +872,38 @@ export default function SellerProductsPage() {
                   value={formData.harga_jual || ''}
                   onChange={handleInputChange}
                   placeholder="0"
-                  className="w-full rounded-xl border border-[#d0bfaf] bg-white px-4 py-2.5 text-sm text-[#4b2417] outline-none transition focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
+                  className={`w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-[#4b2417] outline-none transition focus:ring-2 ${
+                    formHpp > 0 && Number(formData.harga_jual) > 0 && Number(formData.harga_jual) < formHpp
+                      ? 'border-amber-400 focus:border-amber-500 focus:ring-amber-200'
+                      : 'border-[#d0bfaf] focus:border-[#c95b31] focus:ring-[#e9b49d]/40'
+                  }`}
                 />
+
+                {/* Live HPP Warning / Info */}
+                {formHpp <= 0 ? (
+                  <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-amber-600">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    <span>HPP unavailable — complete recipe</span>
+                  </p>
+                ) : Number(formData.harga_jual) > 0 && Number(formData.harga_jual) < formHpp ? (
+                  <div className="mt-2 flex items-start gap-1.5 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
+                    <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+                    <span>
+                      Selling price {formatRupiah(Number(formData.harga_jual))} is {formatRupiah(formHpp - Number(formData.harga_jual))} below HPP {formatRupiah(formHpp)} per product.
+                    </span>
+                  </div>
+                ) : Number(formData.harga_jual) >= formHpp ? (
+                  <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+                    <CheckCircle className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                    <span>
+                      HPP: {formatRupiah(formHpp)} &bull; Margin: {(((Number(formData.harga_jual) - formHpp) / formHpp) * 100).toFixed(1)}% (+{formatRupiah(Number(formData.harga_jual) - formHpp)})
+                    </span>
+                  </div>
+                ) : (
+                  <p className="mt-1.5 text-xs text-[#6f5448]">
+                    HPP per product: <span className="font-semibold text-[#4b2417]">{formatRupiah(formHpp)}</span>
+                  </p>
+                )}
               </div>
 
               <div className="sm:col-span-2">
@@ -1166,6 +1241,7 @@ export default function SellerProductsPage() {
                   setIsFormOpen(false)
                   setEditId(null)
                   setFormData(defaultFormState)
+                  setFormHpp(0)
                   setExistingImages([])
                   draftImages.forEach((img) => URL.revokeObjectURL(img.previewUrl))
                   setDraftImages([])

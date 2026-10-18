@@ -371,6 +371,24 @@ function StockModal({
             </div>
           )}
 
+          {mode === 'edit' && (
+            <div>
+              <label className="block text-sm font-semibold text-[#4b2417]">
+                Average Cost per Unit (IDR)
+              </label>
+              <input
+                type="text"
+                value={priceInput}
+                disabled
+                readOnly
+                className="mt-1 w-full rounded-lg border border-[#d0bfaf] bg-gray-100 px-4 py-2 text-sm text-gray-600 cursor-not-allowed outline-none"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Average cost is automatically calculated from purchases and stock movements. To change costs, use Purchases or Stock Adjustments.
+              </p>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-semibold text-[#4b2417]">
               Minimum Stock Alert <span className="text-red-500">*</span>
@@ -553,10 +571,14 @@ export default function SellerInventoryPage() {
   const handleSaveStock = async (data: StockFormData) => {
     try {
       if (modalMode === 'add') {
-        await addInventoryItem(data);
+        const newItem = await addInventoryItem(data);
+        setItems((prev) => [newItem, ...prev.filter((item) => item.id !== newItem.id)]);
         toast.success('Ingredient added.');
       } else if (modalMode === 'edit' && editingItem) {
-        await updateInventoryItem(editingItem.id, data);
+        const updated = await updateInventoryItem(editingItem.id, data);
+        setItems((prev) =>
+          prev.map((item) => (item.id === updated.id ? updated : item))
+        );
         toast.success('Ingredient updated.');
       }
       await loadInventory();

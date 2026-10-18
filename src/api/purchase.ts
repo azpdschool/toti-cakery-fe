@@ -3,7 +3,9 @@ import { apiClient } from './client';
 export interface PurchaseItemCreate {
   stock_item_id: number;
   jumlah: number | string;
-  harga_satuan: number | string;
+  harga_satuan?: number | string;
+  harga_total?: number | string;
+  confirm_cost_deviation?: boolean;
 }
 
 export interface PurchaseCreate {
@@ -14,9 +16,11 @@ export interface PurchaseCreate {
 }
 
 export interface PurchaseUpdate {
+  supplier_id?: number;
   nomor_po?: string;
   tanggal_diterima?: string;
   catatan?: string;
+  items?: PurchaseItemCreate[];
   is_received?: boolean;
 }
 
@@ -27,6 +31,7 @@ export interface PurchaseItemOut {
   jumlah: number | string;
   harga_satuan: number | string;
   harga_total: number | string;
+  cost_deviation_confirmed?: boolean;
   created_at?: string;
 }
 
@@ -39,6 +44,10 @@ export interface PurchaseOut {
   total_harga: number | string;
   catatan?: string;
   is_received: boolean;
+  is_cancelled?: boolean;
+  cancelled_at?: string;
+  cancellation_reason?: string;
+  cancelled_by?: number;
   created_at?: string;
   updated_at?: string;
 }
@@ -71,5 +80,10 @@ export async function getPurchase(id: number): Promise<PurchaseDetailOut> {
 
 export async function updatePurchase(id: number, payload: PurchaseUpdate): Promise<PurchaseOut> {
   const response = await apiClient.put<PurchaseOut>(`/purchases/purchases/${id}`, payload);
+  return response.data;
+}
+
+export async function cancelPurchase(id: number, reason: string): Promise<PurchaseOut> {
+  const response = await apiClient.post<PurchaseOut>(`/purchases/purchases/${id}/cancel`, { reason });
   return response.data;
 }
