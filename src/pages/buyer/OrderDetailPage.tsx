@@ -236,13 +236,42 @@ export default function OrderDetailPage() {
         images: selectedImageFiles.length > 0 ? selectedImageFiles : undefined,
       });
       
+      const productIdStr = String(reviewModalItem.productId);
       toast.success(t('review.submitted_success'));
-      setReviewedProductIds(prev => new Set(prev).add(reviewModalItem.productId));
-      setOrderReviewsMap(prev => ({ ...prev, [reviewModalItem.productId]: newReview }));
+      setReviewedProductIds(prev => new Set(prev).add(productIdStr));
+      setOrderReviewsMap(prev => {
+        const next = { ...prev, [productIdStr]: newReview };
+        if (order?.id) {
+          try {
+            localStorage.setItem(`toti_reviewed_orders_${order.id}`, JSON.stringify(next));
+          } catch (e) {
+            console.error('Failed to save reviewed order to localStorage:', e);
+          }
+        }
+        return next;
+      });
       closeReviewModal();
     } catch (err: any) {
-      toast.error(t('review.submit_failed'));
-      setReviewError(err.response?.data?.detail || err.message || t('review.submit_failed'));
+      const status = err.response?.status;
+      const detail = String(err.response?.data?.detail || err.message || '').toLowerCase();
+      const isDuplicate = status === 400 && (
+        detail.includes('sudah memberikan ulasan') ||
+        detail.includes('sudah diulas') ||
+        detail.includes('pernah diulas') ||
+        detail.includes('already reviewed') ||
+        detail.includes('duplicate') ||
+        detail.includes('hanya dapat diulas')
+      );
+
+      if (isDuplicate) {
+        const productIdStr = String(reviewModalItem.productId);
+        toast.success(i18n.language === 'en' ? 'Product has already been reviewed.' : 'Produk sudah pernah diulas.');
+        setReviewedProductIds(prev => new Set(prev).add(productIdStr));
+        closeReviewModal();
+      } else {
+        toast.error(t('review.submit_failed'));
+        setReviewError(err.response?.data?.detail || err.message || t('review.submit_failed'));
+      }
     } finally {
       setIsSubmittingReview(false);
     }
@@ -257,13 +286,21 @@ export default function OrderDetailPage() {
         const currentRev = prev[productId];
         if (!currentRev) return prev;
         const updatedImages = (currentRev.images || []).filter(img => img.id !== imageId);
-        return {
+        const next = {
           ...prev,
           [productId]: {
             ...currentRev,
             images: updatedImages,
           },
         };
+        if (order?.id) {
+          try {
+            localStorage.setItem(`toti_reviewed_orders_${order.id}`, JSON.stringify(next));
+          } catch (e) {
+            console.error('Failed to update reviewed order in localStorage:', e);
+          }
+        }
+        return next;
       });
     } catch (err: any) {
       toast.error(i18n.language === 'en' ? 'Failed to delete review photo.' : 'Gagal menghapus foto ulasan.');
@@ -324,20 +361,51 @@ export default function OrderDetailPage() {
 
         if (data.status === 'completed') {
           try {
+            const storageKey = `toti_reviewed_orders_${data.id}`;
+            let localReviews: Record<string, ReviewResponse> = {};
+            try {
+              const saved = localStorage.getItem(storageKey);
+              if (saved) {
+                localReviews = JSON.parse(saved);
+              }
+            } catch (e) {
+              console.error('Failed to read reviewed orders from localStorage:', e);
+            }
+
+            const reviewedSet = new Set<string>(Object.keys(localReviews));
+            const revMap: Record<string, ReviewResponse> = { ...localReviews };
+
             const uniqueProductIds = Array.from(new Set(data.items.map(item => Number(item.productId)).filter(Boolean)));
             const reviewsPromises = uniqueProductIds.map(pid => getProductReviews(pid));
             const reviewsResults = await Promise.all(reviewsPromises);
-            
-            const reviewedSet = new Set<string>();
-            const revMap: Record<string, ReviewResponse> = {};
-            reviewsResults.forEach(reviews => {
-               reviews.forEach(r => {
-                  if (String(r.order_id) === String(data.id)) {
-                     reviewedSet.add(String(r.product_id));
-                     revMap[String(r.product_id)] = r;
+
+            const buyerName = ((data as any).customerName || data.recipientName || user?.name || '').trim().toLowerCase();
+            const orderCreatedAt = (data as any).createdAt || data.date ? new Date((data as any).createdAt || data.date).getTime() : 0;
+
+            reviewsResults.forEach((reviews, idx) => {
+              const pid = String(uniqueProductIds[idx]);
+              reviews.forEach(r => {
+                const author = (r.customer?.nama || r.customer_name || '').trim().toLowerCase();
+                const rCreatedAt = r.created_at ? new Date(r.created_at).getTime() : 0;
+
+                const isMatchingAuthor = !!(buyerName && author && (buyerName === author || author.includes(buyerName) || buyerName.includes(author)));
+                const isCreatedAfterOrder = orderCreatedAt === 0 || isNaN(orderCreatedAt) || rCreatedAt >= (orderCreatedAt - 60 * 60 * 1000);
+
+                if (isMatchingAuthor && isCreatedAfterOrder) {
+                  reviewedSet.add(pid);
+                  if (!revMap[pid] || r.id === revMap[pid].id) {
+                    revMap[pid] = r;
                   }
-               });
+                }
+              });
             });
+
+            try {
+              localStorage.setItem(storageKey, JSON.stringify(revMap));
+            } catch (e) {
+              console.error('Failed to save reviewed orders to localStorage:', e);
+            }
+
             setReviewedProductIds(reviewedSet);
             setOrderReviewsMap(revMap);
           } catch (err) {

@@ -100,12 +100,12 @@ export default function HomePage() {
         setProducts(allProducts)
         setReviews(
           (allReviews || []).map((item) => ({
-            customerName: item.customer_name || 'Customer',
+            customerName: item.customer?.nama || item.customer_name || 'Customer',
             rating: item.rating,
             comment: item.comment || '',
-            purchasedProductName: item.product_name || '',
+            purchasedProductName: item.product?.nama_produk || item.product_name || '',
             productId: String(item.product_id),
-            productName: item.product_name || '',
+            productName: item.product?.nama_produk || item.product_name || '',
             images: item.images || [],
           }))
         )

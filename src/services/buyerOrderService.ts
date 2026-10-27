@@ -35,8 +35,10 @@ export interface BuyerOrder {
 
   deliveryMethod: DeliveryMethod
   address?: string | null
+  customerName?: string | null
   recipientName?: string | null
   recipientPhone?: string | null
+  createdAt?: string | null
 
   paymentMethodPreference: string
   paymentChannel: string
@@ -150,6 +152,11 @@ interface ApiOrder {
 
   address?: string | null
   alamat?: string | null
+
+  customer_name?: string | null
+  customer?: {
+    nama?: string
+  } | null
 
   recipient_name?: string | null
   recipientName?: string | null
@@ -409,6 +416,7 @@ function mapApiOrder(order: ApiOrder): BuyerOrder {
         order.metode_pengiriman,
     ),
     address: order.address ?? order.alamat ?? null,
+    customerName: order.customer_name ?? order.customer?.nama ?? order.recipient_name ?? null,
     recipientName:
       order.recipient_name ??
       order.recipientName ??
@@ -419,6 +427,7 @@ function mapApiOrder(order: ApiOrder): BuyerOrder {
       order.recipientPhone ??
       order.telepon_penerima ??
       null,
+    createdAt,
 
     paymentMethodPreference:
       order.payment_method_preference ??

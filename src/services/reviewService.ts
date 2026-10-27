@@ -32,6 +32,44 @@ export function mapReviewImageOutToReviewImage(img: ReviewImageOut): ReviewImage
   };
 }
 
+export interface NormalizedReview {
+  id: number;
+  productId: number;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  customerName: string;
+  productName: string;
+  productImageUrl?: string | null;
+  images: ReviewImage[];
+}
+
+export function getReviewCustomerName(r: ReviewResponse): string {
+  return r.customer?.nama || r.customer_name || 'Pelanggan';
+}
+
+export function getReviewProductName(r: ReviewResponse): string {
+  return r.product?.nama_produk || r.product_name || 'Produk';
+}
+
+export function getReviewProductImageUrl(r: ReviewResponse): string | null {
+  return r.product?.image_url || null;
+}
+
+export function normalizeReview(r: ReviewResponse): NormalizedReview {
+  return {
+    id: r.id,
+    productId: r.product_id,
+    rating: r.rating,
+    comment: r.comment,
+    createdAt: r.created_at,
+    customerName: getReviewCustomerName(r),
+    productName: getReviewProductName(r),
+    productImageUrl: getReviewProductImageUrl(r),
+    images: (r.images || []).map(mapReviewImageOutToReviewImage),
+  };
+}
+
 export async function submitReview(request: SubmitReviewRequest): Promise<ReviewResponse> {
   const payload: CreateReviewPayload = {
     order_id: request.orderId,

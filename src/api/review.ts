@@ -17,15 +17,20 @@ export interface CreateReviewPayload {
 
 export interface ReviewResponse {
   id: number;
-  order_id: number;
   product_id: number;
-  customer_id: number;
   rating: number;
   comment: string;
   created_at: string;
   images?: ReviewImageOut[];
   product_name?: string;
   customer_name?: string;
+  customer?: {
+    nama: string;
+  } | null;
+  product?: {
+    nama_produk: string;
+    image_url?: string | null;
+  } | null;
 }
 
 export async function createReviewAPI(payload: CreateReviewPayload): Promise<ReviewResponse> {

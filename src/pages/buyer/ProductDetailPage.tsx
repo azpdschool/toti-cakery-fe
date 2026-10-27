@@ -516,7 +516,7 @@ export default function ProductDetailPage() {
                       <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-bold text-[#3A1F16]">
-                            {review.customer_name || 'Pelanggan Toti'}
+                            {review.customer?.nama || review.customer_name || 'Pelanggan Toti'}
                           </span>
                           <div className="flex text-[#E0A04E] text-sm">
                             {'★'.repeat(Math.round(review.rating))}
