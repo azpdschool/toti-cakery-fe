@@ -75,7 +75,7 @@ export default function SupplierManagementModal({ isOpen, onClose }: SupplierMan
       setError(null);
       await supplierService.deleteSupplier(id);
       await loadSuppliers();
-      toast.success('Supplier berhasil dihapus');
+      toast.success('Supplier deleted successfully');
     } catch (err) {
       console.error(err);
       setError(friendlyError(err));
@@ -85,7 +85,7 @@ export default function SupplierManagementModal({ isOpen, onClose }: SupplierMan
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.nama_supplier.trim()) {
-      toast.error('Nama supplier wajib diisi');
+      toast.error('Supplier name is required');
       return;
     }
 
@@ -259,10 +259,10 @@ export default function SupplierManagementModal({ isOpen, onClose }: SupplierMan
 
       <ConfirmationModal
         isOpen={supplierToDelete !== null}
-        title="Hapus Supplier"
+        title="Delete Supplier"
         message={`Are you sure you want to delete supplier "${supplierToDelete?.name || ''}"?`}
-        confirmText="Hapus"
-        cancelText="Batal"
+        confirmText="Delete"
+        cancelText="Cancel"
         isDestructive={true}
         onConfirm={confirmDeleteSupplier}
         onCancel={() => setSupplierToDelete(null)}

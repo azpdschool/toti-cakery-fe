@@ -18,7 +18,6 @@ export interface PurchaseCreate {
 export interface PurchaseUpdate {
   supplier_id?: number;
   nomor_po?: string;
-  tanggal_diterima?: string;
   catatan?: string;
   items?: PurchaseItemCreate[];
   is_received?: boolean;
@@ -63,11 +62,13 @@ export async function createPurchase(payload: PurchaseCreate): Promise<PurchaseO
 
 export async function getPurchases(
   only_received?: boolean,
-  supplier_id?: number
+  supplier_id?: number,
+  only_cancelled?: boolean
 ): Promise<PurchaseOut[]> {
   const params: any = {};
   if (only_received !== undefined) params.only_received = only_received;
   if (supplier_id !== undefined) params.supplier_id = supplier_id;
+  if (only_cancelled !== undefined) params.only_cancelled = only_cancelled;
   
   const response = await apiClient.get<PurchaseOut[]>('/purchases/purchases', { params });
   return response.data;

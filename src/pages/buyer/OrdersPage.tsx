@@ -20,6 +20,7 @@ import {
   getBuyerOrders,
   type BuyerOrder,
   type OrderStatus,
+  isBuyerOrderOverdue,
 } from '@/services/buyerOrderService'
 import { ROUTES } from '@/constants'
 import { toast } from 'react-hot-toast'
@@ -65,6 +66,11 @@ const statusMap: Record<
     icon: XCircle,
     color: 'text-red-700 bg-red-100 ring-red-600/20',
   },
+  cancelled_settlement_expired: {
+    label: 'Batas Waktu Pelunasan Berakhir',
+    icon: XCircle,
+    color: 'text-red-700 bg-red-100 ring-red-600/20',
+  },
 }
 
 const methodMap: Record<
@@ -96,8 +102,8 @@ export default function OrdersPage() {
       setOrders(data)
     } catch (err) {
       console.error('Gagal memuat pesanan:', err)
-      setError(t('orders.failed_load'))
-      toast.error(t('orders.failed_load_retry'))
+      setError(t('orders.failed_load', 'Gagal memuat pesanan'))
+      toast.error(t('orders.failed_load_retry', 'Gagal memuat pesanan. Silakan coba lagi.'))
     } finally {
       setLoading(false)
     }
@@ -148,7 +154,8 @@ export default function OrdersPage() {
         shipped: 'shipped',
         completed: 'completed',
         cancelled: 'cancelled',
-        refunded: 'refunded'
+        refunded: 'refunded',
+        cancelled_settlement_expired: 'cancelled_settlement_expired',
       }
 
       result = result.filter((order) => order.status === map[filterStatus])
@@ -159,12 +166,59 @@ export default function OrdersPage() {
 
   const getStatusBadge = (order: BuyerOrder) => {
     const status = order.status
+    const invStatus = order.invoiceStatus || order.invoice?.status || order.paymentStatus
+
+    if (status === 'cancelled_settlement_expired' || order.rawStatus === 'cancelled_settlement_expired') {
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black ring-1 ring-inset text-red-700 bg-red-100 ring-red-600/20">
+          <XCircle className="h-3.5 w-3.5" />
+          {i18n.language === 'en' ? 'Settlement Expired' : 'Batas Waktu Pelunasan Berakhir'}
+        </span>
+      )
+    }
+
+    if (status === 'cancelled') {
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black ring-1 ring-inset text-red-700 bg-red-100 ring-red-600/20">
+          <XCircle className="h-3.5 w-3.5" />
+          {i18n.language === 'en' ? 'Cancelled' : t('orders.status_cancelled', 'Dibatalkan')}
+        </span>
+      )
+    }
+
+    if (status === 'refunded') {
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black ring-1 ring-inset text-red-700 bg-red-100 ring-red-600/20">
+          <XCircle className="h-3.5 w-3.5" />
+          {i18n.language === 'en' ? 'Refunded' : t('orders.status_refunded', 'Dikembalikan')}
+        </span>
+      )
+    }
+
+    if (invStatus === 'unpaid') {
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black ring-1 ring-inset text-amber-800 bg-amber-100 ring-amber-600/20">
+          <Clock className="h-3.5 w-3.5" />
+          {i18n.language === 'en' ? 'Waiting for payment' : 'Menunggu pembayaran'}
+        </span>
+      )
+    }
+
+    if ((invStatus === 'partial' || invStatus === 'paid') && status === 'pending') {
+      return (
+        <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black ring-1 ring-inset text-blue-800 bg-blue-100 ring-blue-600/20">
+          <Clock className="h-3.5 w-3.5" />
+          {i18n.language === 'en' ? 'Waiting for seller confirmation' : 'Menunggu konfirmasi seller'}
+        </span>
+      )
+    }
+
     let info = statusMap[status] || statusMap.pending
 
     if (status === 'ready') {
       const label = order.deliveryMethod === 'pickup' 
-          ? t('orders.ready_pickup') 
-          : t('orders.ready_delivery')
+          ? (i18n.language === 'en' ? 'Ready for Pickup' : t('orders.ready_pickup', 'Siap Diambil'))
+          : (i18n.language === 'en' ? 'Ready for Delivery' : t('orders.ready_delivery', 'Siap Dikirim'))
       info = { ...info, label }
     } else {
       info = { ...info, label: t(`orders.status_${status}`) }
@@ -274,6 +328,7 @@ export default function OrdersPage() {
               <option value="shipped">{t('orders.status_shipped')}</option>
               <option value="completed">{t('orders.status_completed')}</option>
               <option value="cancelled">{t('orders.status_cancelled')}</option>
+              <option value="cancelled_settlement_expired">{i18n.language === 'en' ? 'Settlement Expired' : 'Pelunasan Kedaluwarsa'}</option>
               <option value="refunded">{t('orders.status_refunded')}</option>
             </select>
           </div>
@@ -288,7 +343,7 @@ export default function OrdersPage() {
               className="mt-4 flex items-center gap-2 rounded-xl bg-red-600 px-6 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 shadow"
             >
               <RefreshCw className="h-4 w-4" />
-              {t('common.retry')}
+              {t('common.retry', 'Coba Lagi')}
             </button>
           </div>
         )}
@@ -337,9 +392,26 @@ export default function OrdersPage() {
                     </span>
 
                     {getMethodBadge(order.deliveryMethod)}
+
+                    {(order.fulfillmentDate || order.fulfillment_date) && (
+                      <span className="text-xs font-semibold text-[#8b7166]">
+                        {i18n.language === 'en' ? 'Fulfillment' : 'Pemenuhan'}:{' '}
+                        {new Date(order.fulfillment_date || order.fulfillmentDate!).toLocaleDateString(
+                          i18n.language === 'en' ? 'en-US' : 'id-ID',
+                          { month: 'short', day: 'numeric', year: 'numeric' }
+                        )}
+                      </span>
+                    )}
                   </div>
 
-                  {getStatusBadge(order)}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {getStatusBadge(order)}
+                    {isBuyerOrderOverdue(order) && (
+                      <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-black bg-rose-100 text-rose-700 ring-1 ring-inset ring-rose-600/20">
+                        {i18n.language === 'en' ? 'Overdue' : 'Terlambat'}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="p-5">

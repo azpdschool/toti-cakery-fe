@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
-import { Plus, Loader2, AlertCircle, CheckCircle, Pencil, Trash2, FileText, Search, Filter, Archive, X, Eye, Image as ImageIcon, Box, Star } from 'lucide-react'
+import { Plus, Loader2, AlertCircle, CheckCircle, Pencil, Trash2, FileText, Search, Filter, Archive, X, Eye, Image as ImageIcon, Box, Star, History } from 'lucide-react'
 import RecipeManagementModal from './RecipeManagementModal'
 import CategoryManagementModal from './CategoryManagementModal'
 import ImageCropper from '@/components/common/ImageCropper'
@@ -19,7 +19,7 @@ import {
   getProductPricing,
 } from '@/services/productService'
 import type { ProductCreate, ProductUpdate } from '@/api/product'
-import { getBackendCategories, type CategoryResponse } from '@/api/product'
+import { getBackendCategories, getProductPriceHistory, type CategoryResponse, type PriceHistoryOut } from '@/api/product'
 import type { ProductImage } from '@/types/product'
 import {
   getProductRecipes,
@@ -82,6 +82,30 @@ export default function SellerProductsPage() {
   const [archiveConfirmId, setArchiveConfirmId] = useState<number | null>(null)
   const [recipeModalProduct, setRecipeModalProduct] = useState<{id: number, name: string} | null>(null)
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false)
+
+  // Price History Modal state
+  const [priceHistoryProduct, setPriceHistoryProduct] = useState<{ id: number; name: string } | null>(null)
+  const [priceHistoryList, setPriceHistoryList] = useState<PriceHistoryOut[]>([])
+  const [isFetchingPriceHistory, setIsFetchingPriceHistory] = useState(false)
+  const [priceHistoryError, setPriceHistoryError] = useState<string | null>(null)
+
+  const handleOpenPriceHistory = async (productId: number, productName: string) => {
+    setPriceHistoryProduct({ id: productId, name: productName })
+    setPriceHistoryList([])
+    setPriceHistoryError(null)
+    setIsFetchingPriceHistory(true)
+    try {
+      const history = await getProductPriceHistory(productId)
+      setPriceHistoryList(history)
+    } catch (err: any) {
+      console.error('Failed to load price history:', err)
+      const msg = err?.response?.data?.detail
+      setPriceHistoryError(typeof msg === 'string' ? msg : 'Unable to load price history.')
+    } finally {
+      setIsFetchingPriceHistory(false)
+    }
+  }
+
 
   // Recipe / BOM form state
   const [ingredients, setIngredients] = useState<ProductFormIngredient[]>([])
@@ -473,7 +497,7 @@ export default function SellerProductsPage() {
       fetchProducts()
     } catch (err) {
       console.error(err)
-      toast.error('Gagal memperbarui foto utama.')
+      toast.error('Failed to update primary image.')
     } finally {
       setIsUploadingImage(false)
     }
@@ -494,7 +518,7 @@ export default function SellerProductsPage() {
       fetchProducts()
     } catch (err) {
       console.error(err)
-      toast.error('Gagal menghapus foto.')
+      toast.error('Failed to delete image.')
     } finally {
       setIsUploadingImage(false)
     }
@@ -862,9 +886,22 @@ export default function SellerProductsPage() {
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-semibold text-[#4b2417]">
-                  Price <span className="text-red-500">*</span>
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-semibold text-[#4b2417]">
+                    Price <span className="text-red-500">*</span>
+                  </label>
+                  {editId && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenPriceHistory(editId, formData.nama_produk)}
+                      className="text-xs text-purple-700 hover:text-purple-900 font-medium flex items-center gap-1 transition-colors"
+                      title="View Price History"
+                    >
+                      <History className="h-3.5 w-3.5" />
+                      Price History
+                    </button>
+                  )}
+                </div>
                 <input
                   type="number"
                   name="harga_jual"
@@ -983,7 +1020,7 @@ export default function SellerProductsPage() {
                   <p className="mt-2 text-xs text-gray-500 leading-relaxed">
                     {t(
                       'products.availability_auto_help',
-                      'Auto-calculated based on recipe ingredients & inventory stock. (Otomatis ditentukan berdasarkan ketersediaan stok bahan resep).'
+                      'Auto-calculated based on recipe ingredients & inventory stock.'
                     )}
                   </p>
                 </div>
@@ -1487,6 +1524,14 @@ export default function SellerProductsPage() {
                             {canManageProducts && (
                               <>
                                 <button
+                                  onClick={() => handleOpenPriceHistory(product.backendId, product.name)}
+                                  className="rounded-lg p-2 text-purple-600 hover:bg-purple-50 transition-colors"
+                                  title="Price History"
+                                  aria-label="View Price History"
+                                >
+                                  <History className="h-4 w-4" />
+                                </button>
+                                <button
                                   onClick={() => setRecipeModalProduct({id: product.backendId, name: product.name})}
                                   className="rounded-lg p-2 text-blue-600 hover:bg-blue-50 transition-colors"
                                   title="Recipe"
@@ -1633,6 +1678,136 @@ export default function SellerProductsPage() {
               <X className="h-8 w-8" />
             </button>
             <img src={viewImageSource} alt="Preview" className="max-w-full max-h-[90vh] object-contain rounded-lg" />
+          </div>
+        </div>
+      )}
+
+      {/* PRICE HISTORY MODAL */}
+      {priceHistoryProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-xl overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-bold text-gray-900">
+                    Price History
+                  </h2>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 font-semibold">
+                    {priceHistoryProduct.name}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Historical selling price adjustments, HPP snapshots, and margins.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPriceHistoryProduct(null)}
+                className="text-gray-400 hover:text-gray-600 rounded-full p-1 hover:bg-gray-100 transition-colors"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto flex-1">
+              {isFetchingPriceHistory ? (
+                <div className="space-y-3 animate-pulse py-4">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="h-12 bg-gray-100 rounded-lg" />
+                  ))}
+                </div>
+              ) : priceHistoryError ? (
+                <div className="p-4 rounded-xl bg-red-50 text-red-700 text-sm flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 shrink-0" />
+                  <span>{priceHistoryError}</span>
+                </div>
+              ) : priceHistoryList.length === 0 ? (
+                <div className="text-center py-12">
+                  <AlertCircle className="h-10 w-10 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm font-medium text-gray-700">No price history available</p>
+                  <p className="text-xs text-gray-500 mt-1">No historical price changes have been recorded for this product yet.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto border border-gray-100 rounded-xl">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-gray-50 text-gray-600 font-semibold border-b border-gray-100">
+                      <tr>
+                        <th className="p-3">Date & Time</th>
+                        <th className="p-3 text-right">Previous Price</th>
+                        <th className="p-3 text-right">New Price</th>
+                        <th className="p-3 text-right">HPP Snapshot</th>
+                        <th className="p-3 text-right">Margin</th>
+                        <th className="p-3 text-center">Changed By</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {priceHistoryList.map((item) => {
+                        const oldPrice = item.harga_jual_lama !== null && item.harga_jual_lama !== undefined ? Number(item.harga_jual_lama) : null;
+                        const newPrice = Number(item.harga_jual_baru);
+                        const hpp = Number(item.hpp_saat_itu);
+                        const marginPercent = newPrice > 0 ? (((newPrice - hpp) / newPrice) * 100).toFixed(1) : '0';
+                        const isBelowHpp = newPrice < hpp;
+
+                        const dateFormatted = item.created_at
+                          ? new Date(item.created_at).toLocaleString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : '-';
+
+                        return (
+                          <tr key={item.id} className="hover:bg-gray-50/60">
+                            <td className="p-3 font-medium text-gray-800 whitespace-nowrap">
+                              {dateFormatted}
+                            </td>
+                            <td className="p-3 text-right text-gray-500">
+                              {oldPrice !== null ? formatRupiah(oldPrice) : <span className="text-gray-400 italic">Initial</span>}
+                            </td>
+                            <td className="p-3 text-right font-semibold text-gray-900">
+                              {formatRupiah(newPrice)}
+                            </td>
+                            <td className="p-3 text-right text-gray-600">
+                              {formatRupiah(hpp)}
+                            </td>
+                            <td className="p-3 text-right">
+                              <span
+                                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${
+                                  isBelowHpp
+                                    ? 'bg-red-100 text-red-800'
+                                    : 'bg-emerald-100 text-emerald-800'
+                                }`}
+                              >
+                                {marginPercent}%
+                              </span>
+                            </td>
+                            <td className="p-3 text-center text-gray-500">
+                              {item.changed_by || 'System'}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-gray-100 flex justify-end bg-gray-50">
+              <button
+                type="button"
+                onClick={() => setPriceHistoryProduct(null)}
+                className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300 transition-colors"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

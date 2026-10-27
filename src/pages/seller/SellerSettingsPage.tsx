@@ -13,7 +13,8 @@ import {
   Eye,
   EyeOff,
   Plus,
-  
+  Mail,
+  AlertCircle,
 } from 'lucide-react';
 import {
   getMyProfile,
@@ -24,6 +25,8 @@ import {
   addUser,
   updateUser,
   deleteUser,
+  getEmailSenderSettings,
+  updateEmailSenderSettings,
   type UserProfile,
   type UserProfileUpdate,
 } from '@/services/sellerSettingsService';
@@ -247,8 +250,8 @@ function ProfileTab() {
       setPasswordError('Current password is required');
       return;
     }
-    if (passwordData.new.length < 6) {
-      setPasswordError('New password must be at least 6 characters');
+    if (passwordData.new.length < 8) {
+      setPasswordError('New password must be at least 8 characters');
       return;
     }
     if (passwordData.new !== passwordData.confirm) {
@@ -460,7 +463,8 @@ function ProfileTab() {
                 type={showNew ? 'text' : 'password'}
                 value={passwordData.new}
                 onChange={(e) => setPasswordData({ ...passwordData, new: e.target.value })}
-                placeholder="Min. 6 characters"
+                placeholder="Min. 8 characters"
+                minLength={8}
                 className="w-full rounded-lg border border-[#d0bfaf] px-4 py-2 pr-10 text-sm outline-none focus:border-[#d85b30]"
               />
               <button
@@ -481,6 +485,7 @@ function ProfileTab() {
                 value={passwordData.confirm}
                 onChange={(e) => setPasswordData({ ...passwordData, confirm: e.target.value })}
                 placeholder="Repeat new password"
+                minLength={8}
                 className="w-full rounded-lg border border-[#d0bfaf] px-4 py-2 pr-10 text-sm outline-none focus:border-[#d85b30]"
               />
               <button
@@ -576,8 +581,12 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
       return;
     }
 
-    if (!initialData && !formData.password) {
-      toast.error('Password is required for new user');
+    if (!initialData && (!formData.password || formData.password.length < 8)) {
+      toast.error('Password must be at least 8 characters');
+      return;
+    }
+    if (initialData && formData.password && formData.password.length < 8) {
+      toast.error('Password must be at least 8 characters');
       return;
     }
     onSave(formData);
@@ -659,8 +668,8 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
             onChange={e => setFormData({...formData, role_id: Number(e.target.value)})}
             className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 outline-none focus:border-[#d85b30]"
           >
-            <option value={3}>Admin</option>
-            <option value={2}>Owner</option>
+            <option value={2}>Admin</option>
+            <option value={3}>Staff</option>
           </select>
         </div>
 
@@ -685,8 +694,9 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
                 required
                 value={formData.password}
                 onChange={e => setFormData({...formData, password: e.target.value})}
+                minLength={8}
                 className="w-full rounded-lg border border-[#d0bfaf] px-4 py-2 pr-10 outline-none focus:border-[#d85b30]"
-                placeholder="Enter password"
+                placeholder="Enter password (min. 8 characters)"
               />
               <button
                 type="button"
@@ -1322,20 +1332,202 @@ function WhatsAppTab() {
     </div>
   );
 }
+
+// ============================================================
+// TAB 4: EMAIL SENDER (OWNER ONLY)
+// ============================================================
+
+function EmailSenderTab() {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [fromName, setFromName] = useState('');
+  const [fromEmail, setFromEmail] = useState('');
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    let ignore = false;
+    const loadSettings = async () => {
+      try {
+        setLoading(true);
+        const data = await getEmailSenderSettings();
+        if (ignore) return;
+        setFromName(data.from_name || '');
+        setFromEmail(data.from_email || '');
+        setUpdatedAt(data.updated_at || null);
+      } catch (err: any) {
+        if (ignore) return;
+        console.error('Failed to load email sender settings:', err);
+        if (err.response?.status === 403) {
+          toast.error('Permission denied. Only Owner can modify email sender settings.');
+        } else if (err.response?.status === 503) {
+          toast.error('Email delivery service is currently not configured or unavailable.');
+        } else {
+          toast.error(err.response?.data?.detail || 'Failed to load email sender settings.');
+        }
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    };
+    loadSettings();
+    return () => { ignore = true; };
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedName = fromName.trim();
+    const trimmedEmail = fromEmail.trim();
+
+    if (!trimmedName || !trimmedEmail) {
+      toast.error('From Name and From Email are required.');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      toast.error('Please enter a valid email address.');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const updated = await updateEmailSenderSettings({
+        from_name: trimmedName,
+        from_email: trimmedEmail,
+      });
+      setFromName(updated.from_name);
+      setFromEmail(updated.from_email);
+      setUpdatedAt(updated.updated_at || new Date().toISOString());
+      toast.success('Email sender settings updated successfully.');
+    } catch (err: any) {
+      console.error('Failed to update email sender settings:', err);
+      if (err.response?.status === 429) {
+        toast.error('Rate limit reached. You can only update email sender settings up to 5 times per minute.');
+      } else if (err.response?.status === 403) {
+        toast.error('Permission denied. Only Owner can modify email sender settings.');
+      } else if (err.response?.status === 503) {
+        toast.error('Email delivery service is currently not configured or unavailable.');
+      } else {
+        const detail = err.response?.data?.detail;
+        if (Array.isArray(detail)) {
+          const errorMsg = detail
+            .map((d: any) => {
+              if (typeof d === 'string') return d;
+              const field = d.loc && d.loc.length > 0 ? d.loc[d.loc.length - 1] : '';
+              return field && field !== 'body' ? `${field}: ${d.msg}` : (d.msg || JSON.stringify(d));
+            })
+            .join(', ');
+          toast.error(errorMsg || 'Failed to update email sender settings.');
+        } else if (typeof detail === 'string') {
+          toast.error(detail);
+        } else {
+          toast.error('Failed to update email sender settings.');
+        }
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="py-8 text-center text-gray-500">Loading email sender settings...</div>;
+  }
+
+  return (
+    <div className="rounded-xl bg-white p-6 shadow-sm space-y-6">
+      <div>
+        <h2 className="text-xl font-bold text-[#4b2417]">Store Email Sender</h2>
+        <p className="mt-1 text-sm text-[#6f5448]">
+          Configure the sender name and email address displayed on outgoing notifications and invoices.
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900 space-y-1.5 leading-relaxed">
+        <p className="font-bold flex items-center gap-1.5 text-amber-950">
+          <AlertCircle className="h-4 w-4 text-amber-700 shrink-0" />
+          Important Information Before Updating:
+        </p>
+        <ul className="list-disc list-inside space-y-1 pl-1 text-amber-850">
+          <li>The sender address/domain must be verified with your email provider before sending emails.</li>
+          <li>Rate limit: Maximum 5 changes per minute.</li>
+          <li>SMTP passwords and credentials are securely stored in server environment variables and are never transmitted to this API.</li>
+        </ul>
+      </div>
+
+      <form onSubmit={handleSubmit} className="max-w-xl space-y-4">
+        <div>
+          <label className="block text-sm font-semibold text-[#4b2417] mb-1">
+            From Name *
+          </label>
+          <input
+            type="text"
+            required
+            maxLength={100}
+            value={fromName}
+            onChange={(e) => setFromName(e.target.value)}
+            placeholder="e.g. Toti Cakery"
+            className="w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
+            disabled={saving}
+          />
+          <p className="mt-1 text-xs text-gray-500">Sender display name shown in customer email inboxes.</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-[#4b2417] mb-1">
+            From Email *
+          </label>
+          <input
+            type="email"
+            required
+            minLength={6}
+            maxLength={255}
+            value={fromEmail}
+            onChange={(e) => setFromEmail(e.target.value)}
+            placeholder="e.g. orders@toticakery.com"
+            className="w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
+            disabled={saving}
+          />
+          <p className="mt-1 text-xs text-gray-500">Sender address in the From header.</p>
+        </div>
+
+        {updatedAt && (
+          <p className="text-xs text-gray-500">
+            Last updated: {new Date(updatedAt).toLocaleString('en-US', {
+              dateStyle: 'medium',
+              timeStyle: 'short',
+            })}
+          </p>
+        )}
+
+        <div className="pt-2">
+          <button
+            type="submit"
+            disabled={saving}
+            className="rounded-lg bg-[#d85b30] px-6 py-2 text-sm font-semibold text-white hover:bg-[#c04e28] disabled:opacity-50 transition"
+          >
+            {saving ? 'Saving...' : 'Save Settings'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 // ============================================================
 // KOMPONEN UTAMA SETTINGS
 // ============================================================
 
-type SettingsTab = 'profile' | 'users' | 'whatsapp';
+type SettingsTab = 'profile' | 'users' | 'whatsapp' | 'email_sender';
 
 export default function SellerSettingsPage() {
   const { user: currentUser } = useAuth();
   const isStaff = currentUser?.role === 'staff';
+  const isOwner = currentUser?.role === 'owner';
 
   const tabs = [
     { key: 'profile' as const, label: 'My Profile', icon: User },
-    { key: 'users' as const, label: 'Users', icon: Users },
-    ...(!isStaff ? [{ key: 'whatsapp' as const, label: 'WhatsApp', icon: MessageCircle }] : [])
+    ...(isOwner ? [{ key: 'users' as const, label: 'Users', icon: Users }] : []),
+    ...(!isStaff ? [{ key: 'whatsapp' as const, label: 'WhatsApp', icon: MessageCircle }] : []),
+    ...(isOwner ? [{ key: 'email_sender' as const, label: 'Email Sender', icon: Mail }] : []),
   ];
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
@@ -1356,8 +1548,9 @@ export default function SellerSettingsPage() {
 
       <div>
         {activeTab === 'profile' && <ProfileTab />}
-        {activeTab === 'users' && <UsersTab />}
-        {activeTab === 'whatsapp' && <WhatsAppTab />}
+        {activeTab === 'users' && isOwner && <UsersTab />}
+        {activeTab === 'whatsapp' && !isStaff && <WhatsAppTab />}
+        {activeTab === 'email_sender' && isOwner && <EmailSenderTab />}
       </div>
     </div>
   );

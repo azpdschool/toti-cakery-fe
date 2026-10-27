@@ -31,9 +31,17 @@ export const NotificationBell: React.FC = () => {
     setIsOpen(false);
 
     if (user.role === 'buyer') {
-      navigate('/orders');
+      if (n.order_id) {
+        navigate(`/orders/${n.order_id}`);
+      } else {
+        navigate('/orders');
+      }
     } else {
-      navigate('/seller/orders');
+      if (n.order_id) {
+        navigate(`/seller/orders?orderId=${n.order_id}`);
+      } else {
+        navigate('/seller/orders');
+      }
     }
   };
 

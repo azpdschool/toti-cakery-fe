@@ -1,8 +1,17 @@
 import { downloadOrderInvoicePdfAPI } from '@/api/order';
+import i18n from '@/lib/i18n';
+import { LANG_KEY } from '@/constants';
 
 export async function downloadInvoice(orderId: string | number, lang?: string) {
+  const currentLang =
+    lang ||
+    (typeof window !== 'undefined' && window.location.pathname.startsWith('/seller') ? 'en' : i18n.language) ||
+    (typeof window !== 'undefined' ? localStorage.getItem(LANG_KEY) : null) ||
+    'id';
+  const isEn = currentLang.startsWith('en');
+
   try {
-    const response = await downloadOrderInvoicePdfAPI(orderId, lang);
+    const response = await downloadOrderInvoicePdfAPI(orderId, currentLang);
     const blob = response.data;
     
     // Attempt to extract filename from Content-Disposition
@@ -32,13 +41,13 @@ export async function downloadInvoice(orderId: string | number, lang?: string) {
     
     // Handle error readable messages
     if (error.response?.status === 401) {
-      throw new Error('Sesi anda telah berakhir. Silakan login kembali.');
+      throw new Error(isEn ? 'Your session has expired. Please log in again.' : 'Sesi anda telah berakhir. Silakan login kembali.');
     } else if (error.response?.status === 403) {
-      throw new Error('Anda tidak memiliki izin untuk mengunduh invoice ini.');
+      throw new Error(isEn ? 'You do not have permission to download this invoice.' : 'Anda tidak memiliki izin untuk mengunduh invoice ini.');
     } else if (error.response?.status === 404) {
-      throw new Error('Pesanan atau invoice tidak ditemukan.');
+      throw new Error(isEn ? 'Order or invoice not found.' : 'Pesanan atau invoice tidak ditemukan.');
     } else {
-      throw new Error('Gagal mengunduh invoice. Silakan coba lagi.');
+      throw new Error(isEn ? 'Failed to download invoice. Please try again.' : 'Gagal mengunduh invoice. Silakan coba lagi.');
     }
   }
 }

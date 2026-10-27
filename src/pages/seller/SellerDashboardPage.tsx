@@ -40,15 +40,17 @@ export default function SellerDashboardPage() {
           setReportLoading(false)
         })
 
-      // Documenting backend requirement:
-      // Backend needs to support `GET /orders?due_today=true` or `GET /reports/due-today`
+      // Backend needs to support `GET /orders?fulfillment_date=YYYY-MM-DD` or `GET /reports/due-today`
       // to avoid downloading large lists just to find orders due today.
-      getOrders({ due_today: true } as any)
+      const todayStr = new Date().toISOString().split('T')[0]
+      getOrders({ fulfillment_date: todayStr } as any)
         .then(res => {
           if (ignore) return
-          const todayStr = new Date().toISOString().split('T')[0]
-          // We still filter here as a fallback until the backend implements the due_today parameter
-          const dueToday = res.filter(o => o.rawDueDate && o.rawDueDate.split('T')[0] === todayStr)
+          // Filter fallback using fulfillment_date
+          const dueToday = res.filter(o => {
+            const fDate = o.rawFulfillmentDate || o.fulfillment_date
+            return fDate && fDate.split('T')[0] === todayStr
+          })
           setOrdersDueToday(dueToday)
           setOrdersError(false)
           setOrdersLoading(false)

@@ -33,7 +33,7 @@ type Mode =
   | 'login-phone-otp'
   | 'wa-verification-pending'
 
-function parseApiError(error: unknown, fallback: string): string {
+function parseApiError(error: unknown, fallback: string, t: any): string {
   if (error && typeof error === 'object' && 'response' in error) {
     const err = error as {
       response?: {
@@ -51,11 +51,11 @@ function parseApiError(error: unknown, fallback: string): string {
         .join(', ')
     }
 
-    if (err.response?.status === 401) return 'Kredensial login tidak valid'
-    if (err.response?.status === 404) return 'Akun buyer tidak ditemukan'
-    if (err.response?.status === 409) return 'Nomor HP atau email sudah terdaftar'
-    if (err.response?.status === 429) return 'Terlalu banyak percobaan verifikasi'
-    if (err.response?.status === 400) return 'Data request tidak valid'
+    if (err.response?.status === 401) return t('auth.invalid_credentials', 'Kredensial login tidak valid')
+    if (err.response?.status === 404) return t('auth.buyer_not_found', 'Akun pembeli tidak ditemukan')
+    if (err.response?.status === 409) return t('auth.already_registered', 'Nomor HP atau email sudah terdaftar')
+    if (err.response?.status === 429) return t('auth.too_many_attempts', 'Terlalu banyak percobaan verifikasi')
+    if (err.response?.status === 400) return t('auth.invalid_request', 'Data request tidak valid')
   }
   if (error instanceof Error && error.message) {
     return error.message
@@ -137,7 +137,7 @@ export default function BuyerLoginPage() {
             setSuccess(t('auth.login_success'))
             goHome()
           } catch (err) {
-            setError(parseApiError(err, t('auth.error_generic')))
+            setError(parseApiError(err, t('auth.error_generic'), t))
             setMode('login-phone-otp')
           } finally {
             setLoading(false)
@@ -170,7 +170,7 @@ export default function BuyerLoginPage() {
       setSuccess(t('auth.login_success'))
       goHome()
     } catch (err) {
-      setError(parseApiError(err, t('auth.error_username_password_wrong')))
+      setError(parseApiError(err, t('auth.error_username_password_wrong'), t))
     } finally {
       setLoading(false)
     }
@@ -194,7 +194,7 @@ export default function BuyerLoginPage() {
       setSuccess(t('auth.login_success'))
       goHome()
     } catch (err) {
-      setError(parseApiError(err, t('auth.error_username_password_wrong')))
+      setError(parseApiError(err, t('auth.error_username_password_wrong'), t))
     } finally {
       setLoading(false)
     }
@@ -226,7 +226,7 @@ export default function BuyerLoginPage() {
       setMode('wa-verification-pending')
       startStatusPolling(startRes.nonce, targetPhone)
     } catch (err) {
-      setError(parseApiError(err, t('auth.error_generic')))
+      setError(parseApiError(err, t('auth.error_generic'), t))
     } finally {
       setLoading(false)
     }
@@ -280,7 +280,7 @@ export default function BuyerLoginPage() {
         )}
 
         {mode === 'login-email' && (
-          <form onSubmit={handleEmailLogin} className="space-y-4">
+          <form onSubmit={handleEmailLogin} noValidate className="space-y-4">
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b7166]" />
               <input
@@ -289,7 +289,6 @@ export default function BuyerLoginPage() {
                 onChange={(e) => setLoginEmail(e.target.value)}
                 placeholder={t('auth.email_placeholder')}
                 className="w-full rounded-xl border border-[#d0bfaf] py-3 pl-11 pr-4 text-sm outline-none focus:border-[#d85b30] focus:ring-1 focus:ring-[#d85b30]"
-                required
               />
             </div>
             <PasswordInput
@@ -301,7 +300,15 @@ export default function BuyerLoginPage() {
             />
             <SubmitButton loading={loading} label={t('auth.login_btn')} />
             <div className="text-center mt-3">
-              <Link to={ROUTES.AUTH_BUYER_FORGOT_PASSWORD} className="text-sm font-semibold text-[#d85b30] hover:underline">
+              <Link
+                to={
+                  loginEmail
+                    ? `${ROUTES.AUTH_BUYER_FORGOT_PASSWORD}?email=${encodeURIComponent(loginEmail)}`
+                    : ROUTES.AUTH_BUYER_FORGOT_PASSWORD
+                }
+                state={{ email: loginEmail }}
+                className="text-sm font-semibold text-[#d85b30] hover:underline"
+              >
                 {t('auth.forgot_password')}
               </Link>
             </div>
@@ -309,12 +316,11 @@ export default function BuyerLoginPage() {
         )}
 
         {mode === 'login-phone-password' && (
-          <form onSubmit={handlePhonePasswordLogin} className="space-y-4">
+          <form onSubmit={handlePhonePasswordLogin} noValidate className="space-y-4">
             <InternationalPhoneInput
               value={phonePasswordNumber}
               onChange={setPhonePasswordNumber}
               placeholder={t('auth.phone_placeholder')}
-              required
             />
             <PasswordInput
               value={phonePasswordPassword}
@@ -333,12 +339,11 @@ export default function BuyerLoginPage() {
         )}
 
         {mode === 'login-phone-otp' && (
-          <form onSubmit={handleStartLoginOtp} className="space-y-4">
+          <form onSubmit={handleStartLoginOtp} noValidate className="space-y-4">
             <InternationalPhoneInput
               value={otpPhone}
               onChange={setOtpPhone}
               placeholder={t('auth.phone_placeholder')}
-              required
             />
             <button
               type="submit"

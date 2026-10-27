@@ -45,3 +45,34 @@ export async function getPaymentStatusAPI(orderId: string | number): Promise<Pay
   const response = await apiClient.get(`/payments/${orderId}/status`);
   return response.data;
 }
+
+export interface ManualPaymentRequest {
+  order_id: string | number;
+  amount: number;
+  payment_method: string;
+  notes?: string;
+}
+
+export interface ManualPaymentResponse {
+  success: boolean;
+  message: string;
+  payment_id: number;
+  order_id: number;
+  amount: number;
+  payment_method: string;
+  payment_status: string;
+  order_status: string;
+}
+
+export async function createManualPayment(payload: ManualPaymentRequest): Promise<ManualPaymentResponse> {
+  const response = await apiClient.post<ManualPaymentResponse>('/payments/manual', {
+    order_id: String(payload.order_id),
+    amount: Number(payload.amount),
+    payment_method: payload.payment_method,
+    notes: payload.notes || null,
+  });
+  return response.data;
+}
+
+export const createManualPaymentAPI = createManualPayment;
+

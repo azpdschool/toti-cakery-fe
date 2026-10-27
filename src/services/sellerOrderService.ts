@@ -20,7 +20,8 @@ export type OrderStatus =
   | 'picked_up'
   | 'completed'
   | 'refunded'
-  | 'cancelled';
+  | 'cancelled'
+  | 'cancelled_settlement_expired';
 
 export interface OrderItem {
   id: string;
@@ -42,7 +43,6 @@ export interface Order {
   time: string;
   method: DeliveryMethod;
   paymentMethod: PaymentMethod;
-  dueDate: string;
   status: OrderStatus;
   items?: OrderItem[];
   notes?: string;
@@ -54,8 +54,16 @@ export interface Order {
   amountPaid?: number;
   amountDue?: number;
   createdAt?: string;
-  rawDueDate?: string;
-  due_date?: string;
+  rawFulfillmentDate?: string;
+  fulfillment_date?: string;
+  paymentStatus?: string;
+  payment_status?: string;
+  invoiceStatus?: string;
+  invoice?: { id?: number; status?: string; nomor_invoice?: string; total_tagihan?: any; sisa_tagihan?: any; [key: string]: any };
+  payment_expires_at?: string | null;
+  paymentExpiresAt?: string | null;
+  fulfillment_overdue_notified_at?: string | null;
+  fulfillmentOverdueNotifiedAt?: string | null;
 }
 
 export interface Invoice {
@@ -73,7 +81,7 @@ export interface Invoice {
   items?: OrderItem[];
   notes?: string;
   orderMethod: DeliveryMethod;
-  dueDate: string;
+  fulfillmentDate: string;
 }
 
 
@@ -100,10 +108,9 @@ export function mapOrderResponse(o: any): Order {
     }),
     method: o.metode_pengiriman === 'pickup' ? 'Pickup' : 'Delivery Toko',
     paymentMethod: ['full', 'lunas'].includes(o.payment_method_preference) ? 'LUNAS' : 'DP',
-    dueDate: o.due_date ? new Date(o.due_date).toLocaleDateString('id-ID') : '-',
     status: o.status,
-    fulfillmentDate: o.fulfillment_date ? new Date(o.fulfillment_date).toLocaleDateString('id-ID', {
-      day: 'numeric', month: 'long', year: 'numeric'
+    fulfillmentDate: o.fulfillment_date ? new Date(o.fulfillment_date).toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric'
     }) : undefined,
     items: o.order_items?.map((item: any) => ({
       id: item.id.toString(),
@@ -121,8 +128,16 @@ export function mapOrderResponse(o: any): Order {
     amountPaid: o.amount_paid !== undefined && o.amount_paid !== null ? parseFloat(o.amount_paid) : undefined,
     amountDue: o.amount_due !== undefined && o.amount_due !== null ? parseFloat(o.amount_due) : undefined,
     createdAt: o.created_at,
-    rawDueDate: o.due_date,
-    due_date: o.due_date,
+    rawFulfillmentDate: o.fulfillment_date,
+    fulfillment_date: o.fulfillment_date,
+    paymentStatus: o.payment_status || o.invoice?.status,
+    payment_status: o.payment_status,
+    invoiceStatus: o.invoice?.status,
+    invoice: o.invoice,
+    payment_expires_at: o.payment_expires_at || null,
+    paymentExpiresAt: o.payment_expires_at || null,
+    fulfillment_overdue_notified_at: o.fulfillment_overdue_notified_at || null,
+    fulfillmentOverdueNotifiedAt: o.fulfillment_overdue_notified_at || null,
   } as any;
 }
 
@@ -152,6 +167,39 @@ export async function updateOrderStatus(id: string, status: OrderStatus): Promis
   const response = await apiClient.patch(`/orders/${id}/status`, { status });
   return mapOrderResponse(response.data);
 }
+
+export async function createManualPayment(payload: {
+  order_id: string | number;
+  amount: number;
+  payment_method: string;
+  notes?: string;
+}) {
+  const response = await apiClient.post('/payments/manual', {
+    order_id: String(payload.order_id),
+    amount: Number(payload.amount),
+    payment_method: payload.payment_method,
+    notes: payload.notes || null,
+  });
+  return response.data;
+}
+
+export async function updateOrderFulfillmentDate(
+  orderId: string | number,
+  payload: { fulfillment_date: string } | string
+): Promise<Order> {
+  const body = typeof payload === 'string' ? { fulfillment_date: payload } : payload;
+  const response = await apiClient.patch(`/orders/${orderId}/fulfillment-date`, body);
+  return mapOrderResponse(response.data);
+}
+
+export async function refundOrder(
+  orderId: string | number,
+  payload: { reason: string; amount?: number; nomor_wa?: string }
+) {
+  const response = await apiClient.post(`/orders/${orderId}/refund`, payload);
+  return response.data;
+}
+
 
 
 

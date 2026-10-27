@@ -11,6 +11,7 @@ export type OrderStatus =
   | 'completed'
   | 'cancelled'
   | 'refunded'
+  | 'cancelled_settlement_expired'
 
 export type PaymentStatus = 'unpaid' | 'partial' | 'paid' | 'refunded'
 export type DeliveryMethod = 'pickup' | 'delivery_toko' | 'delivery_third_party'
@@ -53,6 +54,33 @@ export interface BuyerOrder {
   notes?: string | null
   estimatedDate?: string | null
   completedDate?: string | null
+
+  rawStatus?: string
+  invoiceStatus?: string
+  payment_expires_at?: string | null
+  paymentExpiresAt?: string | null
+  fulfillment_overdue_notified_at?: string | null
+  fulfillmentOverdueNotifiedAt?: string | null
+  fulfillment_date?: string
+  invoice?: {
+    status?: string
+    total_tagihan?: number | string
+    sisa_tagihan?: number | string
+  } | null
+}
+
+export function isBuyerOrderOverdue(order?: BuyerOrder | null): boolean {
+  if (!order) return false;
+  const activeStatuses = ['pending', 'processed', 'in_process', 'ready'];
+  const status = order.rawStatus || order.status;
+  if (!activeStatuses.includes(status)) return false;
+
+  const fDate = order.fulfillment_date || order.fulfillmentDate;
+  if (!fDate) return false;
+  const isPast = new Date(fDate).getTime() < Date.now();
+
+  const invStatus = order.invoiceStatus || order.invoice?.status || order.paymentStatus;
+  return isPast && (invStatus === 'partial' || invStatus === 'paid');
 }
 
 /**
@@ -160,6 +188,11 @@ interface ApiOrder {
   completed_date?: string | null
   completedDate?: string | null
 
+  payment_expires_at?: string | null
+  paymentExpiresAt?: string | null
+  fulfillment_overdue_notified_at?: string | null
+  fulfillmentOverdueNotifiedAt?: string | null
+
   created_at?: string | null
   createdAt?: string | null
   tanggal_order?: string | null
@@ -253,9 +286,15 @@ function normalizeStatus(status?: string): OrderStatus {
   }
 
   if (
-    value === 'cancelled' ||
-    value === 'canceled' ||
-    value === 'dibatalkan'
+    value === 'cancelled_settlement_expired' ||
+    value === 'settlement_expired'
+  ) {
+    return 'cancelled_settlement_expired'
+  }
+
+  if (
+    value.includes('cancel') ||
+    value.includes('batal')
   ) {
     return 'cancelled'
   }
@@ -406,6 +445,25 @@ function mapApiOrder(order: ApiOrder): BuyerOrder {
     amountPaid: (order.amount_paid ?? order.amountPaid) != null ? toNumber(order.amount_paid ?? order.amountPaid) : undefined,
     amountDue: (order.amount_due ?? order.amountDue) != null ? toNumber(order.amount_due ?? order.amountDue) : undefined,
     fulfillmentDate: order.fulfillment_date ?? order.fulfillmentDate,
+    fulfillment_date: order.fulfillment_date ?? order.fulfillmentDate,
+
+    rawStatus: order.status ?? order.order_status,
+    invoiceStatus:
+      order.invoice?.status ??
+      order.invoice_status ??
+      order.invoiceStatus ??
+      order.payment_status ??
+      order.paymentStatus ??
+      order.status_pembayaran,
+    payment_expires_at: order.payment_expires_at ?? order.paymentExpiresAt ?? null,
+    paymentExpiresAt: order.payment_expires_at ?? order.paymentExpiresAt ?? null,
+    fulfillment_overdue_notified_at: order.fulfillment_overdue_notified_at ?? order.fulfillmentOverdueNotifiedAt ?? null,
+    fulfillmentOverdueNotifiedAt: order.fulfillment_overdue_notified_at ?? order.fulfillmentOverdueNotifiedAt ?? null,
+    invoice: order.invoice ? {
+      status: order.invoice.status,
+      total_tagihan: (order.invoice as any).total_tagihan,
+      sisa_tagihan: (order.invoice as any).sisa_tagihan,
+    } : null,
 
     notes: order.notes ?? order.catatan ?? null,
     estimatedDate: order.estimated_date ?? order.estimatedDate ?? null,
@@ -437,10 +495,16 @@ export async function getBuyerOrders(): Promise<BuyerOrder[]> {
   } catch (error: any) {
     /**
      * Kalau buyer belum pernah order, beberapa BE mengembalikan 404.
-     * Untuk UI buyer, itu lebih baik dianggap list kosong.
+     * Coba fallback ke /buyer sebelum menganggap list kosong.
      */
     if (error?.response?.status === 404) {
-      return []
+      try {
+        const fallbackRes = await apiClient.get('/buyer')
+        const rawOrders = unwrapOrderList(fallbackRes.data)
+        return rawOrders.map(mapApiOrder)
+      } catch {
+        return []
+      }
     }
 
     throw error
@@ -453,7 +517,12 @@ export async function getBuyerOrderById(id: string): Promise<BuyerOrder | null> 
     return mapApiOrder(response.data)
   } catch (error: any) {
     if (error?.response?.status === 404) {
-      return null
+      try {
+        const fallbackRes = await apiClient.get(`/buyer/${id}`)
+        return mapApiOrder(fallbackRes.data)
+      } catch {
+        return null
+      }
     }
 
     throw error

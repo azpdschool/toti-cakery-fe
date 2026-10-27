@@ -21,10 +21,10 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'react-hot-toast'
 import {
   getActiveProducts,
-  getProductReviews,
   formatRupiah,
   type SimpleProduct,
 } from '@/services/productService'
+import { getLatestReviews } from '@/services/reviewService'
 
 interface Benefit {
   title: string
@@ -82,17 +82,45 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    let isMounted = true
     async function loadData() {
-      setLoading(true)
-      const [allProducts, allReviews] = await Promise.all([
-        getActiveProducts(),
-        getProductReviews(50),
-      ])
-      setProducts(allProducts)
-      setReviews(allReviews)
-      setLoading(false)
+      try {
+        setLoading(true)
+        const [allProducts, allReviews] = await Promise.all([
+          getActiveProducts().catch((err) => {
+            console.error('Failed to load active products:', err)
+            return []
+          }),
+          getLatestReviews(6).catch((err) => {
+            console.error('Failed to load latest reviews:', err)
+            return []
+          }),
+        ])
+        if (!isMounted) return
+        setProducts(allProducts)
+        setReviews(
+          (allReviews || []).map((item) => ({
+            customerName: item.customer_name || 'Customer',
+            rating: item.rating,
+            comment: item.comment || '',
+            purchasedProductName: item.product_name || '',
+            productId: String(item.product_id),
+            productName: item.product_name || '',
+            images: item.images || [],
+          }))
+        )
+      } catch (err) {
+        console.error('Error in HomePage loadData:', err)
+      } finally {
+        if (isMounted) {
+          setLoading(false)
+        }
+      }
     }
     loadData()
+    return () => {
+      isMounted = false
+    }
   }, [])
 
 

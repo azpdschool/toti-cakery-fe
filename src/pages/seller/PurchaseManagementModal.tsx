@@ -28,6 +28,7 @@ export default function PurchaseManagementModal({ isOpen, onClose, onSuccess }: 
   const [stockItems, setStockItems] = useState<StockOut[]>([]);
   const [loading, setLoading] = useState(false);
   const [view, setView] = useState<'list' | 'create' | 'edit'>('list');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'received' | 'cancelled'>('all');
 
   const [receivingId, setReceivingId] = useState<number | null>(null);
   const [cancellingId, setCancellingId] = useState<number | null>(null);
@@ -45,11 +46,22 @@ export default function PurchaseManagementModal({ isOpen, onClose, onSuccess }: 
   const [notes, setNotes] = useState('');
   const [items, setItems] = useState([{ stock_item_id: '', jumlah: '', harga_total: '' }]);
 
-  const fetchData = async () => {
+  const fetchData = async (filter: 'all' | 'pending' | 'received' | 'cancelled' = statusFilter) => {
     setLoading(true);
     try {
+      let onlyReceived: boolean | undefined = undefined;
+      let onlyCancelled: boolean | undefined = undefined;
+
+      if (filter === 'pending') {
+        onlyReceived = false;
+      } else if (filter === 'received') {
+        onlyReceived = true;
+      } else if (filter === 'cancelled') {
+        onlyCancelled = true;
+      }
+
       const [pData, sData, stData] = await Promise.all([
-        getPurchases(),
+        getPurchases(onlyReceived, undefined, onlyCancelled),
         supplierService.fetchSuppliers(),
         getStockItems(),
       ]);
@@ -63,9 +75,14 @@ export default function PurchaseManagementModal({ isOpen, onClose, onSuccess }: 
     }
   };
 
+  const handleFilterChange = (newFilter: 'all' | 'pending' | 'received' | 'cancelled') => {
+    setStatusFilter(newFilter);
+    fetchData(newFilter);
+  };
+
   useEffect(() => {
     if (isOpen) {
-      fetchData();
+      fetchData(statusFilter);
       setView('list');
       setExpandedId(null);
     }
@@ -303,7 +320,23 @@ export default function PurchaseManagementModal({ isOpen, onClose, onSuccess }: 
         <div className="flex-1 overflow-y-auto p-6">
           {view === 'list' ? (
             <>
-              <div className="mb-4 flex justify-end">
+              <div className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div className="flex items-center gap-1.5 p-1 bg-gray-100 rounded-lg text-xs font-medium">
+                  {(['all', 'pending', 'received', 'cancelled'] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      type="button"
+                      onClick={() => handleFilterChange(tab)}
+                      className={`px-3 py-1.5 rounded-md capitalize transition ${
+                        statusFilter === tab
+                          ? 'bg-white text-[#4b2417] font-semibold shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      {tab === 'all' ? 'All' : tab === 'pending' ? 'Pending' : tab === 'received' ? 'Received' : 'Cancelled'}
+                    </button>
+                  ))}
+                </div>
                 <button 
                   onClick={handleStartCreate} 
                   className="flex items-center gap-2 bg-[#d85b30] text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-[#c04e28]"

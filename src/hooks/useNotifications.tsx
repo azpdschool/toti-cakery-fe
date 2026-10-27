@@ -31,9 +31,9 @@ export function useNotifications() {
       ready: t('orders.status_ready', 'Siap'),
       delivered: t('orders.status_delivered', 'Dikirim'),
       picked_up: t('orders.status_picked_up', 'Selesai / Diambil'),
-      completed: t('orders.status_picked_up', 'Selesai'),
+      completed: t('orders.status_completed', 'Selesai'),
       cancelled: t('orders.status_cancelled', 'Dibatalkan'),
-      refunded: t('orders.status_refunded', 'Direfund'),
+      refunded: t('orders.status_refunded', 'Dikembalikan'),
     };
     return map[statusKey] || statusKey;
   }, [t]);
@@ -70,6 +70,20 @@ export function useNotifications() {
       return {
         title: t('notifications.order_cancelled_title', 'Pesanan Dibatalkan'),
         message: t('notifications.order_cancelled_msg', { orderNumber: orderNum, defaultValue: `Pesanan ${orderNum} telah dibatalkan.` }),
+      };
+    }
+
+    if (n.type === 'order_overdue') {
+      return {
+        title: t('notifications.order_overdue_title', 'Pesanan Melewati Batas Waktu'),
+        message: t('notifications.order_overdue_msg', { orderNumber: orderNum, defaultValue: `Pesanan ${orderNum} telah melewati batas waktu pemenuhan.` }),
+      };
+    }
+
+    if (n.type === 'order_cancelled_unpaid') {
+      return {
+        title: t('notifications.order_cancelled_unpaid_title', 'Pesanan Dibatalkan Otomatis'),
+        message: t('notifications.order_cancelled_unpaid_msg', { orderNumber: orderNum, defaultValue: `Pesanan ${orderNum} dibatalkan otomatis karena batas waktu pembayaran habis.` }),
       };
     }
 

@@ -1,5 +1,6 @@
 import React from 'react';
-import { ShoppingBag, RefreshCw, XCircle, Bell } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { ShoppingBag, RefreshCw, XCircle, Bell, AlertTriangle, AlertCircle } from 'lucide-react';
 import type { NotificationItem as NotificationItemType } from '@/types/notification';
 
 interface NotificationItemProps {
@@ -15,6 +16,7 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
   message,
   onClick,
 }) => {
+  const { i18n } = useTranslation();
   const isUnread = !notification.read_at;
 
   const getIcon = () => {
@@ -25,6 +27,10 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
         return <RefreshCw className="h-4 w-4 text-blue-600" />;
       case 'order_cancelled':
         return <XCircle className="h-4 w-4 text-red-600" />;
+      case 'order_overdue':
+        return <AlertTriangle className="h-4 w-4 text-amber-600" />;
+      case 'order_cancelled_unpaid':
+        return <AlertCircle className="h-4 w-4 text-rose-600" />;
       default:
         return <Bell className="h-4 w-4 text-amber-600" />;
     }
@@ -35,13 +41,14 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
       const date = new Date(dateStr);
       const now = new Date();
       const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000);
-      if (diffSec < 60) return `${Math.max(1, diffSec)}s ago`;
+      const isEn = i18n.language === 'en';
+      if (diffSec < 60) return isEn ? `${Math.max(1, diffSec)}s ago` : `${Math.max(1, diffSec)} detik lalu`;
       const diffMin = Math.floor(diffSec / 60);
-      if (diffMin < 60) return `${diffMin}m ago`;
+      if (diffMin < 60) return isEn ? `${diffMin}m ago` : `${diffMin} menit lalu`;
       const diffHr = Math.floor(diffMin / 60);
-      if (diffHr < 24) return `${diffHr}h ago`;
+      if (diffHr < 24) return isEn ? `${diffHr}h ago` : `${diffHr} jam lalu`;
       const diffDays = Math.floor(diffHr / 24);
-      return `${diffDays}d ago`;
+      return isEn ? `${diffDays}d ago` : `${diffDays} hari lalu`;
     } catch {
       return '';
     }

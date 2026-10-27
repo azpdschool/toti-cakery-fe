@@ -106,7 +106,7 @@ export default function SellerLoginPage() {
             {t('auth.seller_login_subtitle')}
           </p>
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <form onSubmit={handleSubmit} noValidate className="mt-6 space-y-4">
             <div>
               <label
                 htmlFor="username"

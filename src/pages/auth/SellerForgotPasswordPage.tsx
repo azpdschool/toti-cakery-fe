@@ -128,8 +128,8 @@ export default function SellerForgotPasswordPage() {
     setError(null)
     setSuccess(null)
 
-    if (newPassword.length < 6) {
-      setError('Password must be at least 6 characters')
+    if (newPassword.length < 8) {
+      setError('Password must be at least 8 characters')
       return
     }
 
@@ -322,7 +322,7 @@ export default function SellerForgotPasswordPage() {
           )}
 
           {step === 'reset' && (
-            <form onSubmit={handleResetPassword} className="mt-6 space-y-4">
+            <form onSubmit={handleResetPassword} noValidate className="mt-6 space-y-4">
               <div>
                 <label
                   htmlFor="new-password"
@@ -341,7 +341,7 @@ export default function SellerForgotPasswordPage() {
                     type={showPassword ? 'text' : 'password'}
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Minimum 6 characters"
+                    placeholder="Minimum 8 characters"
                     className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-12 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
                   />
 

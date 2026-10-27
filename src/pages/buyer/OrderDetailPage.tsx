@@ -1,5 +1,5 @@
-// src/pages/buyer/OrderDetailPage.tsx
 import { useTranslation } from 'react-i18next'
+import i18n from '@/lib/i18n'
 import { useState, useEffect, useCallback } from 'react'
 import type React from 'react'
 import { Link, useParams, Navigate } from 'react-router-dom'
@@ -34,6 +34,7 @@ import {
   type OrderStatus,
   processPayment,
   cancelBuyerOrder,
+  isBuyerOrderOverdue,
 } from '@/services/buyerOrderService'
 import { ROUTES } from '@/constants'
 import {
@@ -48,7 +49,7 @@ const statusMap: Record<
   { label: string; icon: React.ElementType; color: string }
 > = {
   pending: {
-    label: 'Menunggu Konfirmasi',
+    label: i18n.language === 'en' ? 'Waiting for Confirmation' : 'Menunggu Konfirmasi',
     icon: Clock,
     color: 'text-yellow-600 bg-yellow-50',
   },
@@ -63,7 +64,7 @@ const statusMap: Record<
     color: 'text-purple-600 bg-purple-50',
   },
   completed: {
-    label: 'Selesai',
+    label: i18n.language === 'en' ? 'Completed' : 'Selesai',
     icon: CheckCircle,
     color: 'text-green-600 bg-green-50',
   },
@@ -79,6 +80,11 @@ const statusMap: Record<
   },
   refunded: {
     label: 'Dikembalikan',
+    icon: XCircle,
+    color: 'text-red-600 bg-red-50',
+  },
+  cancelled_settlement_expired: {
+    label: i18n.language === 'en' ? 'Settlement Expired' : 'Batas Waktu Pelunasan Berakhir',
     icon: XCircle,
     color: 'text-red-600 bg-red-50',
   },
@@ -107,6 +113,7 @@ export default function OrderDetailPage() {
   const [payRemainingMethod, setPayRemainingMethod] = useState<'qris' | 'bank_transfer'>('qris')
   const [isPayingRemaining, setIsPayingRemaining] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
+  const [countdownStr, setCountdownStr] = useState<string | null>(null)
 
   // Review states
   const [reviewModalItem, setReviewModalItem] = useState<{ productId: string; productName: string } | null>(null)
@@ -157,15 +164,16 @@ export default function OrderDetailPage() {
         setPaymentInstructions(result);
         setShowPayRemaining(false);
       } else {
-        setError('Gagal mendapatkan instruksi pembayaran untuk pelunasan');
+        setError(i18n.language === 'en' ? 'Failed to get settlement payment instructions' : 'Gagal mendapatkan instruksi pembayaran untuk pelunasan');
       }
     } catch (err: any) {
       if (err.response?.status === 400) {
-        setError('Gagal memproses pembayaran pelunasan: nominal tidak sesuai.');
+        setError(i18n.language === 'en' ? 'Failed to process settlement payment: invalid amount.' : 'Gagal memproses pembayaran pelunasan: nominal tidak sesuai.');
       } else if (err.response?.status === 409) {
-        setError('Terdapat tagihan pembayaran pelunasan yang aktif.');
+        setError(i18n.language === 'en' ? 'An active settlement payment already exists.' : 'Terdapat tagihan pembayaran pelunasan yang aktif.');
+        await loadOrder();
       } else {
-        setError('Gagal memproses pembayaran pelunasan. Silakan coba lagi.');
+        setError(i18n.language === 'en' ? 'Failed to process settlement payment. Please try again.' : 'Gagal memproses pembayaran pelunasan. Silakan coba lagi.');
       }
     } finally {
       setIsPayingRemaining(false);
@@ -244,7 +252,7 @@ export default function OrderDetailPage() {
     setDeletingImageId(imageId);
     try {
       await deleteReviewImage(reviewId, imageId);
-      toast.success('Foto ulasan berhasil dihapus.');
+      toast.success(i18n.language === 'en' ? 'Review photo deleted successfully.' : 'Foto ulasan berhasil dihapus.');
       setOrderReviewsMap(prev => {
         const currentRev = prev[productId];
         if (!currentRev) return prev;
@@ -258,7 +266,7 @@ export default function OrderDetailPage() {
         };
       });
     } catch (err: any) {
-      toast.error('Gagal menghapus foto ulasan.');
+      toast.error(i18n.language === 'en' ? 'Failed to delete review photo.' : 'Gagal menghapus foto ulasan.');
     } finally {
       setDeletingImageId(null);
     }
@@ -293,7 +301,7 @@ export default function OrderDetailPage() {
         setOrder(data)
         
         const needsPayment = data.paymentStatus === 'unpaid' || (data.paymentStatus === 'partial' && (data.amountDue === undefined || data.amountDue > 0));
-        if (data.status !== 'cancelled' && needsPayment) {
+        if (data.status !== 'cancelled' && data.status !== 'cancelled_settlement_expired' && needsPayment) {
           try {
             const paymentData = await getOrderPaymentStatus(id)
             if (paymentData.payments && paymentData.payments.length > 0) {
@@ -357,23 +365,30 @@ export default function OrderDetailPage() {
 
   const handleCancelOrder = async () => {
     if (!order || !id) return;
-    if (!window.confirm('Apakah Anda yakin ingin membatalkan pesanan ini?')) {
+    const isEn = i18n.language === 'en';
+    if (!window.confirm(isEn ? 'Are you sure you want to cancel this order?' : 'Apakah Anda yakin ingin membatalkan pesanan ini?')) {
       return;
     }
 
     setIsCancelling(true);
     try {
       const res = await cancelBuyerOrder(id);
-      toast.success(res?.message || 'Pesanan berhasil dibatalkan');
+      let successMsg = res?.message || (isEn ? 'Order cancelled successfully.' : 'Pesanan berhasil dibatalkan');
+      if (isEn && (!res?.message || res.message === 'Pesanan berhasil dibatalkan')) {
+        successMsg = 'Order cancelled successfully.';
+      }
+      toast.success(successMsg);
       await loadOrder();
     } catch (err: any) {
       if (err.response?.status === 409) {
-        const detailMsg = err.response.data?.detail || 'Pesanan tidak dapat dibatalkan.';
-        toast.error(detailMsg);
+        const detailMsg = err.response.data?.detail;
+        const fallback = isEn ? 'Order cannot be cancelled.' : 'Pesanan tidak dapat dibatalkan.';
+        toast.error(isEn && detailMsg === 'Pesanan tidak dapat dibatalkan.' ? fallback : (detailMsg || fallback));
         await loadOrder();
       } else {
-        const errorMsg = err.response?.data?.detail || err.message || 'Gagal membatalkan pesanan.';
-        toast.error(errorMsg);
+        const errorMsg = err.response?.data?.detail || err.message;
+        const fallback = isEn ? 'Failed to cancel order.' : 'Gagal membatalkan pesanan.';
+        toast.error(isEn && errorMsg === 'Gagal membatalkan pesanan.' ? fallback : (errorMsg || fallback));
       }
     } finally {
       setIsCancelling(false);
@@ -413,13 +428,98 @@ export default function OrderDetailPage() {
     };
   }, [id, paymentInstructions]);
 
+  // Countdown timer for payment expiration
+  useEffect(() => {
+    const expiresAt = order?.payment_expires_at || order?.paymentExpiresAt;
+    const invStatus = order?.invoiceStatus || order?.invoice?.status || order?.paymentStatus;
+    const isAwaitingPayment = invStatus === 'unpaid' && order?.status === 'pending';
+
+    if (!expiresAt || !isAwaitingPayment) {
+      setCountdownStr(null);
+      return;
+    }
+
+    const updateCountdown = () => {
+      const diff = new Date(expiresAt).getTime() - Date.now();
+      if (diff <= 0) {
+        setCountdownStr(i18n.language === 'en' ? 'Expired' : 'Kadaluarsa');
+        loadOrder();
+        return;
+      }
+      const mins = Math.floor(diff / 60000);
+      const secs = Math.floor((diff % 60000) / 1000);
+      const hrs = Math.floor(mins / 60);
+      const remMins = mins % 60;
+      if (hrs > 0) {
+        setCountdownStr(`${hrs}h ${remMins}m ${secs}s`);
+      } else {
+        setCountdownStr(`${String(remMins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`);
+      }
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [order?.payment_expires_at, order?.paymentExpiresAt, order?.invoiceStatus, order?.invoice?.status, order?.paymentStatus, order?.status, loadOrder, i18n.language]);
+
   const getStatusBadge = (order: BuyerOrder) => {
     const status = order.status
+    const invStatus = order.invoiceStatus || order.invoice?.status || order.paymentStatus
+
+    if (status === 'cancelled_settlement_expired' || order.rawStatus === 'cancelled_settlement_expired') {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold text-red-700 bg-red-100 ring-1 ring-inset ring-red-600/20">
+          <XCircle className="h-4 w-4" />
+          {i18n.language === 'en' ? 'Settlement Expired' : 'Batas Waktu Pelunasan Berakhir'}
+        </span>
+      )
+    }
+
+    if (status === 'cancelled') {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold text-red-700 bg-red-100 ring-1 ring-inset ring-red-600/20">
+          <XCircle className="h-4 w-4" />
+          {i18n.language === 'en' ? 'Cancelled' : 'Dibatalkan'}
+        </span>
+      )
+    }
+
+    if (status === 'refunded') {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold text-red-700 bg-red-100 ring-1 ring-inset ring-red-600/20">
+          <XCircle className="h-4 w-4" />
+          {i18n.language === 'en' ? 'Refunded' : 'Dikembalikan'}
+        </span>
+      )
+    }
+
+    if (invStatus === 'unpaid') {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold text-amber-800 bg-amber-100 ring-1 ring-inset ring-amber-600/20">
+          <Clock className="h-4 w-4" />
+          {i18n.language === 'en' ? 'Waiting for Payment' : 'Menunggu Pembayaran'}
+        </span>
+      )
+    }
+
+    if ((invStatus === 'partial' || invStatus === 'paid') && (status === 'pending' || (status as string) === 'awaiting_payment')) {
+      return (
+        <span className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold text-blue-800 bg-blue-100 ring-1 ring-inset ring-blue-600/20">
+          <Clock className="h-4 w-4" />
+          {i18n.language === 'en' ? 'Waiting for Seller Confirmation' : 'Menunggu Konfirmasi Seller'}
+        </span>
+      )
+    }
+
     let info = statusMap[status] || statusMap.pending
 
     if (status === 'ready') {
-      const label = order.deliveryMethod === 'pickup' ? t('orders.ready_pickup') : t('orders.ready_delivery')
+      const label = order.deliveryMethod === 'pickup' 
+        ? (i18n.language === 'en' ? 'Ready for Pickup' : t('orders.ready_pickup', 'Siap Diambil'))
+        : (i18n.language === 'en' ? 'Ready for Delivery' : t('orders.ready_delivery', 'Siap Dikirim'))
       info = { ...info, label }
+    } else if (status === 'completed') {
+      info = { ...info, label: i18n.language === 'en' ? 'Completed' : 'Selesai' }
     } else {
       info = { ...info, label: t(`orders.status_${status}`) }
     }
@@ -495,15 +595,24 @@ export default function OrderDetailPage() {
               <p className="text-sm text-[#6f5448]">
                 {t('order_detail.ordered_on')} {order.date} · {order.time}
               </p>
-              {order.fulfillmentDate && (
+              {(order.fulfillmentDate || order.fulfillment_date) && (
                 <p className="text-sm font-medium text-[#d85b30] mt-1">
-                  Fulfillment Date: {new Date(order.fulfillmentDate).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}
+                  {i18n.language === 'en' ? 'Fulfillment Date' : 'Tanggal Pemenuhan'}:{' '}
+                  {new Date(order.fulfillment_date || order.fulfillmentDate!).toLocaleDateString(
+                    i18n.language === 'en' ? 'en-US' : 'id-ID',
+                    { day: 'numeric', month: 'long', year: 'numeric' }
+                  )}
                 </p>
               )}
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
               {getStatusBadge(order)}
+              {isBuyerOrderOverdue(order) && (
+                <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                  {i18n.language === 'en' ? 'Overdue' : 'Terlambat'}
+                </span>
+              )}
               {order.status === 'pending' && (
                 <button
                   onClick={handleCancelOrder}
@@ -513,10 +622,10 @@ export default function OrderDetailPage() {
                   {isCancelling ? (
                     <>
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Membatalkan...
+                      {i18n.language === 'en' ? 'Cancelling...' : 'Membatalkan...'}
                     </>
                   ) : (
-                    'Batalkan Pesanan'
+                    i18n.language === 'en' ? 'Cancel Order' : 'Batalkan Pesanan'
                   )}
                 </button>
               )}
@@ -594,6 +703,18 @@ export default function OrderDetailPage() {
                 <h3 className="text-sm font-bold uppercase tracking-wider text-[#6f5448]">
                   {t('order_detail.payment_information')}
                 </h3>
+
+                {countdownStr && (
+                  <div className="mt-3 flex items-center justify-between rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs font-semibold text-amber-900">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-amber-600 animate-pulse shrink-0" />
+                      <span>{i18n.language === 'en' ? 'Payment expires in:' : 'Batas waktu pembayaran:'}</span>
+                    </div>
+                    <span className="font-mono text-sm font-bold text-amber-800 bg-amber-100/80 px-2.5 py-0.5 rounded-lg border border-amber-300">
+                      {countdownStr}
+                    </span>
+                  </div>
+                )}
 
                 <div className="mt-3 space-y-2 text-sm">
                   <div className="flex justify-between">
@@ -885,6 +1006,17 @@ export default function OrderDetailPage() {
                 <div className="mt-3 space-y-3">
                   {paymentInstructions && (
                     <div className="mb-4 grid gap-4">
+                      {countdownStr && (
+                        <div className="flex items-center justify-between rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs font-semibold text-amber-900">
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-amber-600 animate-pulse shrink-0" />
+                            <span>{i18n.language === 'en' ? 'Payment expires in:' : 'Batas waktu pembayaran:'}</span>
+                          </div>
+                          <span className="font-mono text-sm font-bold text-amber-800 bg-amber-100/80 px-2.5 py-0.5 rounded-lg border border-amber-300">
+                            {countdownStr}
+                          </span>
+                        </div>
+                      )}
                       {paymentInstructions.qris_url ? (
                         <QrisPaymentCard qrisUrl={paymentInstructions.qris_url} amount={activePaymentAmount} />
                       ) : paymentInstructions.va_number ? (
@@ -987,6 +1119,20 @@ export default function OrderDetailPage() {
                       <div>
                         <p className="text-sm font-medium text-[#4b2417]">
                           {t('order_detail.status_cancelled')}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {(order.status === 'cancelled_settlement_expired' || order.rawStatus === 'cancelled_settlement_expired') && (
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100">
+                        <XCircle className="h-4 w-4 text-red-600" />
+                      </div>
+
+                      <div>
+                        <p className="text-sm font-medium text-[#4b2417]">
+                          {i18n.language === 'en' ? 'Order Cancelled (Settlement Expired)' : 'Pesanan Dibatalkan (Batas Waktu Pelunasan Berakhir)'}
                         </p>
                       </div>
                     </div>

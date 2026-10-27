@@ -1,8 +1,8 @@
 import { apiClient } from '@/api/client';
-import { fetchFinancialReport, fetchAnalyticsReport } from '@/api/reports';
-import { getExpensesSummary, getExpenses, createExpense } from '@/api/expenses';
-import type { ExpenseDetailResponse, ExpenseCreate } from '@/types/expense';
-import type { ProductProfitabilityItem, SupplierSpendingItem } from '@/types/finance';
+import { fetchFinancialReport, fetchAnalyticsReport, fetchSalesTrends } from '@/api/reports';
+import { getExpensesSummary, getExpenses, createExpense, updateExpense, cancelExpense, getExpenseAudit } from '@/api/expenses';
+import type { ExpenseDetailResponse, ExpenseCreate, ExpenseAuditItem } from '@/types/expense';
+import type { ProductProfitabilityItem, SupplierSpendingItem, SalesTrendPoint, SalesTrendsResponse } from '@/types/finance';
 
 // ============================================================
 // TYPES
@@ -47,7 +47,7 @@ export interface FinanceInvoice {
   status: 'paid' | 'partial' | 'unpaid';
   paymentStatus: 'paid' | 'partial' | 'unpaid';
   orderMethod: string;
-  dueDate: string;
+  fulfillmentDate: string;
   notes?: string;
   items?: any[];
   createdAt?: string;
@@ -204,6 +204,10 @@ export async function addExpense(data: ExpenseCreate): Promise<ExpenseDetailResp
   return createExpense(data);
 }
 
+export { updateExpense, cancelExpense, getExpenseAudit, fetchSalesTrends };
+export type { ExpenseAuditItem, SalesTrendPoint, SalesTrendsResponse };
+
+
 // ============================================================
 // FUNGSI INVOICE & EXPORT
 // ============================================================
@@ -241,7 +245,9 @@ export async function getFinanceInvoices(startDate?: string, endDate?: string): 
       status: paymentStatus,
       paymentStatus,
       orderMethod: o.metode_pengiriman === 'pickup' ? 'Pickup' : 'Delivery Toko',
-      dueDate: o.due_date ? new Date(o.due_date).toLocaleDateString('id-ID') : (o.dueDate || '-'),
+      fulfillmentDate: (o.fulfillment_date || o.fulfillmentDate)
+        ? new Date(o.fulfillment_date || o.fulfillmentDate).toLocaleDateString('id-ID')
+        : '-',
       notes: o.notes || '',
       items: o.order_items || o.items || [],
       createdAt: o.created_at,

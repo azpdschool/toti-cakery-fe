@@ -1,6 +1,6 @@
 // src/api/reports.ts
 import { apiClient } from './client';
-import type { FinancialReportDetail, AnalyticsReport } from '../types/finance';
+import type { FinancialReportDetail, AnalyticsReport, SalesTrendsResponse } from '../types/finance';
 
 const activeFinancialRequests = new Map<string, Promise<FinancialReportDetail>>();
 
@@ -64,3 +64,17 @@ export async function fetchReportSummary(startDate?: string, endDate?: string): 
   activeSummaryRequests.set(key, promise);
   return promise;
 }
+
+export async function fetchSalesTrends(
+  startDate?: string,
+  endDate?: string,
+  granularity: 'day' | 'week' | 'month' = 'day'
+): Promise<SalesTrendsResponse> {
+  const params: Record<string, string> = { granularity };
+  if (startDate) params.start_date = startDate;
+  if (endDate) params.end_date = endDate;
+
+  const response = await apiClient.get<SalesTrendsResponse>('/reports/sales-trends', { params });
+  return response.data;
+}
+

@@ -5,6 +5,7 @@ import { TOKEN_KEY, USER_KEY } from '@/constants'
 import { jwtDecode } from 'jwt-decode'
 import { logoutApi, getBuyerProfile } from '@/api/auth'
 import { toast } from 'react-hot-toast'
+import i18n from '@/lib/i18n'
 
 export interface AuthContextType extends AuthState {
   login: (token: string, user: User) => void
@@ -187,7 +188,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (Date.now() - mostRecentActivity >= IDLE_TIMEOUT_MS) {
         logout()
-        toast.error('Anda telah logout otomatis karena tidak ada aktivitas selama 1 jam.')
+        const isEn = i18n.language === 'en' || (typeof window !== 'undefined' && window.location.pathname.startsWith('/seller'))
+        toast.error(
+          isEn
+            ? 'You have been logged out automatically due to 1 hour of inactivity.'
+            : 'Anda telah logout otomatis karena tidak ada aktivitas selama 1 jam.'
+        )
       }
     }, 10000) // Check every 10 seconds
 

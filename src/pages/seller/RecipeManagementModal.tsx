@@ -179,10 +179,10 @@ export default function RecipeManagementModal({ productId, productName, onClose 
 
       <ConfirmationModal
         isOpen={recipeToDeleteId !== null}
-        title="Hapus Bahan"
+        title="Delete Ingredient"
         message="Are you sure you want to delete this ingredient from the recipe?"
-        confirmText="Hapus"
-        cancelText="Batal"
+        confirmText="Delete"
+        cancelText="Cancel"
         isDestructive={true}
         onConfirm={confirmDeleteRecipe}
         onCancel={() => setRecipeToDeleteId(null)}

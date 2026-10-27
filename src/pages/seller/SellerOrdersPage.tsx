@@ -1,6 +1,7 @@
 // src/pages/seller/SellerOrdersPage.tsx
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   Eye,
@@ -15,6 +16,7 @@ import {
   Clock,
   AlertCircle,
   Download, ShoppingBag, ChevronLeft, ChevronRight,
+  CreditCard, RotateCcw,
 } from 'lucide-react';
 import { MultiFilterPopover } from '@/components/ui/MultiFilterPopover';
 import { PaginationControls } from '@/components/ui/PaginationControls';
@@ -31,6 +33,9 @@ import {
   addOrder,
   getOrderById,
   updateOrderStatus,
+  createManualPayment,
+  updateOrderFulfillmentDate,
+  refundOrder,
   type Order,
   type OrderStatus,
   type PaymentMethod,
@@ -616,9 +621,21 @@ interface OrderDetailModalProps {
   onClose: () => void;
   onStatusUpdated: (updatedOrder: Order) => void;
   canManageOrders: boolean;
+  loadData?: () => void | Promise<void>;
 }
 
-function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManageOrders }: OrderDetailModalProps) {
+function isOrderOverdue(order?: Order | null): boolean {
+  if (!order) return false;
+  const terminal = ['completed', 'cancelled', 'refunded', 'delivered', 'picked_up', 'cancelled_settlement_expired'];
+  if (terminal.includes(order.status)) return false;
+  const fDate = order.rawFulfillmentDate || order.fulfillment_date;
+  if (!fDate) return false;
+  const isPast = new Date(fDate).getTime() < Date.now();
+  const invStatus = order.invoiceStatus || order.invoice?.status || order.paymentStatus;
+  return isPast && (invStatus === 'partial' || invStatus === 'paid');
+}
+
+function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManageOrders, loadData }: OrderDetailModalProps) {
   const { t } = useTranslation();
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(false);
@@ -626,7 +643,40 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
   const [updating, setUpdating] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus | ''>('');
   const [isDownloading, setIsDownloading] = useState(false);
-  const [showRefundConfirm, setShowRefundConfirm] = useState(false);
+  const [countdownStr, setCountdownStr] = useState<string | null>(null);
+
+  // Manual payment state
+  const [showManualPaymentForm, setShowManualPaymentForm] = useState(false);
+  const [manualPaymentAmount, setManualPaymentAmount] = useState<string | number>('');
+  const [manualPaymentMethod, setManualPaymentMethod] = useState<'CASH' | 'TRANSFER'>('CASH');
+  const [manualPaymentNotes, setManualPaymentNotes] = useState('');
+  const [submittingPayment, setSubmittingPayment] = useState(false);
+
+  // Fulfillment date state
+  const [isEditingDate, setIsEditingDate] = useState(false);
+  const [newFulfillmentDate, setNewFulfillmentDate] = useState('');
+  const [updatingDate, setUpdatingDate] = useState(false);
+
+  // Refund state
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [refundReason, setRefundReason] = useState('');
+  const [refundAmount, setRefundAmount] = useState('');
+  const [processingRefund, setProcessingRefund] = useState(false);
+
+  const { minDateStr, maxDateStr } = useMemo(() => {
+    const now = new Date();
+    const minD = new Date(now);
+    minD.setDate(minD.getDate() + 1);
+    const maxD = new Date(now);
+    maxD.setDate(maxD.getDate() + 30);
+    const toStr = (d: Date) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    return { minDateStr: toStr(minD), maxDateStr: toStr(maxD) };
+  }, []);
 
   const handleDownloadInvoice = async () => {
     if (!orderId) return;
@@ -644,7 +694,9 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
     if (isOpen && orderId) {
       setLoading(true);
       setError('');
-      setShowRefundConfirm(false);
+      setShowManualPaymentForm(false);
+      setIsEditingDate(false);
+      setShowRefundModal(false);
       getOrderById(orderId)
         .then(data => {
           setOrder(data);
@@ -659,26 +711,193 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
     }
   }, [isOpen, orderId, t]);
 
+  useEffect(() => {
+    const expiresAt = order?.payment_expires_at || (order as any)?.paymentExpiresAt;
+    const invStatus = order?.invoiceStatus || order?.invoice?.status || order?.paymentStatus;
+    const isAwaitingPayment = invStatus === 'unpaid' && order?.status === 'pending';
+
+    if (!expiresAt || !isAwaitingPayment) {
+      setCountdownStr(null);
+      return;
+    }
+
+    const updateTimer = () => {
+      const diff = Math.max(0, new Date(expiresAt).getTime() - Date.now());
+      if (diff <= 0) {
+        setCountdownStr('00:00');
+        if (orderId) {
+          getOrderById(orderId)
+            .then((refreshed) => {
+              setOrder(refreshed);
+              onStatusUpdated(refreshed);
+            })
+            .catch(console.error);
+        }
+        return false;
+      }
+      const totalSec = Math.floor(diff / 1000);
+      const hours = Math.floor(totalSec / 3600);
+      const minutes = Math.floor((totalSec % 3600) / 60);
+      const seconds = totalSec % 60;
+      if (hours > 0) {
+        setCountdownStr(`${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
+      } else {
+        setCountdownStr(`${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`);
+      }
+      return true;
+    };
+
+    const hasTime = updateTimer();
+    if (!hasTime) return;
+
+    const interval = setInterval(() => {
+      const continueTimer = updateTimer();
+      if (!continueTimer) {
+        clearInterval(interval);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [order?.payment_expires_at, (order as any)?.paymentExpiresAt, order?.invoiceStatus, order?.invoice?.status, order?.paymentStatus, order?.status, orderId, onStatusUpdated]);
+
+  const canEditFulfillmentDate = canManageOrders && !!order && !['completed', 'cancelled', 'refunded', 'picked_up', 'delivered'].includes(order.status);
+
+  const isFullyPaid = order?.amountDue !== undefined ? order.amountDue === 0 : (order?.paymentStatus === 'paid' || order?.invoiceStatus === 'paid');
+  const isOrderCancelledOrRefunded = order?.status === 'cancelled' || order?.status === 'refunded';
+  const canRecordPayment = canManageOrders && !!order && !isOrderCancelledOrRefunded && !isFullyPaid;
+
+  const isPaidOrDp = (order?.amountPaid !== undefined && order.amountPaid > 0) ||
+    (order?.paymentStatus && ['paid', 'dp', 'settlement', 'capture'].includes(order.paymentStatus.toLowerCase())) ||
+    (order?.invoiceStatus && ['paid', 'dp', 'partially_paid'].includes(order.invoiceStatus.toLowerCase()));
+  const canRefundOrder = canManageOrders && !!order && isPaidOrDp && !['delivered', 'picked_up', 'completed', 'refunded', 'cancelled_settlement_expired'].includes(order.status);
+
+  const handleRecordManualPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!orderId) return;
+    const amt = Number(manualPaymentAmount);
+    if (isNaN(amt) || amt <= 0) {
+      toast.error('Payment amount must be greater than 0.');
+      return;
+    }
+    setSubmittingPayment(true);
+    try {
+      await createManualPayment({
+        order_id: orderId,
+        amount: amt,
+        payment_method: manualPaymentMethod,
+        notes: manualPaymentNotes.trim() || undefined,
+      });
+      toast.success('Manual payment recorded successfully.');
+      setShowManualPaymentForm(false);
+      setManualPaymentNotes('');
+      const updated = await getOrderById(orderId);
+      setOrder(updated);
+      setSelectedStatus(updated.status);
+      onStatusUpdated(updated);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.detail || 'Failed to record manual payment.');
+    } finally {
+      setSubmittingPayment(false);
+    }
+  };
+
+  const handleUpdateFulfillmentDate = async () => {
+    if (!orderId || !newFulfillmentDate) return;
+    setUpdatingDate(true);
+    try {
+      const payload = {
+        fulfillment_date: newFulfillmentDate.includes('T')
+          ? newFulfillmentDate
+          : `${newFulfillmentDate}T12:00:00+07:00`,
+      };
+      const updated = await updateOrderFulfillmentDate(orderId, payload);
+      setOrder(updated);
+      onStatusUpdated(updated);
+      setIsEditingDate(false);
+      toast.success('Fulfillment date updated successfully.');
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.detail || 'Failed to update fulfillment date.');
+    } finally {
+      setUpdatingDate(false);
+    }
+  };
+
+  const handleProcessRefund = async () => {
+    if (!orderId || !refundReason.trim()) {
+      toast.error('Please enter a reason for the refund.');
+      return;
+    }
+    setProcessingRefund(true);
+    try {
+      const payload: { reason: string; amount?: number } = {
+        reason: refundReason.trim(),
+      };
+      if (refundAmount && Number(refundAmount) > 0) {
+        payload.amount = Number(refundAmount);
+      }
+      const res = await refundOrder(orderId, payload);
+      toast.success(res.message || 'Order refund processed successfully.');
+      setShowRefundModal(false);
+      setRefundReason('');
+      setRefundAmount('');
+      const updated = await getOrderById(orderId);
+      setOrder(updated);
+      setSelectedStatus(updated.status);
+      onStatusUpdated(updated);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.response?.data?.detail || 'Failed to process refund.');
+    } finally {
+      setProcessingRefund(false);
+    }
+  };
+
+  const isDownPaymentInsufficient = !!order && (order.amountPaid || 0) < (order.total * 0.5);
+
   const executeStatusUpdate = async () => {
     if (!orderId || !selectedStatus || selectedStatus === order?.status) return;
     setUpdating(true);
-    setShowRefundConfirm(false);
     try {
       const updated = await updateOrderStatus(orderId, selectedStatus as OrderStatus);
       setOrder(updated);
       onStatusUpdated(updated);
       toast.success(t('seller_orders.status_updated_success'));
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error(t('seller_orders.status_updated_error'));
+      const is409 = err?.response?.status === 409 || err?.status === 409;
+      if (is409) {
+        if (order?.status) {
+          setSelectedStatus(order.status);
+        }
+        if (loadData) {
+          loadData();
+        }
+        if (orderId) {
+          getOrderById(orderId)
+            .then((refreshed) => {
+              setOrder(refreshed);
+              setSelectedStatus(refreshed.status);
+            })
+            .catch(console.error);
+        }
+      }
+      toast.error(err?.response?.data?.detail || err?.response?.data?.message || err?.message || t('seller_orders.status_updated_error'));
     } finally {
       setUpdating(false);
     }
   };
 
   const handleUpdateStatus = () => {
+    if (selectedStatus === 'in_process' && isDownPaymentInsufficient) {
+      toast.error('Cannot update status to In Process: minimum 50% down payment is required.');
+      return;
+    }
     if (selectedStatus === 'refunded' && order?.status !== 'refunded') {
-      setShowRefundConfirm(true);
+      setRefundReason('');
+      setRefundAmount(order?.amountPaid ? String(order.amountPaid) : '');
+      setShowRefundModal(true);
     } else {
       executeStatusUpdate();
     }
@@ -725,6 +944,16 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
           <div className="text-center text-red-500 p-4">{error}</div>
         ) : order ? (
           <div className="space-y-6">
+            {countdownStr && (
+              <div className="flex items-center gap-2.5 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-900 shadow-sm">
+                <Clock className="h-4 w-4 text-amber-600 shrink-0" />
+                <div className="flex-1">
+                  <span className="font-semibold text-amber-800">Awaiting Customer Payment: </span>
+                  <span>Payment window expires in <strong className="font-mono text-sm text-amber-950 font-black">{countdownStr}</strong></span>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <p className="text-gray-500">{t('seller_orders.order_id')}</p>
@@ -734,12 +963,71 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
                 <p className="text-gray-500">{t('seller_orders.date')}</p>
                 <p className="font-semibold">{order.date} {order.time}</p>
               </div>
-              {order.fulfillmentDate && (
-                <div>
+              <div>
+                <div className="flex items-center justify-between">
                   <p className="text-gray-500">Fulfillment Date</p>
-                  <p className="font-semibold text-[#d85b30]">{order.fulfillmentDate}</p>
+                  {canEditFulfillmentDate && !isEditingDate && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const defaultVal = order.rawFulfillmentDate
+                          ? order.rawFulfillmentDate.slice(0, 10)
+                          : (order.fulfillment_date ? order.fulfillment_date.slice(0, 10) : minDateStr);
+                        setNewFulfillmentDate(defaultVal);
+                        setIsEditingDate(true);
+                      }}
+                      className="text-xs font-semibold text-[#d85b30] hover:underline"
+                    >
+                      Edit
+                    </button>
+                  )}
                 </div>
-              )}
+                {isEditingDate ? (
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <input
+                      type="date"
+                      min={minDateStr}
+                      max={maxDateStr}
+                      value={newFulfillmentDate}
+                      onChange={(e) => setNewFulfillmentDate(e.target.value)}
+                      className="rounded border border-[#d0bfaf] px-2 py-1 text-xs outline-none focus:border-[#d85b30]"
+                      disabled={updatingDate}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleUpdateFulfillmentDate}
+                      disabled={updatingDate || !newFulfillmentDate}
+                      className="rounded bg-[#d85b30] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[#c04e28] disabled:opacity-50"
+                    >
+                      {updatingDate ? 'Saving...' : 'Save'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingDate(false)}
+                      disabled={updatingDate}
+                      className="rounded border border-gray-300 px-2 py-1 text-xs text-gray-600 hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="font-semibold text-[#d85b30]">
+                      {order.rawFulfillmentDate || order.fulfillment_date ? new Date((order.rawFulfillmentDate || order.fulfillment_date)!).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : (order.fulfillmentDate || '-')}
+                    </p>
+                    {isOrderOverdue(order) && (
+                      <div className="mt-1 flex items-center gap-2">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-300">
+                          Overdue
+                        </span>
+                        {order.fulfillment_overdue_notified_at && (
+                          <span className="text-xs text-red-600 font-medium">Overdue alert sent</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
               <div>
                 <p className="text-gray-500">{t('seller_orders.customer')}</p>
                 <p className="font-semibold">{order.customerName}</p>
@@ -773,10 +1061,6 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
                 <p className="text-gray-500">{t('seller_orders.notes')}</p>
                 <p className="font-semibold">{order.notes || '-'}</p>
               </div>
-              <div>
-                <p className="text-gray-500">{t('seller_orders.due_date')}</p>
-                <p className="font-semibold">{order.dueDate}</p>
-              </div>
             </div>
 
             <div>
@@ -807,62 +1091,276 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
               </table>
             </div>
 
+            {/* Record Manual Payment Section */}
+            {canRecordPayment && (
+              <div className="rounded-xl border border-[#ead8ca] bg-[#fbf8f5] p-4">
+                {!showManualPaymentForm ? (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-[#4b2417]">Manual Payment</p>
+                      <p className="text-xs text-gray-500">Record cash or bank transfer payment received from customer.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const initialAmt = order.amountDue !== undefined && order.amountDue > 0
+                          ? order.amountDue
+                          : Math.max(0, order.total - (order.amountPaid || 0));
+                        setManualPaymentAmount(initialAmt > 0 ? initialAmt : '');
+                        setShowManualPaymentForm(true);
+                      }}
+                      className="flex items-center gap-1.5 rounded-lg border border-[#d85b30] bg-white px-3 py-1.5 text-xs font-semibold text-[#d85b30] hover:bg-[#fff9f6] transition shadow-sm"
+                    >
+                      <CreditCard className="h-4 w-4" />
+                      Record Manual Payment
+                    </button>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="mb-3 flex items-center justify-between border-b border-[#ead8ca] pb-2">
+                      <h4 className="flex items-center gap-2 text-sm font-bold text-[#4b2417]">
+                        <CreditCard className="h-4 w-4 text-[#d85b30]" />
+                        Record Manual Payment
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={() => setShowManualPaymentForm(false)}
+                        className="text-gray-400 hover:text-gray-600"
+                        disabled={submittingPayment}
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <form onSubmit={handleRecordManualPayment} className="space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-1">
+                            Payment Amount (Rp) <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            step="any"
+                            required
+                            value={manualPaymentAmount}
+                            onChange={(e) => setManualPaymentAmount(e.target.value)}
+                            placeholder="e.g. 50000"
+                            className="w-full rounded-lg border border-[#d0bfaf] px-3 py-1.5 text-xs outline-none focus:border-[#d85b30]"
+                            disabled={submittingPayment}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-700 mb-1">
+                            Payment Method <span className="text-red-500">*</span>
+                          </label>
+                          <select
+                            value={manualPaymentMethod}
+                            onChange={(e) => setManualPaymentMethod(e.target.value as 'CASH' | 'TRANSFER')}
+                            className="w-full rounded-lg border border-[#d0bfaf] px-3 py-1.5 text-xs outline-none focus:border-[#d85b30]"
+                            disabled={submittingPayment}
+                          >
+                            <option value="CASH">Cash</option>
+                            <option value="TRANSFER">Bank Transfer</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1">
+                          Notes (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={manualPaymentNotes}
+                          onChange={(e) => setManualPaymentNotes(e.target.value)}
+                          placeholder="e.g. Paid in cash at store / BCA Transfer ref #123"
+                          className="w-full rounded-lg border border-[#d0bfaf] px-3 py-1.5 text-xs outline-none focus:border-[#d85b30]"
+                          disabled={submittingPayment}
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setShowManualPaymentForm(false)}
+                          disabled={submittingPayment}
+                          className="rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-100"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={submittingPayment}
+                          className="rounded-lg bg-[#d85b30] px-4 py-1.5 text-xs font-semibold text-white hover:bg-[#c04e28] disabled:opacity-50"
+                        >
+                          {submittingPayment ? 'Recording...' : 'Submit Payment'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                )}
+              </div>
+            )}
+
             {canManageOrders && (
-              <div className="bg-gray-50 p-4 rounded-lg flex items-end gap-4 border border-gray-200">
-                <div className="flex-1">
-                  <label className="block text-sm font-semibold text-[#4b2417] mb-1">
-                    {t('seller_orders.update_order_status')}
-                  </label>
-                  <select
-                    value={selectedStatus}
-                    onChange={(e) => setSelectedStatus(e.target.value as OrderStatus)}
-                    className="w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
-                    disabled={updating}
+              <div className="bg-gray-50 p-4 rounded-lg space-y-3 border border-gray-200">
+                {isDownPaymentInsufficient && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+                    <div>
+                      <p className="font-bold">50% Down Payment Required</p>
+                      <p className="mt-0.5 text-amber-800">
+                        At least 50% down payment ({formatRupiah(order.total * 0.5)}) must be paid before moving this order to In Process. (Current paid: {formatRupiah(order.amountPaid || 0)})
+                      </p>
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-end gap-4">
+                  <div className="flex-1">
+                    <label className="block text-sm font-semibold text-[#4b2417] mb-1">
+                      {t('seller_orders.update_order_status')}
+                    </label>
+                    <select
+                      value={selectedStatus}
+                      onChange={(e) => {
+                        const val = e.target.value as OrderStatus;
+                        if (val === 'in_process' && isDownPaymentInsufficient) {
+                          toast.error('Cannot select In Process: at least 50% down payment is required.');
+                          return;
+                        }
+                        setSelectedStatus(val);
+                      }}
+                      className="w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
+                      disabled={updating}
+                    >
+                      <option value="pending">{t('seller_orders.status.pending')}</option>
+                      <option value="in_process" disabled={isDownPaymentInsufficient}>
+                        {t('seller_orders.status.in_process')}{isDownPaymentInsufficient ? ' (Min. 50% DP Required)' : ''}
+                      </option>
+                      <option value="ready">{t('seller_orders.status.ready')}</option>
+                      <option value="delivered">{t('seller_orders.status.delivered')}</option>
+                      <option value="picked_up">{t('seller_orders.status.picked_up')}</option>
+                      <option value="completed">{t('seller_orders.status.completed')}</option>
+                      <option value="cancelled">{t('seller_orders.status.cancelled')}</option>
+                      <option value="refunded">{t('seller_orders.status.refunded')}</option>
+                    </select>
+                  </div>
+                  <button
+                    onClick={handleUpdateStatus}
+                    disabled={updating || selectedStatus === order.status || (selectedStatus === 'in_process' && isDownPaymentInsufficient)}
+                    className="rounded-lg bg-[#d85b30] px-6 py-2 text-sm font-semibold text-white hover:bg-[#c04e28] disabled:opacity-50"
                   >
-                    <option value="pending">{t('seller_orders.status.pending')}</option>
-                    <option value="in_process">{t('seller_orders.status.in_process')}</option>
-                    <option value="ready">{t('seller_orders.status.ready')}</option>
-                    <option value="delivered">{t('seller_orders.status.delivered')}</option>
-                    <option value="picked_up">{t('seller_orders.status.picked_up')}</option>
-                    <option value="completed">{t('seller_orders.status.completed')}</option>
-                    <option value="cancelled">{t('seller_orders.status.cancelled')}</option>
-                    <option value="refunded">{t('seller_orders.status.refunded')}</option>
-                  </select>
+                    {updating ? t('seller_orders.saving') : t('seller_orders.update_status')}
+                  </button>
                 </div>
-                <button
-                  onClick={handleUpdateStatus}
-                  disabled={updating || selectedStatus === order.status}
-                  className="rounded-lg bg-[#d85b30] px-6 py-2 text-sm font-semibold text-white hover:bg-[#c04e28] disabled:opacity-50"
-                >
-                  {updating ? t('seller_orders.saving') : t('seller_orders.update_status')}
-                </button>
+
+                {canRefundOrder && (
+                  <div className="pt-2 border-t border-gray-200 flex items-center justify-between">
+                    <span className="text-xs text-gray-500">
+                      Need to return funds for this paid order?
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRefundReason('');
+                        setRefundAmount(order.amountPaid ? String(order.amountPaid) : '');
+                        setShowRefundModal(true);
+                      }}
+                      className="flex items-center gap-1.5 rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 transition"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      Refund Order
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
         ) : null}
 
-        {/* Refund Confirmation Modal */}
-        {showRefundConfirm && (
+        {/* Refund Modal */}
+        {showRefundModal && order && (
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
-            <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-              <h3 className="mb-4 text-xl font-bold text-[#4b2417]">{t('seller_orders.refund_confirm_title')}</h3>
-              <p className="mb-6 text-sm text-gray-600 leading-relaxed">
-                {t('seller_orders.refund_confirm_desc')}
-              </p>
-              <div className="flex justify-end gap-3">
+            <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl space-y-4">
+              <div className="flex items-center justify-between border-b pb-3">
+                <h3 className="text-xl font-bold text-[#4b2417] flex items-center gap-2">
+                  <RotateCcw className="h-5 w-5 text-red-600" />
+                  Refund Order
+                </h3>
                 <button
-                  onClick={() => setShowRefundConfirm(false)}
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-                  disabled={updating}
+                  type="button"
+                  onClick={() => setShowRefundModal(false)}
+                  className="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                  disabled={processingRefund}
                 >
-                  {t('common.cancel')}
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="rounded-lg bg-red-50 p-3 text-xs text-red-800">
+                Refunding this order will cancel the order (if active), reverse reserved stock, and initiate refund processing.
+              </div>
+
+              <div className="space-y-3 text-sm">
+                <div className="grid grid-cols-2 gap-2 text-xs bg-gray-50 p-2.5 rounded-lg">
+                  <div>
+                    <span className="text-gray-500">Order:</span>{' '}
+                    <span className="font-semibold">{order.orderNumber}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Amount Paid:</span>{' '}
+                    <span className="font-semibold text-green-700">
+                      {formatRupiah(order.amountPaid || order.total)}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Refund Reason <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    required
+                    value={refundReason}
+                    onChange={(e) => setRefundReason(e.target.value)}
+                    placeholder="Enter reason for refund..."
+                    className="w-full rounded-lg border border-[#d0bfaf] p-2.5 text-xs outline-none focus:border-[#d85b30]"
+                    disabled={processingRefund}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    Refund Amount (Rp) <span className="text-gray-400 font-normal">(Leave blank for full amount)</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="any"
+                    value={refundAmount}
+                    onChange={(e) => setRefundAmount(e.target.value)}
+                    placeholder={`Full amount: ${order.amountPaid || order.total}`}
+                    className="w-full rounded-lg border border-[#d0bfaf] px-3 py-1.5 text-xs outline-none focus:border-[#d85b30]"
+                    disabled={processingRefund}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2 border-t">
+                <button
+                  type="button"
+                  onClick={() => setShowRefundModal(false)}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                  disabled={processingRefund}
+                >
+                  Cancel
                 </button>
                 <button
-                  onClick={executeStatusUpdate}
-                  className="rounded-lg bg-[#d85b30] px-4 py-2 text-sm font-semibold text-white hover:bg-[#c04e28]"
-                  disabled={updating}
+                  type="button"
+                  onClick={handleProcessRefund}
+                  disabled={processingRefund || !refundReason.trim()}
+                  className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
                 >
-                  {updating ? t('seller_orders.processing') : t('seller_orders.refund_confirm_btn')}
+                  {processingRefund ? 'Processing...' : 'Confirm Refund'}
                 </button>
               </div>
             </div>
@@ -906,6 +1404,17 @@ export default function SellerOrdersPage() {
   const [selectedDetailOrderId, setSelectedDetailOrderId] = useState<string | null>(null);
   const [downloadingRowId, setDownloadingRowId] = useState<string | null>(null);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Deep-linking: auto-open order detail modal if orderId query param exists
+  useEffect(() => {
+    const orderIdParam = searchParams.get('orderId');
+    if (orderIdParam) {
+      setSelectedDetailOrderId(orderIdParam);
+      setShowDetailModal(true);
+    }
+  }, [searchParams]);
+
   // Debounced search query
   const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
 
@@ -930,12 +1439,25 @@ export default function SellerOrdersPage() {
       
       if (filterValues.status && filterValues.status !== 'All') {
         const map: Record<string, string> = {
-          'Unpaid': 'belum_dibayar',
-          'Confirmed': 'sudah_dikonfirmasi',
-          'In Process': 'sedang_dibuat',
-          'Ready': 'siap_dikirim',
-          'Completed': 'selesai',
-          'Cancelled': 'dibatalkan'
+          'Unpaid': 'pending',
+          'Pending': 'pending',
+          'Confirmed': 'pending',
+          'In Process': 'in_process',
+          'in_process': 'in_process',
+          'Ready': 'ready',
+          'ready': 'ready',
+          'Delivered': 'delivered',
+          'delivered': 'delivered',
+          'Picked Up': 'picked_up',
+          'picked_up': 'picked_up',
+          'Completed': 'completed',
+          'completed': 'completed',
+          'Cancelled': 'cancelled',
+          'cancelled': 'cancelled',
+          'Settlement Expired': 'cancelled_settlement_expired',
+          'cancelled_settlement_expired': 'cancelled_settlement_expired',
+          'Refunded': 'refunded',
+          'refunded': 'refunded',
         };
         apiStatus = map[filterValues.status] || undefined;
       }
@@ -986,16 +1508,14 @@ export default function SellerOrdersPage() {
         }
       }
 
-      // 2. Filter Due Date:
-      // Cocokkan tanggal dengan due_date order (bukan fulfillment_date atau tanggal order dibuat).
-      // Jika due_date bernilai null, abaikan (jangan ikut tampilkan baris tersebut) saat tanggal tertentu dipilih oleh filter.
-      if (filterValues.due_date) {
-        const orderDueDate = order.rawDueDate || (order as any).due_date;
-        if (!orderDueDate || String(orderDueDate).trim() === '' || String(orderDueDate).toLowerCase() === 'null') {
+      // 2. Filter Fulfillment Date:
+      if (filterValues.fulfillment_date) {
+        const orderFulfillmentDate = order.rawFulfillmentDate || order.fulfillment_date;
+        if (!orderFulfillmentDate || String(orderFulfillmentDate).trim() === '' || String(orderFulfillmentDate).toLowerCase() === 'null') {
           return false;
         }
-        const filterDate = filterValues.due_date.trim();
-        const rawDateStr = String(orderDueDate).trim();
+        const filterDate = filterValues.fulfillment_date.trim();
+        const rawDateStr = String(orderFulfillmentDate).trim();
         
         let matches = false;
         if (rawDateStr.startsWith(filterDate)) {
@@ -1029,7 +1549,7 @@ export default function SellerOrdersPage() {
 
       return true;
     });
-  }, [orders, filterValues.source, filterValues.due_date, debouncedSearch]);
+  }, [orders, filterValues.source, filterValues.fulfillment_date, debouncedSearch]);
 
   const handleAddOrder = async (orderData: any) => {
     try {
@@ -1054,7 +1574,40 @@ export default function SellerOrdersPage() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (orderOrStatus: Order | string) => {
+    if (typeof orderOrStatus === 'object' && orderOrStatus !== null) {
+      const order = orderOrStatus;
+      const status = order.status;
+      const invStatus = order.invoiceStatus || order.invoice?.status;
+
+      if (status === 'cancelled_settlement_expired') {
+        return { label: 'Settlement Expired', className: 'bg-red-50 text-red-700 border border-red-200' };
+      }
+      if (status === 'cancelled' || status === 'dibatalkan') {
+        return { label: 'Cancelled', className: 'bg-gray-100 text-gray-700' };
+      }
+      if (status === 'refunded') {
+        return { label: 'Refunded', className: 'bg-gray-100 text-gray-700' };
+      }
+      if (invStatus === 'unpaid') {
+        return { label: 'Waiting for Payment', className: 'bg-amber-100 text-amber-800' };
+      }
+      if ((invStatus === 'partial' || invStatus === 'paid') && (status === 'pending' || (status as string) === 'awaiting_payment' || status === 'belum_dibayar' || status === 'sudah_dikonfirmasi')) {
+        return { label: 'Waiting for Seller Confirmation', className: 'bg-blue-100 text-blue-800' };
+      }
+      if (status === 'in_process' || status === 'sedang_dibuat') {
+        return { label: 'In Process', className: 'bg-yellow-100 text-yellow-700' };
+      }
+      if (status === 'ready' || status === 'siap_dikirim') {
+        return { label: 'Ready', className: 'bg-purple-100 text-purple-700' };
+      }
+      if (['delivered', 'picked_up', 'completed', 'selesai'].includes(status)) {
+        return { label: 'Completed', className: 'bg-green-100 text-green-700' };
+      }
+      return { label: status, className: 'bg-gray-100 text-gray-700' };
+    }
+
+    const status = orderOrStatus;
     const map: Record<string, { label: string; className: string }> = {
       belum_dibayar: { label: 'Unpaid', className: 'bg-red-100 text-red-700' },
       sudah_dikonfirmasi: { label: 'Confirmed', className: 'bg-blue-100 text-blue-700' },
@@ -1062,6 +1615,7 @@ export default function SellerOrdersPage() {
       siap_dikirim: { label: 'Ready', className: 'bg-purple-100 text-purple-700' },
       selesai: { label: 'Completed', className: 'bg-green-100 text-green-700' },
       dibatalkan: { label: 'Cancelled', className: 'bg-gray-100 text-gray-700' },
+      cancelled_settlement_expired: { label: 'Settlement Expired', className: 'bg-red-50 text-red-700 border border-red-200' },
       refunded: { label: 'Refunded', className: 'bg-gray-100 text-gray-700' },
     };
     // fallback for other strings
@@ -1073,6 +1627,7 @@ export default function SellerOrdersPage() {
       picked_up: { label: 'Completed', className: 'bg-green-100 text-green-700' },
       completed: { label: 'Completed', className: 'bg-green-100 text-green-700' },
       cancelled: { label: 'Cancelled', className: 'bg-gray-100 text-gray-700' },
+      cancelled_settlement_expired: { label: 'Settlement Expired', className: 'bg-red-50 text-red-700 border border-red-200' },
     };
     return map[status] || fallbacks[status] || { label: status, className: 'bg-gray-100 text-gray-700' };
   };
@@ -1226,12 +1781,13 @@ export default function SellerOrdersPage() {
                 id: 'status',
                 label: 'Status',
                 options: [
-                  { label: 'Unpaid', value: 'Unpaid' },
-                  { label: 'Confirmed', value: 'Confirmed' },
+                  { label: 'Unpaid / Pending', value: 'Unpaid' },
                   { label: 'In Process', value: 'In Process' },
                   { label: 'Ready', value: 'Ready' },
                   { label: 'Completed', value: 'Completed' },
-                  { label: 'Cancelled', value: 'Cancelled' }
+                  { label: 'Cancelled', value: 'Cancelled' },
+                  { label: 'Settlement Expired', value: 'Settlement Expired' },
+                  { label: 'Refunded', value: 'Refunded' }
                 ]
               },
               {
@@ -1251,8 +1807,8 @@ export default function SellerOrdersPage() {
                 ]
               },
               {
-                id: 'due_date',
-                label: 'Due Date',
+                id: 'fulfillment_date',
+                label: 'Fulfillment Date',
                 type: 'date'
               }
             ]}
@@ -1281,7 +1837,7 @@ export default function SellerOrdersPage() {
                 <th className="p-4">Total</th>
                 <th className="p-4">Date</th>
                 <th className="p-4">Method</th>
-                <th className="p-4">Due Date</th>
+                <th className="p-4">Fulfillment Date</th>
                 <th className="p-4">Status</th>
                 <th className="p-4 text-right">Actions</th>
               </tr>
@@ -1337,7 +1893,7 @@ export default function SellerOrdersPage() {
                 </tr>
               ) : (
                 filteredOrders.map((order) => {
-                  const statusBadge = getStatusBadge(order.status);
+                  const statusBadge = getStatusBadge(order);
                   return (
                     <tr key={order.id} className="hover:bg-gray-50/50 transition-colors group">
                       <td className="p-4 font-bold text-[#4b2417]">{order.orderNumber}</td>
@@ -1363,14 +1919,23 @@ export default function SellerOrdersPage() {
                         </span>
                       </td>
                       <td className="p-4 text-[#6f5448] whitespace-nowrap">
-                        {order.rawDueDate ? new Date(order.rawDueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Not set'}
+                        {order.rawFulfillmentDate
+                          ? new Date(order.rawFulfillmentDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                          : (order.fulfillmentDate || 'Not set')}
                       </td>
                       <td className="p-4">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${statusBadge.className}`}
-                        >
-                          {statusBadge.label}
-                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span
+                            className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${statusBadge.className}`}
+                          >
+                            {statusBadge.label}
+                          </span>
+                          {isOrderOverdue(order) && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-700 border border-rose-200">
+                              Overdue
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="p-4 text-right">
                         <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
@@ -1442,11 +2007,20 @@ export default function SellerOrdersPage() {
         <OrderDetailModal
           orderId={selectedDetailOrderId}
           isOpen={showDetailModal}
-          onClose={() => { setShowDetailModal(false); setSelectedDetailOrderId(null); }}
+          onClose={() => {
+            setShowDetailModal(false);
+            setSelectedDetailOrderId(null);
+            if (searchParams.has('orderId')) {
+              const newParams = new URLSearchParams(searchParams);
+              newParams.delete('orderId');
+              setSearchParams(newParams, { replace: true });
+            }
+          }}
           onStatusUpdated={(updatedOrder) => {
             setOrders(orders.map(o => o.id === updatedOrder.id ? { ...o, status: updatedOrder.status } : o));
           }}
           canManageOrders={canManageOrders}
+          loadData={loadData}
         />
       )}
     </div>

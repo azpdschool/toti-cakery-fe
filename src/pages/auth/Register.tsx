@@ -124,18 +124,28 @@ export default function Register() {
     const trimmedEmail = email.trim()
     const trimmedPhone = formatPhoneNumber(phone)
 
-    if (!trimmedName || !trimmedEmail || !trimmedPhone) {
-      setError(t('auth.phone_required'))
+    if (!trimmedName) {
+      setError(t('auth.name_required', 'Nama lengkap wajib diisi'))
       return
     }
 
-    if (password.length < 6) {
-      setError(t('auth.error_password_length'))
+    if (!trimmedEmail) {
+      setError(t('auth.email_required', 'Email wajib diisi'))
+      return
+    }
+
+    if (!trimmedPhone) {
+      setError(t('auth.phone_required', 'Nomor HP wajib diisi'))
+      return
+    }
+
+    if (!password || password.length < 8) {
+      setError(t('auth.error_password_length', 'Password minimal 8 karakter'))
       return
     }
 
     if (password !== confirmPassword) {
-      setError(t('auth.error_password_match'))
+      setError(t('auth.error_password_match', 'Konfirmasi password tidak cocok'))
       return
     }
 
@@ -197,7 +207,7 @@ export default function Register() {
         )}
 
         {!waMode ? (
-          <form onSubmit={handleRegister} className="space-y-4">
+          <form onSubmit={handleRegister} noValidate className="space-y-4">
             <div className="relative">
               <UserIcon className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b7166]" />
               <input
@@ -206,7 +216,6 @@ export default function Register() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder={t('auth.name_placeholder')}
                 className="w-full rounded-xl border border-[#d0bfaf] py-3 pl-11 pr-4 text-sm outline-none focus:border-[#d85b30] focus:ring-1 focus:ring-[#d85b30]"
-                required
               />
             </div>
 
@@ -218,7 +227,6 @@ export default function Register() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder={t('auth.email_placeholder')}
                 className="w-full rounded-xl border border-[#d0bfaf] py-3 pl-11 pr-4 text-sm outline-none focus:border-[#d85b30] focus:ring-1 focus:ring-[#d85b30]"
-                required
               />
             </div>
 
@@ -226,7 +234,6 @@ export default function Register() {
               value={phone}
               onChange={setPhone}
               placeholder={t('auth.phone_placeholder')}
-              required
             />
 
             <div className="relative">
@@ -237,7 +244,6 @@ export default function Register() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={t('auth.password_min_length')}
                 className="w-full rounded-xl border border-[#d0bfaf] py-3 pl-11 pr-12 text-sm outline-none focus:border-[#d85b30] focus:ring-1 focus:ring-[#d85b30]"
-                required
               />
               <button
                 type="button"
@@ -256,7 +262,6 @@ export default function Register() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder={t('auth.confirm_password_placeholder')}
                 className="w-full rounded-xl border border-[#d0bfaf] py-3 pl-11 pr-12 text-sm outline-none focus:border-[#d85b30] focus:ring-1 focus:ring-[#d85b30]"
-                required
               />
               <button
                 type="button"

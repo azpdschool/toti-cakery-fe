@@ -156,7 +156,7 @@ export default function ProfilePage() {
       return
     }
 
-    if (passwordData.new.length < 6) {
+    if (!passwordData.new || passwordData.new.length < 8) {
       setPasswordError(t('profile.password_req_length'))
       return
     }
@@ -425,7 +425,7 @@ export default function ProfilePage() {
                 {t('profile.change_password')}
               </button>
             ) : (
-              <form onSubmit={handleSavePassword} className="max-w-md space-y-4 border-t border-[#EAD8CA] pt-4">
+              <form onSubmit={handleSavePassword} noValidate className="max-w-md space-y-4 border-t border-[#EAD8CA] pt-4">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-[#3A1F16]">
                     {t('profile.current_password')}
@@ -543,7 +543,7 @@ export default function ProfilePage() {
               </div>
             )}
 
-            <form onSubmit={handleSavePhone} className="mt-4 space-y-4">
+            <form onSubmit={handleSavePhone} noValidate className="mt-4 space-y-4">
               <InternationalPhoneInput
                 label={t('profile.new_phone_label')}
                 value={newPhone}

@@ -97,3 +97,28 @@ export async function deleteUser(id: number): Promise<void> {
   await apiClient.delete(`/users/${id}`);
 }
 
+// ── EMAIL SENDER SETTINGS (OWNER ONLY) ──────────────────────
+
+export interface EmailSenderSettings {
+  from_email: string;
+  from_name: string;
+  updated_at?: string | null;
+}
+
+export interface EmailSenderSettingsUpdate {
+  from_email: string;
+  from_name: string;
+}
+
+export async function getEmailSenderSettings(): Promise<EmailSenderSettings> {
+  const response = await apiClient.get('/settings/email-sender');
+  return response.data;
+}
+
+export async function updateEmailSenderSettings(
+  data: EmailSenderSettingsUpdate
+): Promise<EmailSenderSettings> {
+  const response = await apiClient.patch('/settings/email-sender', data);
+  return response.data;
+}
+

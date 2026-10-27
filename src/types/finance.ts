@@ -48,3 +48,19 @@ export interface AnalyticsReport {
   conversion_rate_via_chatbot: number;
   most_reviewed_product: MostReviewedProduct | null;
 }
+
+export interface SalesTrendPoint {
+  period_start: string;
+  revenue: number;
+  hpp: number;
+  gross_profit: number;
+  order_count: number;
+}
+
+export interface SalesTrendsResponse {
+  start_date: string;
+  end_date: string;
+  granularity: 'day' | 'week' | 'month';
+  points: SalesTrendPoint[];
+}
+

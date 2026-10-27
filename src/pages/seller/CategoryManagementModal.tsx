@@ -232,10 +232,10 @@ export default function CategoryManagementModal({ isOpen, onClose, onCategoriesC
 
       <ConfirmationModal
         isOpen={categoryToDeleteId !== null}
-        title="Hapus Kategori"
+        title="Delete Category"
         message="Are you sure you want to delete this category?"
-        confirmText="Hapus"
-        cancelText="Batal"
+        confirmText="Delete"
+        cancelText="Cancel"
         isDestructive={true}
         onConfirm={confirmDeleteCategory}
         onCancel={() => setCategoryToDeleteId(null)}

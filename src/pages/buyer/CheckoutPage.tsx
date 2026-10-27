@@ -177,7 +177,7 @@ export default function CheckoutPage() {
     }
     
     if (formData.fulfillmentDate < tomorrowStr || formData.fulfillmentDate > maxStr) {
-      setError('Fulfillment Date must be between tomorrow and 30 days from now.');
+      setError(t('checkout.fulfillment_date_range_error', 'Tanggal pemenuhan pesanan harus antara besok dan 30 hari ke depan.'));
       return;
     }
 
@@ -357,7 +357,7 @@ export default function CheckoutPage() {
 
       <h1 className="text-3xl font-black text-[#4b2417] mb-6">{t('checkout.title')}</h1>
 
-      <form onSubmit={handleSubmit} className="flex flex-col md:flex-row gap-6">
+      <form onSubmit={handleSubmit} noValidate className="flex flex-col md:flex-row gap-6">
         <div className="flex-1 space-y-6">
           <div className="rounded-2xl bg-white p-6 shadow-sm border border-[#ead8ca]">
             <h2 className="text-lg font-bold text-[#4b2417] mb-4">{t('checkout.shipping_method')}</h2>
