@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   ChevronLeft,
@@ -287,15 +288,23 @@ function PriceFilterButton({
 // ============================================================
 export default function CatalogPage() {
   const { t } = useTranslation()
+  const [searchParams] = useSearchParams()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<CategoryOption[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '')
   const [priceMin, setPriceMin] = useState('')
   const [priceMax, setPriceMax] = useState('')
+
+  useEffect(() => {
+    const q = searchParams.get('q')
+    if (q !== null) {
+      setSearchQuery(q)
+    }
+  }, [searchParams])
 
   const { addItem } = useCart()
 

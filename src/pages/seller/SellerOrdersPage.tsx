@@ -22,6 +22,12 @@ import { MultiFilterPopover } from '@/components/ui/MultiFilterPopover';
 import { PaginationControls } from '@/components/ui/PaginationControls';
 import { useToast } from '@/components/ui/Toast';
 import { toast } from 'react-hot-toast';
+import {
+  formatSellerOrderStatus,
+  formatSellerDeliveryMethod,
+  formatSellerPaymentPreference,
+  formatSellerSource,
+} from '@/utils/labelSanitizer';
 
 import { formatRupiah, getActiveProducts, type SimpleProduct } from '@/services/productService';
 import { apiClient } from '@/api/client';
@@ -1035,15 +1041,15 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
               </div>
               <div>
                 <p className="text-gray-500">{t('seller_orders.source')}</p>
-                <p className="font-semibold capitalize">{order.createdVia || 'web'}</p>
+                <p className="font-semibold">{formatSellerSource(order.createdVia || (order as any).created_via)}</p>
               </div>
               <div>
                 <p className="text-gray-500">{t('seller_orders.delivery_method')}</p>
-                <p className="font-semibold">{order.method}</p>
+                <p className="font-semibold">{formatSellerDeliveryMethod(order.method)}</p>
               </div>
               <div>
                 <p className="text-gray-500">{t('seller_orders.payment_preference')}</p>
-                <p className="font-semibold">{order.paymentMethod}</p>
+                <p className="font-semibold">{formatSellerPaymentPreference(order.paymentMethod)}</p>
               </div>
               <div>
                 <p className="text-gray-500">{t('seller_orders.payment_status')}</p>
@@ -1575,61 +1581,7 @@ export default function SellerOrdersPage() {
   };
 
   const getStatusBadge = (orderOrStatus: Order | string) => {
-    if (typeof orderOrStatus === 'object' && orderOrStatus !== null) {
-      const order = orderOrStatus;
-      const status = order.status;
-      const invStatus = order.invoiceStatus || order.invoice?.status;
-
-      if (status === 'cancelled_settlement_expired') {
-        return { label: 'Settlement Expired', className: 'bg-red-50 text-red-700 border border-red-200' };
-      }
-      if (status === 'cancelled' || status === 'dibatalkan') {
-        return { label: 'Cancelled', className: 'bg-gray-100 text-gray-700' };
-      }
-      if (status === 'refunded') {
-        return { label: 'Refunded', className: 'bg-gray-100 text-gray-700' };
-      }
-      if (invStatus === 'unpaid') {
-        return { label: 'Waiting for Payment', className: 'bg-amber-100 text-amber-800' };
-      }
-      if ((invStatus === 'partial' || invStatus === 'paid') && (status === 'pending' || (status as string) === 'awaiting_payment' || status === 'belum_dibayar' || status === 'sudah_dikonfirmasi')) {
-        return { label: 'Waiting for Seller Confirmation', className: 'bg-blue-100 text-blue-800' };
-      }
-      if (status === 'in_process' || status === 'sedang_dibuat') {
-        return { label: 'In Process', className: 'bg-yellow-100 text-yellow-700' };
-      }
-      if (status === 'ready' || status === 'siap_dikirim') {
-        return { label: 'Ready', className: 'bg-purple-100 text-purple-700' };
-      }
-      if (['delivered', 'picked_up', 'completed', 'selesai'].includes(status)) {
-        return { label: 'Completed', className: 'bg-green-100 text-green-700' };
-      }
-      return { label: status, className: 'bg-gray-100 text-gray-700' };
-    }
-
-    const status = orderOrStatus;
-    const map: Record<string, { label: string; className: string }> = {
-      belum_dibayar: { label: 'Unpaid', className: 'bg-red-100 text-red-700' },
-      sudah_dikonfirmasi: { label: 'Confirmed', className: 'bg-blue-100 text-blue-700' },
-      sedang_dibuat: { label: 'In Process', className: 'bg-yellow-100 text-yellow-700' },
-      siap_dikirim: { label: 'Ready', className: 'bg-purple-100 text-purple-700' },
-      selesai: { label: 'Completed', className: 'bg-green-100 text-green-700' },
-      dibatalkan: { label: 'Cancelled', className: 'bg-gray-100 text-gray-700' },
-      cancelled_settlement_expired: { label: 'Settlement Expired', className: 'bg-red-50 text-red-700 border border-red-200' },
-      refunded: { label: 'Refunded', className: 'bg-gray-100 text-gray-700' },
-    };
-    // fallback for other strings
-    const fallbacks: Record<string, { label: string; className: string }> = {
-      pending: { label: 'Pending', className: 'bg-red-100 text-red-700' },
-      in_process: { label: 'In Process', className: 'bg-yellow-100 text-yellow-700' },
-      ready: { label: 'Ready', className: 'bg-purple-100 text-purple-700' },
-      delivered: { label: 'Completed', className: 'bg-green-100 text-green-700' },
-      picked_up: { label: 'Completed', className: 'bg-green-100 text-green-700' },
-      completed: { label: 'Completed', className: 'bg-green-100 text-green-700' },
-      cancelled: { label: 'Cancelled', className: 'bg-gray-100 text-gray-700' },
-      cancelled_settlement_expired: { label: 'Settlement Expired', className: 'bg-red-50 text-red-700 border border-red-200' },
-    };
-    return map[status] || fallbacks[status] || { label: status, className: 'bg-gray-100 text-gray-700' };
+    return formatSellerOrderStatus(orderOrStatus);
   };
 
   // Carousel behavior
@@ -1898,8 +1850,8 @@ export default function SellerOrdersPage() {
                     <tr key={order.id} className="hover:bg-gray-50/50 transition-colors group">
                       <td className="p-4 font-bold text-[#4b2417]">{order.orderNumber}</td>
                       <td className="p-4">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700 capitalize">
-                          {order.createdVia || (order as any).created_via || "Web"}
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-700">
+                          {formatSellerSource(order.createdVia || (order as any).created_via)}
                         </span>
                       </td>
                       <td className="p-4">
@@ -1913,9 +1865,7 @@ export default function SellerOrdersPage() {
                       <td className="p-4 text-[#6f5448]">
                         <span className="inline-flex items-center gap-1.5 text-xs font-medium">
                           <Truck className="h-3.5 w-3.5 text-gray-400" />
-                          {order.method === 'Pickup' && 'Pick Up'}
-                          {order.method === 'Delivery Toko' && 'Store Delivery'}
-                          {order.method === 'Delivery Pihak Ketiga' && 'Third Party'}
+                          {formatSellerDeliveryMethod(order.method)}
                         </span>
                       </td>
                       <td className="p-4 text-[#6f5448] whitespace-nowrap">

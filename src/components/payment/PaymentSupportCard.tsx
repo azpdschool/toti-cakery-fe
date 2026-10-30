@@ -3,12 +3,17 @@ import { MessageCircleQuestion } from 'lucide-react';
 import { useWhatsApp } from '@/context/WhatsAppContext';
 
 export function PaymentSupportCard() {
-  const { t } = useTranslation();
-  const { whatsappNumber } = useWhatsApp();
+  const { t, i18n } = useTranslation();
+  const { getWhatsAppUrl } = useWhatsApp();
 
   const handleSupport = () => {
-    if (whatsappNumber) {
-      window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent('Halo Toti Cakery, saya butuh bantuan mengenai pembayaran pesanan saya.')}`, '_blank');
+    const isEn = i18n.language === 'en';
+    const message = isEn
+      ? 'Hello Toti Cakery, I need assistance regarding my order payment.'
+      : 'Halo Toti Cakery, saya butuh bantuan mengenai pembayaran pesanan saya.';
+    const url = getWhatsAppUrl(message);
+    if (url && url !== '#') {
+      window.open(url, '_blank');
     }
   };
 

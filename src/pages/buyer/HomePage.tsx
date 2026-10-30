@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import {
   CakeSlice,
   ChevronLeft,
@@ -42,6 +42,19 @@ export default function HomePage() {
   const [selectedTestimonialImage, setSelectedTestimonialImage] = useState<string | null>(null)
   const { addItem } = useCart()
   const { t } = useTranslation()
+  const location = useLocation()
+
+  useEffect(() => {
+    if (location.hash === '#our-store') {
+      const timer = setTimeout(() => {
+        const el = document.getElementById('our-store')
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth' })
+        }
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [location.hash])
 
   const benefits: Benefit[] = [
     {
@@ -254,7 +267,7 @@ export default function HomePage() {
       </section>
 
       {/* ABOUT & MAP */}
-      <section className="mx-auto max-w-7xl px-4 pt-8 lg:px-8">
+      <section id="our-store" className="mx-auto max-w-7xl px-4 pt-8 lg:px-8">
         <div className="rounded-xl bg-white px-6 py-5 shadow-sm">
           <div className="grid gap-8 lg:grid-cols-[0.95fr_1.8fr] lg:items-center">
             <div className="overflow-hidden rounded-xl h-52 lg:h-auto">

@@ -12,7 +12,7 @@ import { ConfirmationModal } from '@/components/ui/ConfirmationModal'
 
 export default function CartPage() {
   const { t } = useTranslation()
-  const { whatsappNumber } = useWhatsApp()
+  const { getWhatsAppUrl } = useWhatsApp()
   const { items, removeItem, updateQuantity, clearCart, totalPrice, totalItems, updateMultipleAvailability } = useCart()
   const { wishlistIds, toggleWishlist, requestRemoveWishlist, loading: wishlistLoading } = useWishlist()
   
@@ -372,7 +372,7 @@ export default function CartPage() {
                   </Link>
 
                   <a
-                    href={whatsappNumber ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(t('product_detail.wa_custom_message'))}` : '#'}
+                    href={getWhatsAppUrl(t('product_detail.wa_custom_message'))}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 rounded-xl border border-[#25D366] bg-[#25D366]/5 px-6 py-3 text-sm font-bold text-[#25D366] transition hover:bg-[#25D366]/15 focus:outline-none focus:ring-2 focus:ring-[#25D366]/30 shadow-sm"

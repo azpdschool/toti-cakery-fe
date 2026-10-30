@@ -15,7 +15,7 @@ interface NotificationDropdownProps {
   onMarkAsRead: (id: number) => void;
   onMarkAllAsRead: () => void;
   onItemClick: (notification: NotificationItemType) => void;
-  getNotificationText: (n: NotificationItemType) => { title: string; message: string };
+  getNotificationText: (n: NotificationItemType) => { title: string; message: string; badgeLabel?: string };
 }
 
 export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
@@ -96,13 +96,14 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
             </div>
           ) : (
             notifications.map((n) => {
-              const { title, message } = getNotificationText(n);
+              const { title, message, badgeLabel } = getNotificationText(n);
               return (
                 <NotificationItem
                   key={n.id}
                   notification={n}
                   title={title}
                   message={message}
+                  badgeLabel={badgeLabel}
                   onClick={onItemClick}
                 />
               );

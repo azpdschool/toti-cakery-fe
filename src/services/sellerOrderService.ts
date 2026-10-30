@@ -4,8 +4,8 @@
 // TYPES
 // ============================================================
 
-export type DeliveryMethod = 'Pickup' | 'Delivery Toko' | 'Delivery Pihak Ketiga';
-export type PaymentMethod = 'DP' | 'LUNAS';
+export type DeliveryMethod = 'Pickup' | 'Store Delivery' | 'Third-Party Delivery' | 'Delivery Toko' | 'Delivery Pihak Ketiga';
+export type PaymentMethod = 'Full Payment' | '50% Down Payment (DP)' | 'DP' | 'LUNAS' | string;
 export type OrderStatus =
   | 'belum_dibayar'
   | 'sudah_dikonfirmasi'
@@ -100,14 +100,20 @@ export function mapOrderResponse(o: any): Order {
     customerPhone: o.customer?.nomor_wa || '-',
     address: o.customer?.alamat || '',
     total: parseFloat(o.total_harga_pesanan) || 0,
-    date: new Date(o.created_at).toLocaleDateString('id-ID', {
-      day: 'numeric', month: 'long', year: 'numeric'
+    date: new Date(o.created_at).toLocaleDateString('en-US', {
+      month: 'short', day: 'numeric', year: 'numeric'
     }),
-    time: new Date(o.created_at).toLocaleTimeString('id-ID', {
+    time: new Date(o.created_at).toLocaleTimeString('en-US', {
       hour: '2-digit', minute: '2-digit'
     }),
-    method: o.metode_pengiriman === 'pickup' ? 'Pickup' : 'Delivery Toko',
-    paymentMethod: ['full', 'lunas'].includes(o.payment_method_preference) ? 'LUNAS' : 'DP',
+    method: (o.metode_pengiriman === 'pickup'
+      ? 'Pickup'
+      : o.metode_pengiriman === 'delivery_third_party' || o.metode_pengiriman === 'third_party'
+      ? 'Third-Party Delivery'
+      : 'Store Delivery') as DeliveryMethod,
+    paymentMethod: ['full', 'lunas'].includes(String(o.payment_method_preference || '').toLowerCase())
+      ? 'Full Payment'
+      : '50% Down Payment (DP)',
     status: o.status,
     fulfillmentDate: o.fulfillment_date ? new Date(o.fulfillment_date).toLocaleDateString('en-US', {
       month: 'short', day: 'numeric', year: 'numeric'

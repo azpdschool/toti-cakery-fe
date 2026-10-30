@@ -14,7 +14,7 @@ import { useWishlist } from '@/hooks/useWishlist'
 import { toast } from 'react-hot-toast'
 
 export default function ProductDetailPage() {
-  const { whatsappNumber } = useWhatsApp()
+  const { getWhatsAppUrl } = useWhatsApp()
   const { slug } = useParams<{ slug: string }>()
   const [product, setProduct] = useState<Product | null>(null)
   const [reviews, setReviews] = useState<ReviewResponse[]>([])
@@ -310,7 +310,7 @@ export default function ProductDetailPage() {
           {t('product_detail.custom_order_desc')}
         </p>
         <a 
-          href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(t('product_detail.wa_custom_message'))}`} 
+          href={getWhatsAppUrl(t('product_detail.wa_custom_message'))} 
           target="_blank" 
           rel="noopener noreferrer" 
           className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-white border border-[#25D366] px-4 py-2 text-sm font-bold text-[#25D366] hover:bg-[#25D366]/10 transition"

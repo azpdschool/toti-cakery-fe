@@ -31,7 +31,10 @@ export function clearPublicContactCache(): void {
 
 let publicContactPromise: Promise<{ whatsapp: string }> | null = null;
 
-export async function getPublicContact(): Promise<{ whatsapp: string }> {
+export async function getPublicContact(forceRefresh: boolean = false): Promise<{ whatsapp: string }> {
+  if (forceRefresh) {
+    publicContactPromise = null;
+  }
   if (!publicContactPromise) {
     publicContactPromise = apiClient.get('/public/kontak-toko')
       .then(res => res.data)

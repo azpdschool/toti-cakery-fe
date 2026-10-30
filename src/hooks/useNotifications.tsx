@@ -8,13 +8,15 @@ import {
   markNotificationReadApi,
   markAllNotificationsReadApi,
 } from '@/api/notification';
-import type { NotificationItem, NotificationMetadata } from '@/types/notification';
+import type { NotificationItem } from '@/types/notification';
+
+import { getTranslatedNotification, type TranslatedNotification } from '@/utils/notificationTranslator';
 
 const POLLING_INTERVAL_MS = 12000; // 12 seconds
 
 export function useNotifications() {
   const { user } = useAuth();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
@@ -23,75 +25,9 @@ export function useNotifications() {
   const seenNotificationIdsRef = useRef<Set<number>>(new Set());
   const initialFetchDoneRef = useRef<boolean>(false);
 
-  const formatStatus = useCallback((statusKey?: string): string => {
-    if (!statusKey) return '';
-    const map: Record<string, string> = {
-      pending: t('orders.status_pending', 'Menunggu'),
-      in_process: t('orders.status_processed', 'Diproses'),
-      ready: t('orders.status_ready', 'Siap'),
-      delivered: t('orders.status_delivered', 'Dikirim'),
-      picked_up: t('orders.status_picked_up', 'Selesai / Diambil'),
-      completed: t('orders.status_completed', 'Selesai'),
-      cancelled: t('orders.status_cancelled', 'Dibatalkan'),
-      refunded: t('orders.status_refunded', 'Dikembalikan'),
-    };
-    return map[statusKey] || statusKey;
-  }, [t]);
-
-  const parseMetadata = (jsonStr?: string | null): NotificationMetadata => {
-    if (!jsonStr) return {};
-    try {
-      return JSON.parse(jsonStr);
-    } catch {
-      return {};
-    }
-  };
-
-  const getNotificationText = useCallback((n: NotificationItem) => {
-    const meta = parseMetadata(n.metadata_json);
-    const orderNum = meta.order_number || (n.order_id ? `ORDER-${n.order_id}` : '');
-
-    if (n.type === 'order_created') {
-      return {
-        title: t('notifications.order_created_title', 'Pesanan Baru'),
-        message: t('notifications.order_created_msg', { orderNumber: orderNum, defaultValue: `Pesanan ${orderNum} telah dibuat.` }),
-      };
-    }
-
-    if (n.type === 'order_status_updated') {
-      const statusLabel = formatStatus(meta.status);
-      return {
-        title: t('notifications.order_status_updated_title', 'Status Pesanan Diperbarui'),
-        message: t('notifications.order_status_updated_msg', { orderNumber: orderNum, status: statusLabel, defaultValue: `Status pesanan ${orderNum} sekarang ${statusLabel}.` }),
-      };
-    }
-
-    if (n.type === 'order_cancelled') {
-      return {
-        title: t('notifications.order_cancelled_title', 'Pesanan Dibatalkan'),
-        message: t('notifications.order_cancelled_msg', { orderNumber: orderNum, defaultValue: `Pesanan ${orderNum} telah dibatalkan.` }),
-      };
-    }
-
-    if (n.type === 'order_overdue') {
-      return {
-        title: t('notifications.order_overdue_title', 'Pesanan Melewati Batas Waktu'),
-        message: t('notifications.order_overdue_msg', { orderNumber: orderNum, defaultValue: `Pesanan ${orderNum} telah melewati batas waktu pemenuhan.` }),
-      };
-    }
-
-    if (n.type === 'order_cancelled_unpaid') {
-      return {
-        title: t('notifications.order_cancelled_unpaid_title', 'Pesanan Dibatalkan Otomatis'),
-        message: t('notifications.order_cancelled_unpaid_msg', { orderNumber: orderNum, defaultValue: `Pesanan ${orderNum} dibatalkan otomatis karena batas waktu pembayaran habis.` }),
-      };
-    }
-
-    return {
-      title: t('notifications.title', 'Notifikasi'),
-      message: meta.order_number ? `Order ${meta.order_number}` : '',
-    };
-  }, [t, formatStatus]);
+  const getNotificationText = useCallback((n: NotificationItem): TranslatedNotification => {
+    return getTranslatedNotification(n, i18n.language);
+  }, [i18n.language]);
 
   const loadNotifications = useCallback(async (showLoading = false) => {
     if (!user) {

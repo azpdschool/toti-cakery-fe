@@ -85,6 +85,28 @@ export function isBuyerOrderOverdue(order?: BuyerOrder | null): boolean {
   return isPast && (invStatus === 'partial' || invStatus === 'paid');
 }
 
+export function isOrderCancellable(order?: BuyerOrder | null): boolean {
+  if (!order) return false;
+
+  const rawStatus = String(order.rawStatus || order.status || '').toLowerCase();
+  const isInitialStatus = rawStatus === 'pending' || rawStatus === 'waiting_confirmation';
+  if (!isInitialStatus) return false;
+
+  const invStatus = String(order.invoiceStatus || order.invoice?.status || order.paymentStatus || '').toLowerCase();
+  const paidMarkers = ['dp', 'partial', 'partially_paid', 'dp paid', 'paid', 'lunas', 'success'];
+  if (paidMarkers.includes(invStatus)) return false;
+
+  const paymentStatus = String(order.paymentStatus || '').toLowerCase();
+  if (paidMarkers.includes(paymentStatus)) return false;
+
+  if (invStatus !== 'unpaid') return false;
+
+  const amountPaid = Number(order.amountPaid ?? (order as any).totalPaid ?? 0);
+  if (amountPaid > 0) return false;
+
+  return true;
+}
+
 /**
  * Endpoint ini perlu disesuaikan dengan BE order route kamu.
  *

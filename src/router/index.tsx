@@ -56,6 +56,21 @@ const SellerSettingsPage = lazy(
   () => import('@/pages/seller/SellerSettingsPage'),
 )
 const BuyerFaqPage = lazy(() => import('@/pages/buyer/BuyerFaqPage'))
+const HowToShopPage = lazy(() =>
+  import('@/pages/buyer/BuyerInfoPages').then((m) => ({ default: m.HowToShopPage }))
+)
+const PaymentGuidePage = lazy(() =>
+  import('@/pages/buyer/BuyerInfoPages').then((m) => ({ default: m.PaymentGuidePage }))
+)
+const ShippingPage = lazy(() =>
+  import('@/pages/buyer/BuyerInfoPages').then((m) => ({ default: m.ShippingPage }))
+)
+const PrivacyPolicyPage = lazy(() =>
+  import('@/pages/buyer/BuyerInfoPages').then((m) => ({ default: m.PrivacyPolicyPage }))
+)
+const TermsAndConditionsPage = lazy(() =>
+  import('@/pages/buyer/BuyerInfoPages').then((m) => ({ default: m.TermsAndConditionsPage }))
+)
 
 // NotFound
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
@@ -132,6 +147,46 @@ export const router = createBrowserRouter([
       {
         path: ROUTES.BUYER_FAQ,
         element: <BuyerFaqPage />,
+      },
+      {
+        path: ROUTES.HOW_TO_SHOP,
+        element: <HowToShopPage />,
+      },
+      {
+        path: '/cara-berbelanja',
+        element: <HowToShopPage />,
+      },
+      {
+        path: ROUTES.PAYMENT_GUIDE,
+        element: <PaymentGuidePage />,
+      },
+      {
+        path: '/panduan-pembayaran',
+        element: <PaymentGuidePage />,
+      },
+      {
+        path: ROUTES.SHIPPING,
+        element: <ShippingPage />,
+      },
+      {
+        path: '/pengiriman',
+        element: <ShippingPage />,
+      },
+      {
+        path: ROUTES.PRIVACY,
+        element: <PrivacyPolicyPage />,
+      },
+      {
+        path: '/privasi',
+        element: <PrivacyPolicyPage />,
+      },
+      {
+        path: ROUTES.TERMS,
+        element: <TermsAndConditionsPage />,
+      },
+      {
+        path: '/syarat-ketentuan',
+        element: <TermsAndConditionsPage />,
       },
     ],
   },

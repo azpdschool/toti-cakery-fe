@@ -3,6 +3,7 @@ import { Package, TrendingUp, ShoppingBag, Clock, ChevronLeft, ChevronRight, Ale
 import { fetchReportSummary, type ReportSummary } from '@/api/reports'
 import { getOrders, type Order } from '@/services/sellerOrderService'
 import { getInventoryItems, type InventoryItem } from '@/services/sellerInventoryService'
+import { formatSellerOrderStatus } from '@/utils/labelSanitizer'
 
 export default function SellerDashboardPage() {
   const [reportData, setReportData] = useState<ReportSummary | null>(null)
@@ -187,7 +188,14 @@ export default function SellerDashboardPage() {
                   </div>
                   <div className="flex flex-col items-end">
                     <span className="font-bold text-gray-900">{formatCurrency(order.total)}</span>
-                    <span className="text-xs text-gray-500 bg-gray-200 px-2 py-1 rounded-full mt-1 capitalize">{order.status.replace(/_/g, ' ')}</span>
+                    {(() => {
+                      const badge = formatSellerOrderStatus(order);
+                      return (
+                        <span className={`text-xs px-2 py-0.5 rounded-full mt-1 font-semibold ${badge.className}`}>
+                          {badge.label}
+                        </span>
+                      );
+                    })()}
                   </div>
                 </li>
               ))}

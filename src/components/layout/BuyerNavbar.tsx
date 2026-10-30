@@ -8,7 +8,6 @@ import {
   ClipboardList,
   Home,
   Menu,
-  Search,
   ShoppingBag,
   ShoppingCart,
   User,
@@ -19,6 +18,7 @@ import { useCart } from '@/context/CartContext'
 import { useAuth } from '@/hooks/useAuth'
 import { LANG_KEY, ROUTES, LOGO_URL } from '@/constants'
 import { NotificationBell } from '@/components/common/NotificationBell'
+import { PublicSearchDropdown } from './PublicSearchDropdown'
 
 const languages = [
   {
@@ -104,13 +104,8 @@ export function BuyerNavbar() {
 
         {/* TENGAH: Search Bar */}
         <div className="hidden min-w-0 flex-1 justify-center lg:flex">
-          <div className="relative w-full max-w-[420px]">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B4A3C]" />
-            <input
-              type="text"
-              placeholder={t('nav.search', 'Cari dessert favorit kamu..')}
-              className="h-10 w-full rounded-full border border-[#D0BFAF] bg-white/75 pl-11 pr-5 text-xs font-medium text-[#3A1F16] outline-none placeholder:text-[#9C8478] focus:border-[#9B4A2F] focus:ring-2 focus:ring-[#9B4A2F]/25"
-            />
+          <div className="w-full max-w-[420px]">
+            <PublicSearchDropdown />
           </div>
         </div>
 
@@ -218,13 +213,8 @@ export function BuyerNavbar() {
 
       {isMobileMenuOpen && (
         <div className="border-t border-[#D0BFAF] bg-[#EFE4D6] px-4 py-4 md:hidden">
-          <div className="relative mb-4">
-            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B4A3C]" />
-            <input
-              type="text"
-              placeholder={t('nav.search', 'Cari dessert favorit kamu..')}
-              className="h-10 w-full rounded-full border border-[#D0BFAF] bg-white pl-11 pr-4 text-xs text-[#3A1F16] outline-none"
-            />
+          <div className="mb-4">
+            <PublicSearchDropdown onItemClick={() => setIsMobileMenuOpen(false)} />
           </div>
 
           <div className="grid gap-2">

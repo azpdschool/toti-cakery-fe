@@ -35,13 +35,15 @@ import {
   processPayment,
   cancelBuyerOrder,
   isBuyerOrderOverdue,
+  isOrderCancellable,
 } from '@/services/buyerOrderService'
 import { ROUTES } from '@/constants'
 import {
   PaymentMethodSelector,
   VirtualAccountPaymentCard,
   QrisPaymentCard,
-  PaymentInstructions
+  PaymentInstructions,
+  PaymentSupportCard
 } from '@/components/payment'
 
 const statusMap: Record<
@@ -434,6 +436,16 @@ export default function OrderDetailPage() {
   const handleCancelOrder = async () => {
     if (!order || !id) return;
     const isEn = i18n.language === 'en';
+
+    if (!isOrderCancellable(order)) {
+      toast.error(
+        isEn
+          ? 'Order cannot be cancelled because payment has already been processed.'
+          : 'Pesanan tidak dapat dibatalkan karena pembayaran sudah diproses.'
+      );
+      return;
+    }
+
     if (!window.confirm(isEn ? 'Are you sure you want to cancel this order?' : 'Apakah Anda yakin ingin membatalkan pesanan ini?')) {
       return;
     }
@@ -681,7 +693,7 @@ export default function OrderDetailPage() {
                   {i18n.language === 'en' ? 'Overdue' : 'Terlambat'}
                 </span>
               )}
-              {order.status === 'pending' && (
+              {isOrderCancellable(order) && (
                 <button
                   onClick={handleCancelOrder}
                   disabled={isCancelling}
@@ -1091,6 +1103,7 @@ export default function OrderDetailPage() {
                         <VirtualAccountPaymentCard bankName="BCA" vaNumber={paymentInstructions.va_number} amount={activePaymentAmount} />
                       ) : null}
                       <PaymentInstructions method={paymentInstructions.qris_url ? 'qris' : 'bank_transfer'} />
+                      <PaymentSupportCard />
                     </div>
                   )}
 

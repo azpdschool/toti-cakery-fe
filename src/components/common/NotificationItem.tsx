@@ -7,6 +7,7 @@ interface NotificationItemProps {
   notification: NotificationItemType;
   title: string;
   message: string;
+  badgeLabel?: string;
   onClick: (notification: NotificationItemType) => void;
 }
 
@@ -14,6 +15,7 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
   notification,
   title,
   message,
+  badgeLabel,
   onClick,
 }) => {
   const { i18n } = useTranslation();
@@ -79,9 +81,16 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
         <p className="mt-0.5 text-xs text-[#6B4A3C] line-clamp-2 leading-relaxed">
           {message}
         </p>
-        <span className="mt-1 block text-[10px] text-[#9C8478]">
-          {timeAgo(notification.created_at)}
-        </span>
+        <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] text-[#9C8478]">
+            {timeAgo(notification.created_at)}
+          </span>
+          {badgeLabel && (
+            <span className="rounded-full bg-[#FAF0E6] px-2 py-0.5 text-[9px] font-semibold text-[#9B4A2F] border border-[#EAD8CA]/60">
+              {badgeLabel}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

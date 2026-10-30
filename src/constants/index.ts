@@ -34,4 +34,9 @@ export const ROUTES = {
   SELLER_FAQ: '/seller/faq',
   SELLER_SETTINGS: '/seller/settings',
   BUYER_FAQ: '/faq',
+  HOW_TO_SHOP: '/how-to-shop',
+  PAYMENT_GUIDE: '/payment-guide',
+  SHIPPING: '/shipping',
+  PRIVACY: '/privacy',
+  TERMS: '/terms',
 } as const
