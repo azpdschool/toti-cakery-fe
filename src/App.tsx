@@ -5,9 +5,11 @@ import { CartProvider } from '@/context/CartContext'
 import { WhatsAppProvider } from '@/context/WhatsAppContext'
 import { WishlistProvider } from '@/hooks/useWishlist'
 import { ToastProvider } from '@/components/ui/Toast'
-import { Toaster } from 'react-hot-toast'
+import { SmartToaster, setupSmartToastDurations } from '@/components/ui/SmartToastBar'
 import { router } from '@/router'
 import '@/lib/i18n'
+
+setupSmartToastDurations()
 
 function Loading() {
   return (
@@ -20,7 +22,7 @@ function Loading() {
 export default function App() {
   return (
     <ToastProvider>
-      <Toaster position="bottom-right" toastOptions={{ duration: 4000 }} />
+      <SmartToaster />
       <AuthProvider>
         <WishlistProvider>
           <CartProvider>
@@ -35,3 +37,4 @@ export default function App() {
     </ToastProvider>
   )
 }
+

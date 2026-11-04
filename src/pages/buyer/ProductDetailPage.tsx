@@ -9,7 +9,7 @@ import type { Product } from '@/services/productService'
 import { useTranslation } from 'react-i18next'
 import { useWhatsApp } from '@/context/WhatsAppContext'
 import { ProductCard } from '@/components/common/ProductCard'
-import { Heart, Share2, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { Heart, Share2, ChevronLeft, ChevronRight, X, ShoppingCart } from 'lucide-react'
 import { useWishlist } from '@/hooks/useWishlist'
 import { toast } from 'react-hot-toast'
 
@@ -31,7 +31,7 @@ export default function ProductDetailPage() {
 
   const [activeSection, setActiveSection] = useState('detail-produk')
   const { addItem } = useCart()
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { wishlistIds, toggleWishlist, requestRemoveWishlist, loading: wishlistLoading } = useWishlist()
 
   const observerRef = useRef<IntersectionObserver | null>(null)
@@ -328,9 +328,8 @@ export default function ProductDetailPage() {
     <div className="bg-[#F6EFE6] pb-20">
       <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8">
         
-        {/* TOP HEADER (STICKY): Title + Section Navigation */}
-        {/* top-[76px] ensures it sticks precisely below the BuyerNavbar which is 76px high */}
-        <div className="sticky top-[76px] z-20 mb-8 border-b border-[#E8DCCB] bg-[#F6EFE6] pt-4 flex flex-col md:flex-row md:items-end justify-between gap-4">
+        {/* TOP HEADER: Title + Section Navigation (Sticky on desktop) */}
+        <div className="static md:sticky md:top-[76px] z-20 mb-4 md:mb-8 border-b border-[#E8DCCB] bg-[#F6EFE6] pt-2 md:pt-4 flex flex-col md:flex-row md:items-end justify-between gap-4">
           <h1 className="text-xl md:text-2xl font-black text-[#3A1F16] pb-4 line-clamp-2 md:line-clamp-1">
             {product.name}
           </h1>
@@ -371,7 +370,7 @@ export default function ProductDetailPage() {
             
             {/* DETAIL PRODUK = PRODUCT HERO (Image + Info + Description) */}
             {/* Increased scroll-mt to account for new taller sticky header */}
-            <section id="detail-produk" className="scroll-mt-[180px] rounded-2xl border border-[#EAD8CA] bg-white p-6 md:p-8 shadow-sm">
+            <section id="detail-produk" className="scroll-mt-[180px] rounded-2xl border border-[#EAD8CA] bg-white p-4 sm:p-6 md:p-8 shadow-sm">
               <div className="md:flex gap-8 items-start">
                 {/* Product Image Gallery */}
                 <div className="w-full md:w-[45%] shrink-0 flex flex-col gap-3">
@@ -486,7 +485,12 @@ export default function ProductDetailPage() {
                   <div className="mt-6">
                     <h3 className="font-bold text-[#3A1F16] mb-2">{t('product_detail.description')}</h3>
                     <div className="text-[#6B4A3C] leading-relaxed whitespace-pre-wrap text-sm">
-                      {product.description || '-'}
+                      {(() => {
+                        const isEnglish = i18n.language?.toLowerCase().startsWith('en')
+                        return isEnglish
+                          ? (product.descriptionEn?.trim() || product.descriptionId?.trim() || product.description?.trim() || '-')
+                          : (product.descriptionId?.trim() || product.description?.trim() || '-')
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -494,7 +498,7 @@ export default function ProductDetailPage() {
             </section>
 
             {/* ULASAN */}
-            <section id="ulasan" className="scroll-mt-[180px] rounded-2xl border border-[#EAD8CA] bg-white p-6 md:p-8 shadow-sm">
+            <section id="ulasan" className="scroll-mt-[180px] rounded-2xl border border-[#EAD8CA] bg-white p-4 sm:p-6 md:p-8 shadow-sm">
               <h2 className="text-xl font-black text-[#3A1F16] mb-4">{t('product_detail.reviews')}</h2>
               
               <div className="mb-6 flex items-center gap-4">
@@ -549,7 +553,7 @@ export default function ProductDetailPage() {
             </section>
 
             {/* REKOMENDASI */}
-            <section id="rekomendasi" className="scroll-mt-[180px] rounded-2xl border border-[#EAD8CA] bg-white p-6 md:p-8 shadow-sm">
+            <section id="rekomendasi" className="scroll-mt-[180px] rounded-2xl border border-[#EAD8CA] bg-white p-4 sm:p-6 md:p-8 shadow-sm">
               <h2 className="text-xl font-black text-[#3A1F16] mb-4">{t('product_detail.recommended')}</h2>
               
               {recommendations.length === 0 ? (
@@ -593,6 +597,53 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
+      {/* Mobile Sticky Bottom Action Bar */}
+      <div className="fixed bottom-[60px] inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-[#EAD8CA] px-4 py-2.5 lg:hidden flex items-center justify-between gap-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
+        <div className="flex flex-col min-w-0">
+          <span className="text-[10px] font-medium text-[#6B4A3C] uppercase tracking-wide">
+            {t('product_detail.subtotal', 'Total')}
+          </span>
+          <span className="text-sm font-black text-[#3A1F16] truncate">
+            {formatRupiah(subtotal)}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* Stepper */}
+          <div className="flex items-center rounded-lg border border-[#D0BFAF] bg-[#FAF5EF] p-0.5">
+            <button
+              type="button"
+              onClick={() => setQuantity((q) => Math.max(variant.minOrder, q - variant.step))}
+              disabled={!isPurchasable || quantity <= variant.minOrder}
+              className="flex h-7 w-7 items-center justify-center rounded text-sm font-bold text-[#3A1F16] hover:bg-[#EAD8CA] disabled:opacity-40 disabled:cursor-not-allowed"
+              aria-label={t('product_detail.decrease_qty')}
+            >
+              -
+            </button>
+            <span className="w-6 text-center text-xs font-bold text-[#3A1F16]">{quantity}</span>
+            <button
+              type="button"
+              onClick={() => setQuantity((q) => Math.min(maxQty, q + variant.step))}
+              disabled={!isPurchasable || quantity >= maxQty}
+              className="flex h-7 w-7 items-center justify-center rounded text-sm font-bold text-[#3A1F16] hover:bg-[#EAD8CA] disabled:opacity-40 disabled:cursor-not-allowed"
+              aria-label={t('product_detail.increase_qty')}
+            >
+              +
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleAddToCart}
+            disabled={!isPurchasable}
+            className="flex items-center gap-1.5 rounded-lg bg-[#9B4A2F] px-3.5 py-2 text-xs font-black text-white shadow-sm transition hover:bg-[#7E3A24] disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            <ShoppingCart className="h-3.5 w-3.5" />
+            <span>{isPurchasable ? t('product_detail.add_to_cart', 'Tambah ke Keranjang') : (badgeText || t('product_detail.unavailable', 'Stok Habis'))}</span>
+          </button>
+        </div>
+      </div>
+
       {/* Lightbox Modal */}
       {selectedReviewLightBoxUrl && (
         <div
@@ -603,7 +654,7 @@ export default function ProductDetailPage() {
             <img src={selectedReviewLightBoxUrl} alt="Enlarged review photo" className="max-w-full max-h-[85vh] rounded-lg object-contain" />
             <button
               onClick={() => setSelectedReviewLightBoxUrl(null)}
-              className="absolute -top-10 right-0 text-white hover:text-gray-300 focus:outline-none"
+              className="absolute top-4 right-4 sm:-top-10 sm:right-0 text-white hover:text-gray-300 focus:outline-none"
             >
               <X className="h-7 w-7" />
             </button>

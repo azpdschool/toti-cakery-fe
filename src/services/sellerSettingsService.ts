@@ -40,13 +40,30 @@ export interface UserAdminUpdate {
 
 // ── CURRENT USER PROFILE ────────────────────────────────────
 
+const PROFILE_TTL_MS = 60_000;
+let cachedProfile: UserProfile | null = null;
+let lastProfileFetchTime = 0;
 let activeProfileRequest: Promise<UserProfile> | null = null;
 
-export async function getMyProfile(): Promise<UserProfile> {
-  if (activeProfileRequest) return activeProfileRequest;
+export function invalidateProfileCache(): void {
+  cachedProfile = null;
+  lastProfileFetchTime = 0;
+}
+
+export async function getMyProfile(forceRefresh: boolean = false): Promise<UserProfile> {
+  const now = Date.now();
+  if (!forceRefresh && cachedProfile && now - lastProfileFetchTime < PROFILE_TTL_MS) {
+    return cachedProfile;
+  }
+
+  if (!forceRefresh && activeProfileRequest) return activeProfileRequest;
   
   activeProfileRequest = apiClient.get('/users/me')
-    .then(response => response.data)
+    .then(response => {
+      cachedProfile = response.data;
+      lastProfileFetchTime = Date.now();
+      return response.data;
+    })
     .finally(() => {
       activeProfileRequest = null;
     });
@@ -56,6 +73,8 @@ export async function getMyProfile(): Promise<UserProfile> {
 
 export async function updateMyProfile(data: UserProfileUpdate): Promise<UserProfile> {
   const response = await apiClient.put('/users/me', data);
+  cachedProfile = response.data;
+  lastProfileFetchTime = Date.now();
   return response.data;
 }
 
@@ -71,6 +90,8 @@ export async function uploadAvatar(file: File): Promise<UserProfile> {
       'Content-Type': 'multipart/form-data',
     },
   });
+  cachedProfile = response.data;
+  lastProfileFetchTime = Date.now();
   return response.data;
 }
 

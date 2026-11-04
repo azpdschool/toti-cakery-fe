@@ -37,7 +37,7 @@ export function WishlistProvider({ children }: { children: ReactNode }) {
     } else {
       setWishlistIds(new Set());
     }
-  }, [user]);
+  }, [user?.id, user?.role]);
 
   const toggleWishlist = async (productId: string) => {
     if (user?.role !== 'buyer') {

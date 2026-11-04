@@ -2,6 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+html, body {
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 /* Custom styling for react-international-phone to match Toti Cakery theme */
 .react-international-phone-country-selector-button {
   border-top-left-radius: 0.75rem !important;
@@ -31,4 +48,13 @@
   background-color: #ffe6d8 !important;
   color: #d85b30 !important;
   font-weight: 600 !important;
+}
+
+@keyframes toastProgressBar {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
 }

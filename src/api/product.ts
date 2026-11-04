@@ -15,7 +15,11 @@ export interface ProductOut {
   id: number;
   nama_produk: string;
   deskripsi: string | null;
+  deskripsi_id?: string | null;
+  deskripsi_en?: string | null;
   kategori: string | null;
+  category_id?: number | null;
+  category?: CategoryResponse | null;
   hpp_total: ApiDecimal;
   harga_jual: ApiDecimal | null;
   warning_below_hpp?: boolean;
@@ -73,7 +77,10 @@ export interface RecipeOutEmbedded {
 export interface ProductCreate {
   nama_produk: string;
   deskripsi?: string | null;
+  deskripsi_id?: string | null;
+  deskripsi_en?: string | null;
   kategori?: string | null;
+  category_id?: number | null;
   harga_jual?: number | string | null;
   is_active?: boolean;
   is_available?: boolean;
@@ -82,11 +89,14 @@ export interface ProductCreate {
 
 /**
  * ProductUpdate — mirrors backend ProductUpdate schema exactly.
- * Backend fields: deskripsi, harga_jual, is_active, is_available, image_url, minimum_order
- * NOTE: nama_produk and kategori are NOT updatable via PUT /products/{id}
+ * Backend fields: deskripsi, deskripsi_id, deskripsi_en, category_id, harga_jual, is_active, is_available, image_url, minimum_order
  */
 export interface ProductUpdate {
   deskripsi?: string | null;
+  deskripsi_id?: string | null;
+  deskripsi_en?: string | null;
+  kategori?: string | null;
+  category_id?: number | null;
   harga_jual?: number | string | null;
   is_active?: boolean | null;
   is_available?: boolean | null;
@@ -136,14 +146,53 @@ export interface PriceHistoryOut {
   created_at: string | null;
 }
 
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
+const PRODUCT_CACHE_TTL = 10_000; // 10s short TTL
+
+const productsCache = new Map<string, CacheEntry<ProductOut[]>>();
 const activeProductsRequests = new Map<string, Promise<ProductOut[]>>();
+
+const productByIdCache = new Map<number, CacheEntry<ProductOut>>();
+const productByIdInFlight = new Map<number, Promise<ProductOut>>();
+
+export function invalidateProductsCache(): void {
+  productsCache.clear();
+  activeProductsRequests.clear();
+  productByIdCache.clear();
+  productByIdInFlight.clear();
+}
+
+export function invalidateProductByIdCache(id?: number): void {
+  if (id !== undefined) {
+    productByIdCache.delete(id);
+    productByIdInFlight.delete(id);
+  } else {
+    productByIdCache.clear();
+    productByIdInFlight.clear();
+  }
+}
 
 export async function getAllProducts(
   onlyActive: boolean = true,
-  kategori?: string
+  kategori?: string,
+  forceRefresh: boolean = false
 ): Promise<ProductOut[]> {
   const key = JSON.stringify({ onlyActive, kategori });
-  if (activeProductsRequests.has(key)) return activeProductsRequests.get(key)!;
+  const now = Date.now();
+
+  if (!forceRefresh) {
+    const cached = productsCache.get(key);
+    if (cached && now - cached.timestamp < PRODUCT_CACHE_TTL) {
+      return cached.data;
+    }
+    if (activeProductsRequests.has(key)) {
+      return activeProductsRequests.get(key)!;
+    }
+  }
 
   const params: Record<string, boolean | string> = {
     only_active: onlyActive,
@@ -156,19 +205,47 @@ export async function getAllProducts(
   // We omit the signal from the actual network call to prevent StrictMode
   // unmounts from aborting the shared Promise for the other concurrent caller.
   const promise = apiClient.get<ProductOut[]>('/products/', { params })
-    .then(response => response.data)
-    .finally(() => activeProductsRequests.delete(key));
+    .then(response => {
+      const data = response.data;
+      productsCache.set(key, { data, timestamp: Date.now() });
+      return data;
+    })
+    .finally(() => {
+      activeProductsRequests.delete(key);
+    });
 
   activeProductsRequests.set(key, promise);
   return promise;
 }
 
-export async function getProductById(id: number): Promise<ProductOut> {
-  const response = await apiClient.get<ProductOut>(`/products/${id}`);
-  return response.data;
+export async function getProductById(id: number, forceRefresh: boolean = false): Promise<ProductOut> {
+  const now = Date.now();
+  if (!forceRefresh) {
+    const cached = productByIdCache.get(id);
+    if (cached && now - cached.timestamp < PRODUCT_CACHE_TTL) {
+      return cached.data;
+    }
+    if (productByIdInFlight.has(id)) {
+      return productByIdInFlight.get(id)!;
+    }
+  }
+
+  const promise = apiClient.get<ProductOut>(`/products/${id}`)
+    .then(response => {
+      const data = response.data;
+      productByIdCache.set(id, { data, timestamp: Date.now() });
+      return data;
+    })
+    .finally(() => {
+      productByIdInFlight.delete(id);
+    });
+
+  productByIdInFlight.set(id, promise);
+  return promise;
 }
 
 export async function createProduct(payload: ProductCreate): Promise<ProductOut> {
+  invalidateProductsCache();
   const response = await apiClient.post<ProductOut>('/products/', payload);
   return response.data;
 }
@@ -177,6 +254,7 @@ export async function updateProduct(
   id: number,
   payload: ProductUpdate
 ): Promise<ProductOut> {
+  invalidateProductsCache();
   const response = await apiClient.put<ProductOut>(`/products/${id}`, payload);
   return response.data;
 }
@@ -184,6 +262,7 @@ export async function updateProduct(
 export async function deleteProduct(
   id: number
 ): Promise<{ deleted: boolean; product_id: number }> {
+  invalidateProductsCache();
   const response = await apiClient.delete<{
     deleted: boolean;
     product_id: number;
@@ -210,6 +289,7 @@ export async function uploadProductImage(
   id: number,
   file: File
 ): Promise<ProductOut> {
+  invalidateProductsCache();
   const formData = new FormData();
   formData.append('file', file);
 
@@ -241,6 +321,7 @@ export async function uploadProductImages(
   files: File[],
   primaryIndex: number = 0
 ): Promise<ProductOut> {
+  invalidateProductsCache();
   const formData = new FormData();
   files.forEach((file) => {
     formData.append('files', file);
@@ -268,6 +349,7 @@ export async function setPrimaryProductImage(
   productId: number,
   imageId: number
 ): Promise<ProductOut> {
+  invalidateProductsCache();
   const response = await apiClient.patch<ProductOut>(
     `/products/${productId}/images/${imageId}/primary`
   );
@@ -282,6 +364,7 @@ export async function deleteProductImage(
   productId: number,
   imageId: number
 ): Promise<{ deleted: boolean; product_id: number; image_id: number }> {
+  invalidateProductsCache();
   const response = await apiClient.delete<{
     deleted: boolean;
     product_id: number;
@@ -294,6 +377,7 @@ export async function setProductPrice(
   id: number,
   payload: SetPriceRequest
 ): Promise<SetPriceResponse> {
+  invalidateProductsCache();
   const response = await apiClient.patch<SetPriceResponse>(
     `/products/${id}/price`,
     payload

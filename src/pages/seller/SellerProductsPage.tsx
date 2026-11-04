@@ -1,7 +1,15 @@
-import React, { useState, useEffect, useMemo } from 'react'
-import { Plus, Loader2, AlertCircle, CheckCircle, Pencil, Trash2, FileText, Search, Filter, Archive, X, Eye, Image as ImageIcon, Box, Star, History } from 'lucide-react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
+import { Plus, Loader2, AlertCircle, AlertTriangle, CheckCircle, Pencil, Trash2, FileText, Search, Filter, Archive, X, Eye, Image as ImageIcon, Box, Star, History, MoreVertical } from 'lucide-react'
+import { DecimalInput } from '@/components/ui/DecimalInput'
+import { CurrencyInput } from '@/components/ui/CurrencyInput'
+import { ConfirmationModal } from '@/components/ui/ConfirmationModal'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { SellerSortDropdown } from '@/components/ui/SellerSortDropdown'
+import { SellerFilterSelect } from '@/components/ui/SellerFilterSelect'
+import { PaginationControls } from '@/components/ui/PaginationControls'
 import RecipeManagementModal from './RecipeManagementModal'
 import CategoryManagementModal from './CategoryManagementModal'
+import QuickAddStockModal from './QuickAddStockModal'
 import ImageCropper from '@/components/common/ImageCropper'
 import { useAuth } from '@/hooks/useAuth'
 import { useTranslation } from 'react-i18next'
@@ -16,6 +24,8 @@ import {
   setPrimaryProductImage,
   deleteProductImage,
   archiveProduct,
+  restoreProduct,
+  deleteProduct,
   getProductPricing,
 } from '@/services/productService'
 import type { ProductCreate, ProductUpdate } from '@/api/product'
@@ -40,6 +50,191 @@ interface ProductFormIngredient {
   unit: string
 }
 
+function extractApiErrorMessage(err: any, fallback: string): string {
+  const detail = err?.response?.data?.detail
+  if (typeof detail === 'string') {
+    return detail
+  }
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item: any) => {
+        if (typeof item === 'string') return item
+        if (item?.msg) {
+          const loc = Array.isArray(item.loc) ? item.loc.filter((l: any) => l !== 'body').join('.') : ''
+          return loc ? `${loc}: ${item.msg}` : item.msg
+        }
+        return JSON.stringify(item)
+      })
+      .join(' | ')
+  }
+  if (detail && typeof detail === 'object') {
+    return detail.message || JSON.stringify(detail)
+  }
+  if (typeof err?.response?.data?.message === 'string') {
+    return err.response.data.message
+  }
+  if (typeof err?.message === 'string') {
+    return err.message
+  }
+  return fallback
+}
+
+interface ProductMoreActionsDropdownProps {
+  product: SimpleProduct
+  viewMode: 'active' | 'archived'
+  openUpward?: boolean
+  onOpenPriceHistory: () => void
+  onOpenRecipeModal: () => void
+  onArchive: () => void
+  onDelete: () => void
+  onRestore?: () => void
+}
+
+function ProductMoreActionsDropdown({
+  product,
+  viewMode,
+  openUpward = false,
+  onOpenPriceHistory,
+  onOpenRecipeModal,
+  onArchive,
+  onDelete,
+  onRestore,
+}: ProductMoreActionsDropdownProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isOpen])
+
+  return (
+    <div className="relative inline-block text-left" ref={menuRef}>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          setIsOpen((prev) => !prev)
+        }}
+        className={`rounded-lg p-2 transition-colors ${
+          isOpen ? 'bg-gray-100 text-gray-800' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+        }`}
+        title={`More actions for ${product.name}`}
+        aria-label={`More actions for ${product.name}`}
+        aria-expanded={isOpen}
+      >
+        <MoreVertical className="h-4 w-4" />
+      </button>
+
+      {isOpen && (
+        <div
+          className={`absolute right-0 ${
+            openUpward ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
+          } w-48 rounded-xl bg-white p-1.5 shadow-xl border border-gray-100 ring-1 ring-black/5 z-50 text-left focus:outline-none`}
+        >
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              setIsOpen(false)
+              onOpenPriceHistory()
+            }}
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-purple-50 hover:text-purple-700 transition-colors"
+          >
+            <History className="h-4 w-4 text-purple-600 shrink-0" />
+            <span>Price History</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              setIsOpen(false)
+              onOpenRecipeModal()
+            }}
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+          >
+            <FileText className="h-4 w-4 text-blue-600 shrink-0" />
+            <span>Quick Edit Recipe</span>
+          </button>
+
+          <div className="my-1 border-t border-gray-100" />
+
+          {viewMode === 'active' ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setIsOpen(false)
+                onArchive()
+              }}
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-amber-700 hover:bg-amber-50 transition-colors"
+            >
+              <Archive className="h-4 w-4 text-amber-600 shrink-0" />
+              <span>Archive Product</span>
+            </button>
+          ) : (
+            <>
+              {onRestore && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setIsOpen(false)
+                    onRestore()
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-50 transition-colors"
+                >
+                  <CheckCircle className="h-4 w-4 text-emerald-600 shrink-0" />
+                  <span>Restore Product</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setIsOpen(false)
+                  onDelete()
+                }}
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
+              >
+                <Trash2 className="h-4 w-4 text-red-600 shrink-0" />
+                <span>Delete Product</span>
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export type ProductSortOption =
+  | 'newest'
+  | 'oldest'
+  | 'name_asc'
+  | 'name_desc'
+  | 'price_asc'
+  | 'price_desc'
+
 export default function SellerProductsPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
@@ -52,8 +247,9 @@ export default function SellerProductsPage() {
   const [inventoryOptions, setInventoryOptions] = useState<InventoryOption[]>([])
   const [isFetching, setIsFetching] = useState(true)
 
-  // View modes & filters
+  // View modes, sorting & filters
   const [viewMode, setViewMode] = useState<'active' | 'archived'>('active')
+  const [sortBy, setSortBy] = useState<ProductSortOption>('newest')
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [isFilterOpen, setIsFilterOpen] = useState(false)
@@ -79,9 +275,13 @@ export default function SellerProductsPage() {
   const [success, setSuccess] = useState<string | null>(null)
 
   const [editId, setEditId] = useState<number | null>(null)
+  const [editingProduct, setEditingProduct] = useState<SimpleProduct | null>(null)
+  const [viewProductModal, setViewProductModal] = useState<SimpleProduct | null>(null)
   const [archiveConfirmId, setArchiveConfirmId] = useState<number | null>(null)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null)
   const [recipeModalProduct, setRecipeModalProduct] = useState<{id: number, name: string} | null>(null)
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false)
+  const [showQuickAddModal, setShowQuickAddModal] = useState(false)
 
   // Price History Modal state
   const [priceHistoryProduct, setPriceHistoryProduct] = useState<{ id: number; name: string } | null>(null)
@@ -122,13 +322,19 @@ export default function SellerProductsPage() {
   const [viewImageSource, setViewImageSource] = useState<string | null>(null)
 
   interface ProductFormData extends ProductCreate {
+    category_id?: number | null
     hpp_total?: number
+    deskripsi_id?: string
+    deskripsi_en?: string
   }
 
   const defaultFormState: ProductFormData = {
     nama_produk: '',
     deskripsi: '',
-    kategori: 'Kue Basah',
+    deskripsi_id: '',
+    deskripsi_en: '',
+    category_id: null,
+    kategori: '',
     harga_jual: '',
     minimum_order: 1,
     is_active: true,
@@ -138,6 +344,14 @@ export default function SellerProductsPage() {
 
   const [formData, setFormData] = useState<ProductFormData>(defaultFormState)
   const [formHpp, setFormHpp] = useState<number>(0)
+  const [showHppConfirmModal, setShowHppConfirmModal] = useState<boolean>(false)
+
+  const validateDescriptionText = (text: string | undefined | null): string | null => {
+    if (!text) return null
+    if (text.length > 5000) return 'Description cannot exceed 5000 characters.'
+    if (text.includes('<') || text.includes('>')) return 'HTML tags (< or >) are not allowed.'
+    return null
+  }
 
   const computedFormAvailability = useMemo(() => {
     const validIngredients = ingredients.filter(
@@ -157,8 +371,12 @@ export default function SellerProductsPage() {
 
   const isFormValid = useMemo(() => {
     const isNameValid = (formData.nama_produk || '').trim().length > 0
-    const isDescriptionValid = (formData.deskripsi || '').trim().length > 0
-    const isCategoryValid = (formData.kategori || '').trim().length > 0
+    const isDescIdFormatValid = !validateDescriptionText(formData.deskripsi_id)
+    const isDescEnFormatValid = !validateDescriptionText(formData.deskripsi_en)
+    const isDescriptionIdValid = editId
+      ? isDescIdFormatValid
+      : ((formData.deskripsi_id || '').trim().length > 0 && isDescIdFormatValid)
+    const isCategoryValid = Boolean(formData.category_id || (formData.kategori || '').trim().length > 0)
     const isPriceValid = Number(formData.harga_jual) > 0
     const isMinOrderValid = Number(formData.minimum_order) >= 1
     const isRecipesValid =
@@ -172,14 +390,58 @@ export default function SellerProductsPage() {
 
     return Boolean(
       isNameValid &&
-      isDescriptionValid &&
+      isDescriptionIdValid &&
+      isDescEnFormatValid &&
       isCategoryValid &&
       isPriceValid &&
       isMinOrderValid &&
       isRecipesValid &&
       isImagesValid
     )
-  }, [formData, ingredients, existingImages.length, draftImages.length])
+  }, [formData, ingredients, existingImages.length, draftImages.length, editId])
+
+  const missingValidationReasons = useMemo(() => {
+    const reasons: string[] = []
+    if (!(formData.nama_produk || '').trim()) reasons.push('Product name is required')
+    if (!editId && !(formData.deskripsi_id || '').trim()) reasons.push('Indonesian description is required')
+    if (validateDescriptionText(formData.deskripsi_id)) reasons.push('Indonesian description contains invalid formatting')
+    if (validateDescriptionText(formData.deskripsi_en)) reasons.push('English description contains invalid formatting')
+    if (!formData.category_id && !(formData.kategori || '').trim()) reasons.push('Category is required')
+    if (!(Number(formData.harga_jual) > 0)) reasons.push('Valid selling price (> 0) is required')
+    if (!(Number(formData.minimum_order) >= 1)) reasons.push('Minimum order quantity must be at least 1')
+    if (ingredients.length === 0) {
+      reasons.push('At least one recipe ingredient is required')
+    } else if (ingredients.some((item) => !item.inventoryId || Number(item.inventoryId) <= 0 || !(Number(item.quantity) > 0))) {
+      reasons.push('All recipe rows must have an ingredient selected and quantity > 0')
+    }
+    if (existingImages.length + draftImages.length === 0) {
+      reasons.push('At least one product image is required')
+    }
+    return reasons
+  }, [formData, ingredients, existingImages.length, draftImages.length, editId])
+
+  const handleQuickAddSuccess = async (newItem: { id: number; nama_item: string; satuan: string }) => {
+    try {
+      const refreshed = await getInventoryOptions()
+      setInventoryOptions(refreshed)
+      const emptyRowIndex = ingredients.findIndex((item) => !item.inventoryId)
+      if (emptyRowIndex !== -1) {
+        handleSelectIngredient(emptyRowIndex, String(newItem.id))
+      } else {
+        setIngredients((prev) => [
+          ...prev,
+          {
+            inventoryId: String(newItem.id),
+            name: newItem.nama_item,
+            quantity: 0,
+            unit: newItem.satuan,
+          },
+        ])
+      }
+    } catch (err) {
+      console.error('Failed to reload inventory after quick add:', err)
+    }
+  }
 
 
   const fetchProducts = async () => {
@@ -209,6 +471,7 @@ export default function SellerProductsPage() {
         setProducts(data);
         setCategories(cats);
         setInventoryOptions(invOptions);
+        setFormData((prev) => (!prev.category_id && !prev.kategori && cats.length > 0 ? { ...prev, category_id: cats[0].id, kategori: cats[0].name } : prev));
       } catch (err) {
         if (ignore) return;
         console.error(err);
@@ -225,6 +488,7 @@ export default function SellerProductsPage() {
     try {
       const cats = await getBackendCategories();
       setCategories(cats);
+      setFormData((prev) => (!prev.category_id && !prev.kategori && cats.length > 0 ? { ...prev, category_id: cats[0].id, kategori: cats[0].name } : prev));
     } catch (err) {
       console.error(err);
     }
@@ -239,17 +503,17 @@ export default function SellerProductsPage() {
     return () => clearTimeout(handler)
   }, [searchQuery])
 
-  // Reset page on filter/viewMode change
+  // Reset page on filter/viewMode/sort change
   useEffect(() => {
     setPage(1)
-  }, [filters, viewMode, pageSize])
+  }, [filters, viewMode, pageSize, sortBy])
 
   const isProductAvailable = (p: SimpleProduct): boolean => {
     return Boolean(p.isInStock && (p.stockQuantity ?? 0) > 0)
   }
 
   const filteredProducts = useMemo(() => {
-    return products.filter(p => {
+    const list = products.filter(p => {
       // Archive View vs Active View (Soft delete)
       if (viewMode === 'active' && p.status === 'archived') return false;
       if (viewMode === 'archived' && p.status !== 'archived') return false;
@@ -277,14 +541,39 @@ export default function SellerProductsPage() {
 
       return true;
     })
-  }, [products, viewMode, debouncedSearch, filters])
+
+    return list.slice().sort((a, b) => {
+      switch (sortBy) {
+        case 'newest': {
+          const tA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+          const tB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+          if (tB !== tA) return tB - tA
+          return (b.backendId ?? 0) - (a.backendId ?? 0)
+        }
+        case 'oldest': {
+          const tA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+          const tB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+          if (tA !== tB) return tA - tB
+          return (a.backendId ?? 0) - (b.backendId ?? 0)
+        }
+        case 'name_asc':
+          return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+        case 'name_desc':
+          return b.name.localeCompare(a.name, undefined, { sensitivity: 'base' })
+        case 'price_asc':
+          return (a.price ?? 0) - (b.price ?? 0)
+        case 'price_desc':
+          return (b.price ?? 0) - (a.price ?? 0)
+        default:
+          return 0
+      }
+    })
+  }, [products, viewMode, debouncedSearch, filters, sortBy])
 
   const paginatedProducts = useMemo(() => {
     const start = (page - 1) * pageSize
     return filteredProducts.slice(start, start + pageSize)
   }, [filteredProducts, page, pageSize])
-
-  const totalPages = Math.ceil(filteredProducts.length / pageSize) || 1
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target
@@ -355,7 +644,10 @@ export default function SellerProductsPage() {
 
   const handleAddClick = () => {
     setEditId(null)
-    setFormData({ ...defaultFormState, kategori: categories.length > 0 ? categories[0].name : 'Kue Basah', hpp_total: 0 })
+    setEditingProduct(null)
+    const initialCategory = categories.length > 0 ? categories[0].name : ''
+    const initialCategoryId = categories.length > 0 ? categories[0].id : null
+    setFormData({ ...defaultFormState, category_id: initialCategoryId, kategori: initialCategory, hpp_total: 0 })
     setFormHpp(0)
     setIngredients([])
     setDeletedRecipeIds([])
@@ -376,11 +668,18 @@ export default function SellerProductsPage() {
   const handleEditClick = async (product: SimpleProduct) => {
     const initialHpp = Number(product.hppTotal) || 0
     setEditId(product.backendId)
+    setEditingProduct(product)
     setFormHpp(initialHpp)
+    const matchingCat = categories.find((c) => (product.categoryId ? c.id === product.categoryId : c.name.toLowerCase() === (product.category || '').toLowerCase()))
+    const resolvedCategoryId = product.categoryId ?? matchingCat?.id ?? null
+    const resolvedCategoryName = matchingCat?.name || product.category || ''
     setFormData({
       nama_produk: product.name,
       deskripsi: product.description || '',
-      kategori: product.category,
+      deskripsi_id: product.descriptionId ?? product.description ?? '',
+      deskripsi_en: product.descriptionEn ?? '',
+      category_id: resolvedCategoryId,
+      kategori: resolvedCategoryName,
       harga_jual: product.price.toString(),
       minimum_order: product.minimumOrder,
       is_active: product.isActive,
@@ -410,8 +709,17 @@ export default function SellerProductsPage() {
         getProductPricing(product.backendId).catch(() => null),
       ])
       setInventoryOptions(options)
-      if (freshProduct && freshProduct.images) {
-        setExistingImages(freshProduct.images)
+      if (freshProduct) {
+        if (freshProduct.images) {
+          setExistingImages(freshProduct.images)
+        }
+        if (freshProduct.descriptionId !== undefined || freshProduct.descriptionEn !== undefined) {
+          setFormData((prev) => ({
+            ...prev,
+            deskripsi_id: freshProduct.descriptionId ?? freshProduct.description ?? prev.deskripsi_id ?? '',
+            deskripsi_en: freshProduct.descriptionEn ?? prev.deskripsi_en ?? '',
+          }))
+        }
       }
 
       const loadedHpp = pricingData?.hpp !== undefined && pricingData.hpp !== null
@@ -449,11 +757,45 @@ export default function SellerProductsPage() {
       await archiveProduct(archiveConfirmId)
       toast.success('Product archived successfully.')
       fetchProducts()
-    } catch (err) {
-      console.error(err)
-      toast.error('Failed to archive product.')
+    } catch (err: any) {
+      console.error('Failed to archive product:', err)
+      const msg = extractApiErrorMessage(err, 'Failed to archive product.')
+      toast.error(msg)
     } finally {
       setArchiveConfirmId(null)
+    }
+  }
+
+  const handleDeleteClick = (id: number) => {
+    if (!canManageProducts) return
+    setDeleteConfirmId(id)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteConfirmId) return
+    try {
+      await deleteProduct(deleteConfirmId)
+      toast.success('Product deleted permanently.')
+      fetchProducts()
+    } catch (err: any) {
+      console.error('Failed to delete product:', err)
+      const msg = extractApiErrorMessage(err, 'Failed to delete product.')
+      toast.error(msg)
+    } finally {
+      setDeleteConfirmId(null)
+    }
+  }
+
+  const handleRestoreClick = async (id: number) => {
+    if (!canManageProducts) return
+    try {
+      await restoreProduct(id)
+      toast.success('Product restored successfully.')
+      fetchProducts()
+    } catch (err: any) {
+      console.error('Failed to restore product:', err)
+      const msg = extractApiErrorMessage(err, 'Failed to restore product.')
+      toast.error(msg)
     }
   }
 
@@ -536,6 +878,221 @@ export default function SellerProductsPage() {
     }
   }
 
+  const executeSaveProduct = async () => {
+    const harga_jual = formData.harga_jual ? Number(formData.harga_jual) : null
+    const minimum_order = formData.minimum_order ? Number(formData.minimum_order) : 1
+
+    const isCreating = !editId
+    setIsLoading(true)
+    let isProductCreatedOrUpdated = false
+    try {
+      if (editId) {
+        const updatePayload: ProductUpdate = {}
+
+        const cleanedDeskripsiId = (formData.deskripsi_id || '').trim() || null
+        const originalDeskripsiId = (editingProduct?.descriptionId ?? editingProduct?.description ?? '').trim() || null
+        if (cleanedDeskripsiId !== originalDeskripsiId) {
+          updatePayload.deskripsi_id = cleanedDeskripsiId
+        }
+
+        const cleanedDeskripsiEn = (formData.deskripsi_en || '').trim() || null
+        const originalDeskripsiEn = (editingProduct?.descriptionEn ?? '').trim() || null
+        if (cleanedDeskripsiEn !== originalDeskripsiEn) {
+          updatePayload.deskripsi_en = cleanedDeskripsiEn
+        }
+
+        if (harga_jual !== editingProduct?.price) {
+          updatePayload.harga_jual = harga_jual
+        }
+        if (minimum_order !== (editingProduct?.minimumOrder ?? 1)) {
+          updatePayload.minimum_order = minimum_order
+        }
+        if (formData.is_active !== editingProduct?.isActive) {
+          updatePayload.is_active = formData.is_active
+        }
+        const effectiveCategoryId = formData.category_id ?? (categories.find(c => c.name.toLowerCase() === (formData.kategori || '').toLowerCase())?.id ?? null)
+        if (effectiveCategoryId !== (editingProduct?.categoryId ?? null)) {
+          updatePayload.category_id = effectiveCategoryId
+        }
+        if (formData.kategori && formData.kategori !== editingProduct?.category) {
+          updatePayload.kategori = formData.kategori
+        }
+
+        let updatedProduct: SimpleProduct | undefined
+        if (Object.keys(updatePayload).length > 0) {
+          updatedProduct = await updateProduct(editId, updatePayload)
+        }
+        isProductCreatedOrUpdated = true
+
+        if (updatedProduct?.warningBelowHpp) {
+          toast(
+            `Warning: Saved selling price ${formatRupiah(updatedProduct.price)} is below HPP (${formatRupiah(updatedProduct.hppTotal)}).`,
+            { icon: '⚠️' }
+          )
+        }
+
+        // Recipe mutation flow promise
+        const recipeFlowPromise = (async () => {
+          // Delete removed recipes
+          if (deletedRecipeIds.length > 0) {
+            await Promise.all(
+              deletedRecipeIds.map((recipeId) => deleteRecipeIngredient(editId, recipeId))
+            )
+          }
+
+          // Add/Update recipes
+          const validIngredients = ingredients.filter(
+            (ingredient) => ingredient.inventoryId && ingredient.quantity > 0
+          )
+          if (validIngredients.length > 0) {
+            await Promise.all(
+              validIngredients.map((ingredient) => {
+                const recipePayload: RecipeCreate = {
+                  stock_item_id: Number(ingredient.inventoryId),
+                  jumlah_dibutuhkan: ingredient.quantity,
+                }
+                if (!ingredient.recipeId) {
+                  return addRecipeIngredient(editId, recipePayload)
+                } else if (
+                  ingredient.originalInventoryId &&
+                  ingredient.originalInventoryId !== ingredient.inventoryId
+                ) {
+                  return deleteRecipeIngredient(editId, ingredient.recipeId).then(() =>
+                    addRecipeIngredient(editId, recipePayload)
+                  )
+                } else {
+                  return updateRecipeIngredient(editId, ingredient.recipeId, {
+                    jumlah_dibutuhkan: ingredient.quantity,
+                  })
+                }
+              })
+            )
+          }
+
+          // Price lock immediately after recipes finish so harga_jual is never mutated by backend HPP recalculations
+          if (harga_jual !== null && harga_jual > 0) {
+            await updateProduct(editId, { harga_jual })
+          }
+        })()
+
+        // Image upload promise in parallel
+        const imageUploadPromise = draftImages.length > 0
+          ? uploadProductImages(
+              editId,
+              draftImages.map((d) => d.file),
+              primaryDraftIndex
+            ).catch((imgErr: any) => {
+              console.error('Image upload failed during product update:', imgErr)
+              const imgMsg = extractApiErrorMessage(imgErr, 'Product updated, but image upload failed.')
+              setError(imgMsg)
+              toast.error(imgMsg)
+            })
+          : Promise.resolve(null)
+
+        await Promise.all([recipeFlowPromise, imageUploadPromise])
+        setSuccess('Product updated successfully.')
+      } else {
+        const effectiveCategoryId = formData.category_id ?? (categories.find(c => c.name.toLowerCase() === (formData.kategori || '').toLowerCase())?.id ?? null)
+        const createPayload: ProductCreate = {
+          nama_produk: formData.nama_produk.trim(),
+          deskripsi_id: (formData.deskripsi_id || '').trim() || null,
+          deskripsi_en: (formData.deskripsi_en || '').trim() || null,
+          category_id: effectiveCategoryId,
+          kategori: formData.kategori || (categories.find(c => c.id === effectiveCategoryId)?.name || ''),
+          harga_jual,
+          minimum_order,
+          is_active: formData.is_active,
+          is_available: true,
+        }
+
+        const createdProduct = await createProductWithOptionalPrice(createPayload, harga_jual)
+        isProductCreatedOrUpdated = true
+        setEditId(createdProduct.backendId)
+        setEditingProduct(createdProduct)
+
+        if (createdProduct.warningBelowHpp) {
+          toast(
+            `Warning: Saved selling price ${formatRupiah(createdProduct.price)} is below HPP (${formatRupiah(createdProduct.hppTotal)}).`,
+            { icon: '⚠️' }
+          )
+        }
+
+        // Recipe mutation flow promise
+        const recipePayloads: RecipeCreate[] = ingredients
+          .filter((ingredient) => ingredient.inventoryId && ingredient.quantity > 0)
+          .map((ingredient) => ({
+            stock_item_id: Number(ingredient.inventoryId),
+            jumlah_dibutuhkan: ingredient.quantity,
+          }))
+          .filter((ingredient) => Number.isFinite(ingredient.stock_item_id))
+
+        const recipeFlowPromise = (async () => {
+          if (recipePayloads.length > 0) {
+            await Promise.all(
+              recipePayloads.map((payload) => addRecipeIngredient(createdProduct.backendId, payload))
+            )
+          }
+
+          // Price lock immediately after recipes finish so harga_jual is locked to exact user input
+          if (harga_jual !== null && harga_jual > 0) {
+            await updateProduct(createdProduct.backendId, { harga_jual })
+          }
+        })()
+
+        // Image upload promise in parallel
+        const imageUploadPromise = draftImages.length > 0
+          ? uploadProductImages(
+              createdProduct.backendId,
+              draftImages.map((d) => d.file),
+              primaryDraftIndex
+            ).catch((imgErr: any) => {
+              console.error('Image upload failed during product creation:', imgErr)
+              const imgMsg = extractApiErrorMessage(imgErr, 'Product created, but image upload failed.')
+              setError(imgMsg)
+              toast.error(imgMsg)
+            })
+          : Promise.resolve(null)
+
+        await Promise.all([recipeFlowPromise, imageUploadPromise])
+        setSuccess('Product added successfully.')
+      }
+
+      if (!error && isProductCreatedOrUpdated) {
+        setIsFormOpen(false)
+        setFormData(defaultFormState)
+        setFormHpp(0)
+        setEditId(null)
+        setEditingProduct(null)
+        setIngredients([])
+        setDeletedRecipeIds([])
+        setExistingImages([])
+        draftImages.forEach((img) => URL.revokeObjectURL(img.previewUrl))
+        setDraftImages([])
+
+        if (isCreating) {
+          setSortBy('newest')
+          setSearchQuery('')
+          setDebouncedSearch('')
+          setPage(1)
+        }
+      }
+
+      if (isProductCreatedOrUpdated) {
+        fetchProducts()
+      }
+    } catch (err: any) {
+      console.error('Failed to save product:', err)
+      const fallback = !isProductCreatedOrUpdated
+        ? 'Failed to save product.'
+        : 'Failed saving product recipes/ingredients.'
+      const errorMsg = extractApiErrorMessage(err, fallback)
+      setError(errorMsg)
+      toast.error(errorMsg)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -583,159 +1140,13 @@ export default function SellerProductsPage() {
     }
 
     const harga_jual = formData.harga_jual ? Number(formData.harga_jual) : null
-    const minimum_order = formData.minimum_order ? Number(formData.minimum_order) : 1
 
     if (formHpp > 0 && harga_jual !== null && harga_jual < formHpp) {
-      const confirmSave = window.confirm(
-        `Selling price ${formatRupiah(harga_jual)} is ${formatRupiah(formHpp - harga_jual)} below HPP ${formatRupiah(formHpp)} per product. Are you sure you want to proceed and save?`
-      )
-      if (!confirmSave) {
-        return
-      }
+      setShowHppConfirmModal(true)
+      return
     }
 
-    setIsLoading(true)
-    let isProductCreatedOrUpdated = false
-    try {
-      if (editId) {
-        const updatePayload: ProductUpdate = {
-          deskripsi: formData.deskripsi,
-          harga_jual,
-          minimum_order,
-          is_active: formData.is_active,
-          is_available: true,
-        }
-        const updatedProduct = await updateProduct(editId, updatePayload)
-        isProductCreatedOrUpdated = true
-
-        if (updatedProduct.warningBelowHpp) {
-          toast(
-            `Warning: Saved selling price ${formatRupiah(updatedProduct.price)} is below HPP (${formatRupiah(updatedProduct.hppTotal)}).`,
-            { icon: '⚠️' }
-          )
-        }
-
-        // Delete removed recipes
-        if (deletedRecipeIds.length > 0) {
-          await Promise.all(
-            deletedRecipeIds.map((recipeId) => deleteRecipeIngredient(editId, recipeId))
-          )
-        }
-
-        // Update/Add recipe entries sequentially
-        const validIngredients = ingredients.filter(
-          (ingredient) => ingredient.inventoryId && ingredient.quantity > 0
-        )
-        for (const ingredient of validIngredients) {
-          const recipePayload: RecipeCreate = {
-            stock_item_id: Number(ingredient.inventoryId),
-            jumlah_dibutuhkan: ingredient.quantity,
-          }
-          if (!ingredient.recipeId) {
-            await addRecipeIngredient(editId, recipePayload)
-          } else if (
-            ingredient.originalInventoryId &&
-            ingredient.originalInventoryId !== ingredient.inventoryId
-          ) {
-            await deleteRecipeIngredient(editId, ingredient.recipeId)
-            await addRecipeIngredient(editId, recipePayload)
-          } else {
-            await updateRecipeIngredient(editId, ingredient.recipeId, {
-              jumlah_dibutuhkan: ingredient.quantity,
-            })
-          }
-        }
-
-        if (draftImages.length > 0) {
-          try {
-            await uploadProductImages(
-              editId,
-              draftImages.map((d) => d.file),
-              primaryDraftIndex
-            )
-            setSuccess('Product updated successfully.')
-          } catch (imgErr) {
-            console.error(imgErr)
-            setError('Product updated, but image upload failed.')
-          }
-        } else {
-          setSuccess('Product updated successfully.')
-        }
-      } else {
-        const createPayload: ProductCreate = {
-          ...formData,
-          is_available: true,
-          harga_jual,
-          minimum_order,
-        }
-
-        const createdProduct = await createProductWithOptionalPrice(createPayload, harga_jual)
-        isProductCreatedOrUpdated = true
-
-        if (createdProduct.warningBelowHpp) {
-          toast(
-            `Warning: Saved selling price ${formatRupiah(createdProduct.price)} is below HPP (${formatRupiah(createdProduct.hppTotal)}).`,
-            { icon: '⚠️' }
-          )
-        }
-
-        // Create recipe entries sequentially
-        const recipePayloads: RecipeCreate[] = ingredients
-          .filter((ingredient) => ingredient.inventoryId && ingredient.quantity > 0)
-          .map((ingredient) => ({
-            stock_item_id: Number(ingredient.inventoryId),
-            jumlah_dibutuhkan: ingredient.quantity,
-          }))
-          .filter((ingredient) => Number.isFinite(ingredient.stock_item_id))
-
-        if (recipePayloads.length > 0) {
-          for (const payload of recipePayloads) {
-            await addRecipeIngredient(createdProduct.backendId, payload)
-          }
-        }
-
-        if (draftImages.length > 0) {
-          try {
-            await uploadProductImages(
-              createdProduct.backendId,
-              draftImages.map((d) => d.file),
-              primaryDraftIndex
-            )
-            setSuccess('Product added successfully.')
-          } catch (imgErr) {
-            console.error(imgErr)
-            setError('Product created, but image upload failed.')
-          }
-        } else {
-          setSuccess('Product added successfully.')
-        }
-      }
-
-      if (!error && isProductCreatedOrUpdated) {
-        setIsFormOpen(false)
-        setFormData(defaultFormState)
-        setFormHpp(0)
-        setEditId(null)
-        setIngredients([])
-        setDeletedRecipeIds([])
-        setExistingImages([])
-        draftImages.forEach((img) => URL.revokeObjectURL(img.previewUrl))
-        setDraftImages([])
-      }
-
-      if (isProductCreatedOrUpdated) {
-        fetchProducts()
-      }
-    } catch (err) {
-      console.error(err)
-      if (!isProductCreatedOrUpdated) {
-        setError('Failed to save product.')
-      } else {
-        setError('Failed saving product recipes/ingredients.')
-      }
-    } finally {
-      setIsLoading(false)
-    }
+    await executeSaveProduct()
   }
 
   const clearFilters = () => {
@@ -755,54 +1166,60 @@ export default function SellerProductsPage() {
   return (
     <div className="space-y-6">
       {/* Header section */}
-      <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-          <h1 className="text-2xl font-black text-[#4b2417]">Products</h1>
-          <p className="mt-1 text-sm text-[#6f5448]">Manage your products, pricing, availability, and recipes.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          {canManageProducts && (
-            <>
+      <PageHeader
+        title="Products"
+        description="Manage your products, pricing, availability, and recipes."
+        className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center"
+        actions={
+          canManageProducts ? (
+            <div className="flex flex-col sm:flex-row w-full sm:w-auto items-stretch sm:items-center gap-2 shrink-0">
+              {/* Primary CTA: First on mobile */}
               <button
-                onClick={() => setViewMode(viewMode === 'active' ? 'archived' : 'active')}
-                className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${
-                  viewMode === 'archived' 
-                  ? 'bg-gray-800 text-white hover:bg-gray-700' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                <Archive className="h-4 w-4" />
-                {viewMode === 'active' ? 'Manage Archive' : 'Back to Active'}
-              </button>
-              
-              <button
-                onClick={() => setIsCategoryModalOpen(true)}
-                className="flex items-center gap-2 rounded-xl bg-[#f0e0d0] px-4 py-2 text-sm font-semibold text-[#d85b30] transition hover:bg-[#e6d0bb]"
-              >
-                <Box className="h-4 w-4" />
-                Manage Categories
-              </button>
-              
-              <button
+                type="button"
                 onClick={handleAddClick}
-                className="flex items-center gap-2 rounded-xl bg-[#d85b30] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#c04e28]"
+                className="order-1 sm:order-3 flex w-full sm:w-auto items-center justify-center gap-1.5 rounded-lg bg-[#d85b30] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#c04e28] whitespace-nowrap shadow-sm"
               >
                 <Plus className="h-4 w-4" />
                 Add Product
               </button>
-            </>
-          )}
-        </div>
-      </div>
 
-      {error && (
+              {/* Secondary actions: 2-column grid on mobile, inline on desktop */}
+              <div className="order-2 sm:order-1 grid grid-cols-2 sm:flex sm:items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCategoryModalOpen(true)}
+                  className="flex items-center justify-center gap-1.5 rounded-lg bg-[#f0e0d0] px-3 py-2 text-xs sm:text-sm font-semibold text-[#d85b30] transition hover:bg-[#e6d0bb] whitespace-nowrap"
+                >
+                  <Box className="h-4 w-4 shrink-0" />
+                  <span>Manage Categories</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setViewMode(viewMode === 'active' ? 'archived' : 'active')}
+                  className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs sm:text-sm font-semibold transition whitespace-nowrap ${
+                    viewMode === 'archived'
+                      ? 'bg-stone-800 text-white hover:bg-stone-700'
+                      : 'bg-stone-100 text-stone-700 hover:bg-stone-200'
+                  }`}
+                >
+                  <Archive className="h-4 w-4 shrink-0" />
+                  <span>{viewMode === 'active' ? 'Archived Products' : 'Active Products'}</span>
+                </button>
+              </div>
+            </div>
+          ) : undefined
+        }
+      />
+
+      {!isFormOpen && error && (
         <div className="flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
           <AlertCircle className="h-4 w-4 shrink-0" />
           {error}
         </div>
       )}
 
-      {success && (
+      {!isFormOpen && success && (
         <div className="flex items-center gap-2 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-600">
           <CheckCircle className="h-4 w-4 shrink-0" />
           {success}
@@ -811,10 +1228,10 @@ export default function SellerProductsPage() {
 
       {/* Add / Edit Form */}
       {isFormOpen && canManageProducts && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <form onSubmit={handleSubmit} className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-2xl bg-white shadow-xl overflow-hidden">
-            <div className="flex items-center justify-between border-b border-gray-200 p-6 shrink-0">
-              <h2 className="text-2xl font-black text-[#4b2417]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-4">
+          <form onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()} className="flex max-h-[90dvh] sm:max-h-[90vh] w-full max-w-4xl flex-col rounded-2xl bg-white shadow-xl overflow-hidden">
+            <div className="flex items-center justify-between border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-6 shrink-0">
+              <h2 className="text-xl sm:text-2xl font-black text-[#4b2417]">
                 {editId ? 'Edit Product' : 'Add Product'}
               </h2>
               <button
@@ -822,6 +1239,7 @@ export default function SellerProductsPage() {
                 onClick={() => {
                   setIsFormOpen(false)
                   setEditId(null)
+                  setEditingProduct(null)
                   setFormData(defaultFormState)
                   setFormHpp(0)
                   setExistingImages([])
@@ -835,7 +1253,7 @@ export default function SellerProductsPage() {
                 <X className="h-6 w-6" />
               </button>
             </div>
-            <div className="overflow-y-auto p-6 space-y-4">
+            <div className="overflow-y-auto px-4 sm:px-6 py-4 sm:py-6 space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <label className="mb-1 block text-sm font-semibold text-[#4b2417]">
@@ -853,18 +1271,70 @@ export default function SellerProductsPage() {
                 />
               </div>
 
+              {/* Indonesian Description (ID) */}
               <div className="sm:col-span-2">
-                <label className="mb-1 block text-sm font-semibold text-[#4b2417]">
-                  Description <span className="text-red-500">*</span>
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-semibold text-[#4b2417]">
+                    Indonesian Description (ID) {!editId && <span className="text-red-500">*</span>}
+                  </label>
+                  <span className="text-xs text-gray-500">
+                    {(formData.deskripsi_id || '').length}/5000
+                  </span>
+                </div>
                 <textarea
-                  name="deskripsi"
+                  name="deskripsi_id"
                   rows={3}
-                  value={formData.deskripsi || ''}
+                  maxLength={5000}
+                  value={formData.deskripsi_id || ''}
                   onChange={handleInputChange}
-                  placeholder="Enter product description"
-                  className="w-full rounded-xl border border-[#d0bfaf] bg-white px-4 py-2.5 text-sm text-[#4b2417] outline-none transition focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
+                  placeholder="Enter product description in Indonesian..."
+                  className={`w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-[#4b2417] outline-none transition focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40 ${
+                    validateDescriptionText(formData.deskripsi_id) ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : 'border-[#d0bfaf]'
+                  }`}
                 />
+                <div className="mt-1 flex items-center justify-between">
+                  <p className="text-xs text-gray-500">
+                    Primary description displayed on the Indonesian storefront and used as fallback if English is empty.
+                  </p>
+                  {validateDescriptionText(formData.deskripsi_id) && (
+                    <p className="text-xs text-red-600 font-medium">
+                      {validateDescriptionText(formData.deskripsi_id)}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* English Description (EN) */}
+              <div className="sm:col-span-2">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-semibold text-[#4b2417]">
+                    English Description (EN) <span className="text-xs font-normal text-gray-500">(Optional)</span>
+                  </label>
+                  <span className="text-xs text-gray-500">
+                    {(formData.deskripsi_en || '').length}/5000
+                  </span>
+                </div>
+                <textarea
+                  name="deskripsi_en"
+                  rows={3}
+                  maxLength={5000}
+                  value={formData.deskripsi_en || ''}
+                  onChange={handleInputChange}
+                  placeholder="Enter product description in English (optional)..."
+                  className={`w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-[#4b2417] outline-none transition focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40 ${
+                    validateDescriptionText(formData.deskripsi_en) ? 'border-red-400 focus:border-red-500 focus:ring-red-200' : 'border-[#d0bfaf]'
+                  }`}
+                />
+                <div className="mt-1 flex items-center justify-between">
+                  <p className="text-xs text-gray-500">
+                    Displayed when the buyer switches the storefront to English. Leave empty to fall back to the Indonesian description.
+                  </p>
+                  {validateDescriptionText(formData.deskripsi_en) && (
+                    <p className="text-xs text-red-600 font-medium">
+                      {validateDescriptionText(formData.deskripsi_en)}
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div>
@@ -872,16 +1342,25 @@ export default function SellerProductsPage() {
                   Category <span className="text-red-500">*</span>
                 </label>
                 <select
-                  name="kategori"
-                  disabled={!!editId}
-                  value={formData.kategori || ''}
-                  onChange={handleInputChange}
-                  className="w-full rounded-xl border border-[#d0bfaf] bg-white px-4 py-2.5 text-sm text-[#4b2417] outline-none transition focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40 disabled:bg-gray-100 disabled:text-gray-500"
+                  name="category_id"
+                  value={formData.category_id ?? (categories.find(c => c.name.toLowerCase() === (formData.kategori || '').toLowerCase())?.id ?? '')}
+                  onChange={(e) => {
+                    const selectedId = e.target.value ? Number(e.target.value) : null
+                    const selectedCat = categories.find((c) => c.id === selectedId)
+                    setFormData((prev) => ({
+                      ...prev,
+                      category_id: selectedId,
+                      kategori: selectedCat?.name || '',
+                    }))
+                  }}
+                  className="w-full rounded-xl border border-[#d0bfaf] bg-white px-4 py-2.5 text-sm text-[#4b2417] outline-none transition focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
                 >
-                  {categories.map(c => (
-                    <option key={c.id} value={c.name}>{c.name}</option>
+                  {categories.length === 0 && <option value="">Loading categories...</option>}
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
                   ))}
-                  {categories.length === 0 && <option value="Kue Basah">Kue Basah</option>}
                 </select>
               </div>
 
@@ -902,12 +1381,15 @@ export default function SellerProductsPage() {
                     </button>
                   )}
                 </div>
-                <input
-                  type="number"
+                <CurrencyInput
                   name="harga_jual"
-                  min="0"
                   value={formData.harga_jual || ''}
-                  onChange={handleInputChange}
+                  onChange={(val, raw) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      harga_jual: raw ? String(val) : '',
+                    }))
+                  }
                   placeholder="0"
                   className={`w-full rounded-xl border bg-white px-4 py-2.5 text-sm text-[#4b2417] outline-none transition focus:ring-2 ${
                     formHpp > 0 && Number(formData.harga_jual) > 0 && Number(formData.harga_jual) < formHpp
@@ -923,11 +1405,22 @@ export default function SellerProductsPage() {
                     <span>HPP unavailable — complete recipe</span>
                   </p>
                 ) : Number(formData.harga_jual) > 0 && Number(formData.harga_jual) < formHpp ? (
-                  <div className="mt-2 flex items-start gap-1.5 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
-                    <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
-                    <span>
-                      Selling price {formatRupiah(Number(formData.harga_jual))} is {formatRupiah(formHpp - Number(formData.harga_jual))} below HPP {formatRupiah(formHpp)} per product.
-                    </span>
+                  <div className="mt-2.5 flex items-start gap-2.5 rounded-xl border border-amber-200/90 bg-amber-50/90 p-3 text-xs text-amber-900 shadow-xs transition-all">
+                    <div className="rounded-lg bg-amber-100 p-1 text-amber-700 shrink-0">
+                      <AlertTriangle className="h-4 w-4" />
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="font-semibold text-amber-900">
+                        Selling Price Below HPP
+                      </p>
+                      <p className="text-amber-800 leading-relaxed">
+                        Selling price <span className="font-bold text-amber-950">{formatRupiah(Number(formData.harga_jual))}</span> is{' '}
+                        <span className="font-semibold text-red-700 underline decoration-red-300">
+                          {formatRupiah(formHpp - Number(formData.harga_jual))}
+                        </span>{' '}
+                        below estimated HPP ({formatRupiah(formHpp)}/pcs).
+                      </p>
+                    </div>
                   </div>
                 ) : Number(formData.harga_jual) >= formHpp ? (
                   <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-emerald-700">
@@ -947,12 +1440,18 @@ export default function SellerProductsPage() {
                 <label className="mb-1 block text-sm font-semibold text-[#4b2417]">
                   Minimum Order <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="number"
+                <DecimalInput
                   name="minimum_order"
-                  min="1"
+                  maxDecimals={0}
+                  min={1}
                   value={formData.minimum_order || ''}
-                  onChange={handleInputChange}
+                  onChange={(val, raw) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      minimum_order: raw ? (val ?? 1) : 1,
+                    }))
+                  }
+                  placeholder="1"
                   className="w-full rounded-xl border border-[#d0bfaf] bg-white px-4 py-2.5 text-sm text-[#4b2417] outline-none transition focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
                 />
               </div>
@@ -1044,7 +1543,7 @@ export default function SellerProductsPage() {
                 </p>
 
                 <div className="overflow-x-auto rounded-xl border border-[#ead8ca]">
-                  <table className="w-full text-sm">
+                  <table className="w-full min-w-[500px] text-sm">
                     <thead className="bg-[#f8eee5] text-[#6f5448]">
                       <tr className="text-left text-xs font-semibold uppercase">
                         <th className="py-2.5 px-3">Ingredient Name</th>
@@ -1079,28 +1578,35 @@ export default function SellerProductsPage() {
                                 className="w-full rounded-lg border border-[#d0bfaf] bg-white px-2.5 py-1.5 text-sm outline-none focus:border-[#d85b30]"
                               >
                                 <option value="">Select ingredient...</option>
-                                {inventoryOptions.map((opt) => (
-                                  <option key={opt.id} value={opt.id}>
-                                    {opt.name} - Stock: {opt.stock} {opt.unit}
-                                  </option>
-                                ))}
+                                {inventoryOptions.map((opt) => {
+                                  const isSelectedInOtherRow = ingredients.some(
+                                    (item, i) => i !== idx && String(item.inventoryId) === String(opt.id)
+                                  )
+                                  return (
+                                    <option
+                                      key={opt.id}
+                                      value={opt.id}
+                                      disabled={isSelectedInOtherRow}
+                                    >
+                                      {opt.name} - Stock: {opt.stock} {opt.unit}
+                                      {isSelectedInOtherRow ? ' — Already selected' : ''}
+                                    </option>
+                                  )
+                                })}
                               </select>
                             </td>
 
                             <td className="py-2 px-3">
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={ingredient.quantity || ""}
-                                onChange={(e) =>
+                              <DecimalInput
+                                value={ingredient.quantity || ''}
+                                onChange={(val) =>
                                   handleIngredientQuantityChange(
                                     idx,
-                                    parseFloat(e.target.value) || 0
+                                    val || 0
                                   )
                                 }
                                 placeholder="0"
-                                className="w-full rounded-lg border border-[#d0bfaf] bg-white px-2.5 py-1.5 text-sm outline-none focus:border-[#d85b30]"
+                                className="w-full min-w-[96px] rounded-lg border border-[#d0bfaf] bg-white px-2.5 py-1.5 text-sm outline-none focus:border-[#d85b30]"
                               />
                             </td>
 
@@ -1131,13 +1637,22 @@ export default function SellerProductsPage() {
                   </table>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleAddIngredient}
-                  className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-[#d85b30] hover:text-[#c04e28] transition"
-                >
-                  <Plus className="h-3.5 w-3.5" /> Add Ingredient
-                </button>
+                <div className="mt-3 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleAddIngredient}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-[#d85b30] hover:text-[#c04e28] transition"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add Ingredient
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowQuickAddModal(true)}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 hover:text-amber-800 transition"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Register New Inventory Item
+                  </button>
+                </div>
               </div>
 
               <div className="sm:col-span-2 border-t border-[#ead8ca] pt-4 mt-2">
@@ -1151,7 +1666,7 @@ export default function SellerProductsPage() {
                 </div>
 
                 <p className="mb-3 text-xs text-[#6f5448]">
-                  Format JPG, PNG, WEBP. Maks 5MB per file. Foto dengan tanda Foto Utama akan dijadikan tampilan utama produk.
+                  Supported formats: JPG, PNG, WEBP (max. 5 MB per file). The image marked as Primary will be used as the main catalog cover.
                 </p>
 
                 <div className="flex flex-wrap gap-3 items-center">
@@ -1269,9 +1784,43 @@ export default function SellerProductsPage() {
                 </div>
               </div>
             </div>
+          </div>
 
-            </div>
-            <div className="flex justify-end gap-3 border-t border-gray-200 p-6 shrink-0">
+          {!isFormValid && missingValidationReasons.length > 0 && (
+              <div className="border-t border-amber-200 bg-amber-50/80 px-6 py-3 shrink-0">
+                <div className="flex items-start gap-2 text-xs text-amber-800">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+                  <div>
+                    <span className="font-semibold">Please complete the following required fields before submitting:</span>
+                    <ul className="mt-1 list-disc list-inside space-y-0.5 text-amber-700">
+                      {missingValidationReasons.map((reason, i) => (
+                        <li key={i}>{reason}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+            {error && (
+              <div className="border-t border-red-200 bg-red-50 px-6 py-3 shrink-0">
+                <div className="flex items-start gap-2.5 text-xs text-red-800">
+                  <AlertCircle className="h-4 w-4 shrink-0 text-red-600 mt-0.5" />
+                  <div className="flex-1">
+                    <span className="font-semibold block text-red-900">Submission Error</span>
+                    <p className="mt-0.5 text-red-700 leading-relaxed font-medium">{error}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setError(null)}
+                    className="text-red-400 hover:text-red-700 p-0.5 rounded transition-colors"
+                    aria-label="Dismiss error"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+            <div className="flex justify-end gap-3 border-t border-gray-200 px-4 sm:px-6 py-3 sm:py-4 shrink-0">
               <button
                 type="button"
                 onClick={() => {
@@ -1305,129 +1854,156 @@ export default function SellerProductsPage() {
       {/* List and Filters */}
       {!isFormOpen && (
         <>
-          <div className="mb-6 flex flex-col sm:flex-row flex-wrap items-center gap-3 rounded-xl bg-white p-4 shadow-sm border border-gray-100">
-            <div className="relative w-full sm:flex-1 sm:min-w-[200px]">
+          <div className="mb-6 flex items-center gap-2 sm:gap-3 rounded-xl bg-white p-2.5 sm:p-4 shadow-sm border border-gray-100">
+            <div className="relative flex-1 min-w-[140px]">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b7166]" />
               <input
                 type="text"
                 placeholder="Search products..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full rounded-lg border border-[#d0bfaf] py-2 pl-9 pr-4 text-sm outline-none focus:border-[#d85b30]"
+                className="w-full rounded-lg border border-[#d0bfaf] py-2 pl-9 pr-3 text-xs sm:text-sm outline-none focus:border-[#d85b30]"
               />
             </div>
-            <div className="relative w-full sm:w-auto flex justify-end">
+
+            {/* Sort By Dropdown */}
+            <SellerSortDropdown
+              id="product-sort"
+              value={sortBy}
+              onChange={(val) => {
+                setSortBy(val as ProductSortOption)
+                setPage(1)
+              }}
+              options={[
+                { label: 'Newest', value: 'newest' },
+                { label: 'Oldest', value: 'oldest' },
+                { label: 'Name: A-Z', value: 'name_asc' },
+                { label: 'Name: Z-A', value: 'name_desc' },
+                { label: 'Price: Low-High', value: 'price_asc' },
+                { label: 'Price: High-Low', value: 'price_desc' },
+              ]}
+              ariaLabel="Sort products"
+            />
+
+            <div className="relative shrink-0 flex justify-end">
               <button
+                type="button"
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
-                className="flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-[#d0bfaf] bg-white px-4 py-2 text-sm font-semibold text-[#4b2417] hover:bg-gray-50"
+                className="flex items-center justify-center gap-1.5 rounded-lg border border-[#d0bfaf] bg-white px-2.5 sm:px-3.5 py-2 text-xs sm:text-sm font-semibold text-[#4b2417] hover:bg-gray-50 cursor-pointer shrink-0"
+                aria-label="Filter products"
               >
-                <Filter className="h-4 w-4" />
-                Filter
+                <Filter className="h-4 w-4 shrink-0 text-[#8b7166]" />
+                <span className="hidden sm:inline">Filter</span>
+                {Object.values(filters).some(Boolean) && (
+                  <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#d85b30] px-1 text-[10px] font-bold text-white">
+                    1
+                  </span>
+                )}
               </button>
 
               {isFilterOpen && (
-                <div className="absolute right-0 top-full mt-2 w-72 rounded-2xl border border-[#ead8ca] bg-white p-4 shadow-xl z-10">
-                  <h3 className="mb-3 text-sm font-bold text-[#4b2417]">Filter Products</h3>
+                <div className="absolute right-0 top-full mt-2 w-[min(300px,calc(100vw-2rem))] sm:w-80 rounded-2xl border border-[#e6d5c5] bg-white p-3.5 sm:p-5 shadow-xl max-h-[75dvh] overflow-y-auto z-50 animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-100">
+                    <h3 className="text-sm font-bold text-[#4b2417]">Filter Products</h3>
+                    <button
+                      type="button"
+                      onClick={() => setIsFilterOpen(false)}
+                      className="text-gray-400 hover:text-gray-600 p-0.5 rounded"
+                      aria-label="Close filters"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
                   
-                  <div className="space-y-4">
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-gray-600">Category</label>
-                      <select 
-                        value={filters.category}
-                        onChange={e => setFilters({...filters, category: e.target.value})}
-                        className="w-full rounded-lg border border-gray-300 p-2 text-sm outline-none focus:border-[#c95b31]"
-                      >
-                        <option value="">All Categories</option>
-                        {categories.map(c => (
-                          <option key={c.id} value={c.name}>{c.name}</option>
-                        ))}
-                      </select>
-                    </div>
+                  <div className="space-y-3">
+                    <SellerFilterSelect
+                      label="Category"
+                      value={filters.category}
+                      onChange={val => setFilters({...filters, category: val})}
+                      options={categories.map(c => ({ label: c.name, value: c.name }))}
+                      placeholder="All Categories"
+                    />
 
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="mb-1 block text-xs font-semibold text-gray-600">Min Price</label>
-                        <input 
-                          type="number"
+                        <label className="mb-1 block text-xs font-semibold text-[#4b2417]">Min Price</label>
+                        <CurrencyInput 
                           placeholder="Min"
                           value={filters.priceMin}
-                          onChange={e => setFilters({...filters, priceMin: e.target.value})}
-                          className="w-full rounded-lg border border-gray-300 p-2 text-sm outline-none focus:border-[#c95b31]"
+                          onChange={(val, raw) => setFilters({...filters, priceMin: raw ? String(val) : ''})}
+                          className="w-full rounded-lg border border-gray-200 p-1.5 sm:p-2 text-xs sm:text-sm text-[#4b2417] outline-none focus:border-[#d85b30]"
                         />
                       </div>
                       <div>
-                        <label className="mb-1 block text-xs font-semibold text-gray-600">Max Price</label>
-                        <input 
-                          type="number"
+                        <label className="mb-1 block text-xs font-semibold text-[#4b2417]">Max Price</label>
+                        <CurrencyInput 
                           placeholder="Max"
                           value={filters.priceMax}
-                          onChange={e => setFilters({...filters, priceMax: e.target.value})}
-                          className="w-full rounded-lg border border-gray-300 p-2 text-sm outline-none focus:border-[#c95b31]"
+                          onChange={(val, raw) => setFilters({...filters, priceMax: raw ? String(val) : ''})}
+                          className="w-full rounded-lg border border-gray-200 p-1.5 sm:p-2 text-xs sm:text-sm text-[#4b2417] outline-none focus:border-[#d85b30]"
                         />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="mb-1 block text-xs font-semibold text-gray-600">Min Order (Min)</label>
-                        <input 
-                          type="number"
+                        <label className="mb-1 block text-xs font-semibold text-[#4b2417]">Min Order (Min)</label>
+                        <DecimalInput 
+                          maxDecimals={0}
                           placeholder="Min"
                           value={filters.minOrderMin}
-                          onChange={e => setFilters({...filters, minOrderMin: e.target.value})}
-                          className="w-full rounded-lg border border-gray-300 p-2 text-sm outline-none focus:border-[#c95b31]"
+                          onChange={(_val, raw) => setFilters({...filters, minOrderMin: raw})}
+                          className="w-full rounded-lg border border-gray-200 p-1.5 sm:p-2 text-xs sm:text-sm text-[#4b2417] outline-none focus:border-[#d85b30]"
                         />
                       </div>
                       <div>
-                        <label className="mb-1 block text-xs font-semibold text-gray-600">Min Order (Max)</label>
-                        <input 
-                          type="number"
+                        <label className="mb-1 block text-xs font-semibold text-[#4b2417]">Min Order (Max)</label>
+                        <DecimalInput 
+                          maxDecimals={0}
                           placeholder="Max"
                           value={filters.minOrderMax}
-                          onChange={e => setFilters({...filters, minOrderMax: e.target.value})}
-                          className="w-full rounded-lg border border-gray-300 p-2 text-sm outline-none focus:border-[#c95b31]"
+                          onChange={(_val, raw) => setFilters({...filters, minOrderMax: raw})}
+                          className="w-full rounded-lg border border-gray-200 p-1.5 sm:p-2 text-xs sm:text-sm text-[#4b2417] outline-none focus:border-[#d85b30]"
                         />
                       </div>
                     </div>
 
                     {viewMode === 'active' && (
-                      <div>
-                        <label className="mb-1 block text-xs font-semibold text-gray-600">Status</label>
-                        <select 
-                          value={filters.status}
-                          onChange={e => setFilters({...filters, status: e.target.value})}
-                          className="w-full rounded-lg border border-gray-300 p-2 text-sm outline-none focus:border-[#c95b31]"
-                        >
-                          <option value="">All Statuses</option>
-                          <option value="active">Active</option>
-                          <option value="inactive">Archived</option>
-                        </select>
-                      </div>
+                      <SellerFilterSelect
+                        label="Status"
+                        value={filters.status}
+                        onChange={val => setFilters({...filters, status: val})}
+                        options={[
+                          { label: 'Active', value: 'active' },
+                          { label: 'Archived', value: 'inactive' }
+                        ]}
+                        placeholder="All Statuses"
+                      />
                     )}
 
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-gray-600">Availability</label>
-                      <select 
-                        value={filters.availability}
-                        onChange={e => setFilters({...filters, availability: e.target.value})}
-                        className="w-full rounded-lg border border-gray-300 p-2 text-sm outline-none focus:border-[#c95b31]"
-                      >
-                        <option value="">All</option>
-                        <option value="available">Available</option>
-                        <option value="unavailable">Unavailable</option>
-                      </select>
-                    </div>
+                    <SellerFilterSelect
+                      label="Availability"
+                      value={filters.availability}
+                      onChange={val => setFilters({...filters, availability: val})}
+                      options={[
+                        { label: 'Available', value: 'available' },
+                        { label: 'Unavailable', value: 'unavailable' }
+                      ]}
+                      placeholder="All"
+                    />
 
-                    <div className="flex gap-2 pt-2 border-t border-gray-100">
+                    <div className="flex gap-2 pt-3 mt-3 border-t border-gray-100">
                       <button 
+                        type="button"
                         onClick={clearFilters}
-                        className="flex-1 rounded-lg px-3 py-2 text-xs font-semibold text-gray-600 bg-gray-100 hover:bg-gray-200 transition"
+                        className="flex-1 rounded-lg px-3 py-2 text-xs sm:text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
                       >
                         Clear All
                       </button>
                       <button 
+                        type="button"
                         onClick={() => setIsFilterOpen(false)}
-                        className="flex-1 rounded-lg px-3 py-2 text-xs font-semibold text-white bg-[#d85b30] hover:bg-[#c04e28] transition"
+                        className="flex-1 rounded-lg px-3 py-2 text-xs sm:text-sm font-semibold text-white bg-[#d85b30] hover:bg-[#c04e28] transition-colors"
                       >
                         Apply Filters
                       </button>
@@ -1464,149 +2040,219 @@ export default function SellerProductsPage() {
                 )}
               </div>
             ) : (
-              <div className="overflow-x-auto w-full max-w-full">
-                <table className="w-full min-w-[800px] text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase text-gray-500">
-                      <th className="p-4 w-64">Product Name</th>
-                      <th className="p-4">Category</th>
-                      <th className="p-4">Price</th>
-                      <th className="p-4">Min. Order</th>
-                      <th className="p-4">Status</th>
-                      <th className="p-4">Availability</th>
-                      <th className="p-4 text-center">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {paginatedProducts.map((product) => (
-                      <tr key={product.id} className="hover:bg-[#fcf8f5] transition-colors">
-                        <td className="p-4">
-                          <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 shrink-0 overflow-hidden rounded bg-gray-100 cursor-pointer" onClick={() => product.image && setViewImageSource(product.image)}>
+              <>
+                {/* Desktop Table View */}
+                <div className="hidden md:block overflow-x-auto w-full max-w-full min-h-[320px]">
+                  <table className="w-full min-w-[800px] text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase text-gray-500">
+                        <th className="p-4 w-64">Product Name</th>
+                        <th className="p-4">Category</th>
+                        <th className="p-4">Price</th>
+                        <th className="p-4">Min. Order</th>
+                        <th className="p-4">Status</th>
+                        <th className="p-4">Availability</th>
+                        <th className="p-4 text-center">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {paginatedProducts.map((product, index) => (
+                        <tr key={product.id} className="hover:bg-[#fcf8f5] transition-colors">
+                          <td className="p-4">
+                            <div className="flex items-center gap-3">
+                              <div className="h-10 w-10 shrink-0 overflow-hidden rounded bg-gray-100 cursor-pointer" onClick={() => product.image && setViewImageSource(product.image)}>
+                                {product.image ? (
+                                  <img src={product.image} alt="" className="h-full w-full object-cover" />
+                                ) : (
+                                  <ImageIcon className="h-5 w-5 m-2.5 text-gray-400" />
+                                )}
+                              </div>
+                              <span className="font-medium truncate max-w-[200px]" title={product.name}>{product.name}</span>
+                            </div>
+                          </td>
+                          <td className="p-4">{product.category}</td>
+                          <td className="p-4">{formatRupiah(product.price)}</td>
+                          <td className="p-4">{product.minimumOrder}</td>
+                          <td className="p-4">
+                            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                              product.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-700'
+                            }`}>
+                              {product.isActive
+                                ? t('products.status_active_badge', 'Status: Active')
+                                : t('products.status_inactive_badge', 'Status: Inactive')}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            {(() => {
+                              const isAvail = isProductAvailable(product);
+                              return (
+                                <div className="flex items-center gap-1.5">
+                                  <span className={`text-sm ${isAvail ? 'text-green-500' : 'text-red-500'}`}>
+                                    {isAvail ? '🟢' : '🔴'}
+                                  </span>
+                                  <span className={`text-sm font-medium ${isAvail ? 'text-green-700' : 'text-red-700'}`}>
+                                    {isAvail ? t('products.available', 'Available') : t('products.unavailable', 'Unavailable')}
+                                  </span>
+                                </div>
+                              );
+                            })()}
+                          </td>
+                          <td className="p-4 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              {/* Direct Action 1: View Detail */}
+                              <button
+                                type="button"
+                                onClick={() => setViewProductModal(product)}
+                                className="rounded-lg p-2 text-gray-600 hover:bg-gray-100 transition-colors"
+                                title={t('products.view_details', 'View Details')}
+                                aria-label={t('products.view_details', 'View Product Details')}
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+
+                              {/* Direct Action 2: Edit Product */}
+                              {canManageProducts && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditClick(product)}
+                                  className="rounded-lg p-2 text-[#d85b30] hover:bg-[#f8eee5] transition-colors"
+                                  title={t('products.edit_product', 'Edit Product')}
+                                  aria-label={t('products.edit_product', 'Edit Product')}
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </button>
+                              )}
+
+                              {/* Dropdown Menu: More Actions */}
+                              {canManageProducts && (
+                                <ProductMoreActionsDropdown
+                                  product={product}
+                                  viewMode={viewMode}
+                                  openUpward={index >= paginatedProducts.length - 2 && paginatedProducts.length > 2}
+                                  onOpenPriceHistory={() => handleOpenPriceHistory(product.backendId, product.name)}
+                                  onOpenRecipeModal={() => setRecipeModalProduct({ id: product.backendId, name: product.name })}
+                                  onArchive={() => handleArchiveClick(product.backendId)}
+                                  onDelete={() => handleDeleteClick(product.backendId)}
+                                  onRestore={() => handleRestoreClick(product.backendId)}
+                                />
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Product Card View */}
+                <div className="block md:hidden divide-y divide-gray-100 p-3 space-y-3">
+                  {paginatedProducts.map((product, index) => {
+                    const isAvail = isProductAvailable(product);
+                    return (
+                      <div key={product.id} className="pt-3 first:pt-0">
+                        <div className="rounded-xl border border-gray-200 bg-white p-3.5 shadow-sm space-y-3">
+                          {/* Top Row: Thumbnail + Product Name + Badges */}
+                          <div className="flex items-start gap-3">
+                            <div 
+                              className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-gray-100 cursor-pointer border border-gray-200 flex items-center justify-center" 
+                              onClick={() => product.image && setViewImageSource(product.image)}
+                            >
                               {product.image ? (
                                 <img src={product.image} alt="" className="h-full w-full object-cover" />
                               ) : (
-                                <ImageIcon className="h-5 w-5 m-2.5 text-gray-400" />
+                                <ImageIcon className="h-6 w-6 text-gray-400" />
                               )}
                             </div>
-                            <span className="font-medium truncate max-w-[200px]" title={product.name}>{product.name}</span>
-                          </div>
-                        </td>
-                        <td className="p-4">{product.category}</td>
-                        <td className="p-4">{formatRupiah(product.price)}</td>
-                        <td className="p-4">{product.minimumOrder}</td>
-                        <td className="p-4">
-                          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                            product.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-700'
-                          }`}>
-                            {product.isActive
-                              ? t('products.status_active_badge', 'Status: Active')
-                              : t('products.status_inactive_badge', 'Status: Inactive')}
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          {(() => {
-                            const isAvail = isProductAvailable(product);
-                            return (
-                              <div className="flex items-center gap-1.5">
-                                <span className={`text-sm ${isAvail ? 'text-green-500' : 'text-red-500'}`}>
-                                  {isAvail ? '🟢' : '🔴'}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-2">
+                                <h4 className="font-bold text-gray-900 text-sm truncate" title={product.name}>
+                                  {product.name}
+                                </h4>
+                                <div className="shrink-0 flex items-center">
+                                  {canManageProducts && (
+                                    <ProductMoreActionsDropdown
+                                      product={product}
+                                      viewMode={viewMode}
+                                      openUpward={index >= paginatedProducts.length - 2 && paginatedProducts.length > 2}
+                                      onOpenPriceHistory={() => handleOpenPriceHistory(product.backendId, product.name)}
+                                      onOpenRecipeModal={() => setRecipeModalProduct({ id: product.backendId, name: product.name })}
+                                      onArchive={() => handleArchiveClick(product.backendId)}
+                                      onDelete={() => handleDeleteClick(product.backendId)}
+                                      onRestore={() => handleRestoreClick(product.backendId)}
+                                    />
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-gray-100 text-gray-700">
+                                  {product.category}
                                 </span>
-                                <span className={`text-sm font-medium ${isAvail ? 'text-green-700' : 'text-red-700'}`}>
-                                  {isAvail ? t('products.available', 'Available') : t('products.unavailable', 'Unavailable')}
+                                <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-semibold ${
+                                  product.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-700'
+                                }`}>
+                                  {product.isActive
+                                    ? t('products.status_active_badge', 'Active')
+                                    : t('products.status_inactive_badge', 'Inactive')}
                                 </span>
                               </div>
-                            );
-                          })()}
-                        </td>
-                        <td className="p-4 text-center">
-                          <div className="flex items-center justify-center gap-2">
+                            </div>
+                          </div>
+
+                          {/* Middle Row: Price, Min Order & Availability */}
+                          <div className="flex items-center justify-between border-t border-gray-50 pt-2 text-xs">
+                            <div>
+                              <span className="text-gray-500">Price: </span>
+                              <span className="font-bold text-gray-900 text-sm">{formatRupiah(product.price)}</span>
+                              <span className="text-gray-400 ml-1.5">(Min: {product.minimumOrder})</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <span className={`text-xs ${isAvail ? 'text-green-500' : 'text-red-500'}`}>
+                                {isAvail ? '🟢' : '🔴'}
+                              </span>
+                              <span className={`text-xs font-semibold ${isAvail ? 'text-green-700' : 'text-red-700'}`}>
+                                {isAvail ? t('products.available', 'Available') : t('products.unavailable', 'Unavailable')}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Bottom Action Buttons */}
+                          <div className="flex items-center gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => setViewProductModal(product)}
+                              className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>{t('products.view_details', 'Details')}</span>
+                            </button>
                             {canManageProducts && (
-                              <>
-                                <button
-                                  onClick={() => handleOpenPriceHistory(product.backendId, product.name)}
-                                  className="rounded-lg p-2 text-purple-600 hover:bg-purple-50 transition-colors"
-                                  title="Price History"
-                                  aria-label="View Price History"
-                                >
-                                  <History className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => setRecipeModalProduct({id: product.backendId, name: product.name})}
-                                  className="rounded-lg p-2 text-blue-600 hover:bg-blue-50 transition-colors"
-                                  title="Recipe"
-                                  aria-label="Manage Recipe"
-                                >
-                                  <FileText className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleEditClick(product)}
-                                  className="rounded-lg p-2 text-[#d85b30] hover:bg-[#f8eee5] transition-colors"
-                                  title="Edit Product"
-                                  aria-label="Edit Product"
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </button>
-                                {viewMode === 'active' && product.isActive && (
-                                  <button
-                                    onClick={() => handleArchiveClick(product.backendId)}
-                                    className="rounded-lg p-2 text-red-600 hover:bg-red-50 transition-colors"
-                                    title="Archive Product"
-                                    aria-label="Archive Product"
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </button>
-                                )}
-                              </>
+                              <button
+                                type="button"
+                                onClick={() => handleEditClick(product)}
+                                className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-[#f8eee5] py-1.5 text-xs font-semibold text-[#d85b30] hover:bg-[#f2dfce]"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                                <span>{t('products.edit_product', 'Edit')}</span>
+                              </button>
                             )}
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
 
             {/* Pagination Controls */}
             {!isFetching && filteredProducts.length > 0 && (
-              <div className="border-t border-gray-100 p-4 flex flex-col sm:flex-row items-center justify-between gap-4 bg-white rounded-b-xl">
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <span>Rows per page:</span>
-                  <select
-                    value={pageSize}
-                    onChange={(e) => {
-                      setPageSize(Number(e.target.value))
-                      setPage(1)
-                    }}
-                    className="rounded border border-gray-300 p-1 outline-none focus:border-[#d85b30]"
-                  >
-                    <option value={10}>10</option>
-                    <option value={25}>25</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                  </select>
-                </div>
-                <div className="flex items-center gap-1 text-sm">
-                  <button
-                    onClick={() => setPage(p => Math.max(1, p - 1))}
-                    disabled={page === 1}
-                    className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50 hover:bg-gray-50"
-                  >
-                    &larr; Previous
-                  </button>
-                  <span className="px-3">
-                    Page {page} of {totalPages}
-                  </span>
-                  <button
-                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                    disabled={page === totalPages}
-                    className="px-3 py-1 rounded border border-gray-300 disabled:opacity-50 hover:bg-gray-50"
-                  >
-                    Next &rarr;
-                  </button>
-                </div>
-              </div>
+              <PaginationControls
+                currentPage={page}
+                limit={pageSize}
+                totalItems={filteredProducts.length}
+                onPageChange={setPage}
+                onLimitChange={setPageSize}
+              />
             )}
           </div>
         </>
@@ -1620,16 +2266,45 @@ export default function SellerProductsPage() {
             <p className="mb-6 text-sm text-gray-600">Are you sure you want to archive this product?</p>
             <div className="flex justify-end gap-3">
               <button
+                type="button"
                 onClick={() => setArchiveConfirmId(null)}
                 className="rounded-xl px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100"
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={confirmArchive}
                 className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
               >
                 Archive
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="mb-2 text-lg font-bold text-red-700">Permanent Delete</h3>
+            <p className="mb-6 text-sm text-gray-600">
+              Are you sure you want to permanently delete this product? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmId(null)}
+                className="rounded-xl px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+              >
+                Delete Permanently
               </button>
             </div>
           </div>
@@ -1672,7 +2347,7 @@ export default function SellerProductsPage() {
           <div className="relative max-w-3xl max-h-[90vh]" onClick={e => e.stopPropagation()}>
             <button 
               onClick={() => setViewImageSource(null)}
-              className="absolute -top-10 right-0 text-white hover:text-gray-300"
+              className="absolute top-4 right-4 sm:-top-10 sm:right-0 text-white hover:text-gray-300"
               aria-label="Close Image"
             >
               <X className="h-8 w-8" />
@@ -1682,12 +2357,133 @@ export default function SellerProductsPage() {
         </div>
       )}
 
+      {/* PRODUCT DETAIL / VIEW MODAL */}
+      {viewProductModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl max-h-[90dvh] sm:max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-xl overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-6 border-b border-gray-100">
+              <div className="flex items-center gap-2.5">
+                <h2 className="text-lg font-bold text-gray-900">
+                  {viewProductModal.name}
+                </h2>
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#f8eee5] text-[#d85b30] font-semibold">
+                  {viewProductModal.category}
+                </span>
+                <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${
+                  viewProductModal.isActive ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'
+                }`}>
+                  {viewProductModal.isActive ? 'Active' : 'Archived'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewProductModal(null)}
+                className="text-gray-400 hover:text-gray-600 rounded-full p-1 hover:bg-gray-100 transition-colors"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="px-4 sm:px-6 py-4 sm:py-6 overflow-y-auto space-y-5">
+              {/* Image & Key Specs */}
+              <div className="flex flex-col sm:flex-row gap-4 items-start">
+                <div className="h-24 w-24 shrink-0 rounded-xl overflow-hidden border border-[#ead8ca] bg-[#efe4d6]">
+                  {viewProductModal.image ? (
+                    <img
+                      src={viewProductModal.image}
+                      alt={viewProductModal.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <ImageIcon className="h-8 w-8 m-8 text-gray-400" />
+                  )}
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 flex-1 text-xs">
+                  <div className="rounded-xl bg-gray-50 p-2.5 border border-gray-100">
+                    <p className="text-gray-500 font-medium">Selling Price</p>
+                    <p className="text-sm font-bold text-[#4b2417] mt-0.5">{formatRupiah(viewProductModal.price)}</p>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 p-2.5 border border-gray-100">
+                    <p className="text-gray-500 font-medium">Estimated HPP</p>
+                    <p className="text-sm font-bold text-gray-800 mt-0.5">{formatRupiah(viewProductModal.hppTotal)}</p>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 p-2.5 border border-gray-100">
+                    <p className="text-gray-500 font-medium">Stock Status</p>
+                    <p className={`font-bold mt-0.5 ${viewProductModal.isInStock ? 'text-green-600' : 'text-red-500'}`}>
+                      {viewProductModal.isInStock ? `In Stock (${viewProductModal.stockQuantity} pcs)` : 'Out of Stock'}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 p-2.5 border border-gray-100">
+                    <p className="text-gray-500 font-medium">Min. Order</p>
+                    <p className="font-bold text-gray-800 mt-0.5">{viewProductModal.minimumOrder ?? 1} pcs</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bilingual Descriptions */}
+              <div className="space-y-3.5">
+                <div className="rounded-xl border border-gray-200 bg-white p-4">
+                  <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 flex items-center gap-2">
+                    <span>Indonesian Description (ID)</span>
+                    <span className="text-[10px] font-semibold text-[#d85b30] bg-[#f8eee5] px-1.5 py-0.5 rounded">Primary</span>
+                  </h4>
+                  <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
+                    {viewProductModal.descriptionId || viewProductModal.description || '-'}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-gray-200 bg-white p-4">
+                  <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5 flex items-center gap-2">
+                    <span>English Description (EN)</span>
+                    <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">Storefront EN</span>
+                  </h4>
+                  {viewProductModal.descriptionEn?.trim() ? (
+                    <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
+                      {viewProductModal.descriptionEn}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-gray-400 italic">
+                      Not provided (falls back to Indonesian description)
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-gray-100 flex justify-end gap-2 bg-gray-50">
+              <button
+                type="button"
+                onClick={() => setViewProductModal(null)}
+                className="rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300 transition-colors"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const target = viewProductModal
+                  setViewProductModal(null)
+                  handleEditClick(target)
+                }}
+                className="rounded-lg bg-[#d85b30] px-4 py-2 text-sm font-semibold text-white hover:bg-[#c04e28] transition-colors"
+              >
+                Edit Product
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* PRICE HISTORY MODAL */}
       {priceHistoryProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-2xl max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-xl overflow-hidden">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl max-h-[90dvh] sm:max-h-[90vh] flex flex-col rounded-2xl bg-white shadow-xl overflow-hidden">
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-6 border-b border-gray-100">
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="text-lg font-bold text-gray-900">
@@ -1712,7 +2508,7 @@ export default function SellerProductsPage() {
             </div>
 
             {/* Content */}
-            <div className="p-6 overflow-y-auto flex-1">
+            <div className="px-4 sm:px-6 py-4 sm:py-6 overflow-y-auto flex-1">
               {isFetchingPriceHistory ? (
                 <div className="space-y-3 animate-pulse py-4">
                   {[1, 2, 3].map(i => (
@@ -1811,6 +2607,30 @@ export default function SellerProductsPage() {
           </div>
         </div>
       )}
+
+      <QuickAddStockModal
+        isOpen={showQuickAddModal}
+        onClose={() => setShowQuickAddModal(false)}
+        onSuccess={handleQuickAddSuccess}
+      />
+
+      <ConfirmationModal
+        isOpen={showHppConfirmModal}
+        title="Selling Price Below HPP"
+        message={
+          formData.harga_jual && formHpp > 0
+            ? `Selling price ${formatRupiah(Number(formData.harga_jual))} is ${formatRupiah(formHpp - Number(formData.harga_jual))} below estimated HPP (${formatRupiah(formHpp)}) per product. Are you sure you want to proceed and save?`
+            : 'The selling price is below the estimated HPP. Are you sure you want to proceed and save?'
+        }
+        confirmText="Save Anyway"
+        cancelText="Cancel"
+        isDestructive={false}
+        onConfirm={async () => {
+          setShowHppConfirmModal(false)
+          await executeSaveProduct()
+        }}
+        onCancel={() => setShowHppConfirmModal(false)}
+      />
 
     </div>
   )

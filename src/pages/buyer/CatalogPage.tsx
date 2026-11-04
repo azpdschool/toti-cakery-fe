@@ -10,12 +10,13 @@ import {
 } from 'lucide-react'
 import {
   getAllProductsDetailed,
-  getCategories,
   type Product,
 } from '@/services/productService'
+import { getBackendCategories } from '@/api/product'
 import { useCart } from '@/context/CartContext'
 import { ProductCard } from '@/components/common/ProductCard'
 import { toast } from 'react-hot-toast'
+import { CurrencyInput } from '@/components/ui/CurrencyInput'
 
 // ============================================================
 // UTILITY
@@ -26,7 +27,9 @@ function searchProducts(products: Product[], keyword: string): Product[] {
   return products.filter((product) => {
     if (product.name.toLowerCase().includes(lower)) return true
     if (product.category.toLowerCase().includes(lower)) return true
-    if (product.description.toLowerCase().includes(lower)) return true
+    if (product.description?.toLowerCase().includes(lower)) return true
+    if (product.descriptionId?.toLowerCase().includes(lower)) return true
+    if (product.descriptionEn?.toLowerCase().includes(lower)) return true
     return product.variants.some((variant) => {
       if (variant.name.toLowerCase().includes(lower)) return true
       return Object.values(variant.options).some((value) =>
@@ -46,20 +49,21 @@ function formatShortRupiah(value: number): string {
 // CATEGORY SCROLLER (same interaction pattern as Home's carousels)
 // ============================================================
 interface CategoryOption {
-  category: string
+  id: number
+  name: string
   count: number
 }
 
 function CategoryScroller({
   categories,
   totalCount,
-  selected,
+  selectedId,
   onSelect,
 }: {
   categories: CategoryOption[]
   totalCount: number
-  selected: string | null
-  onSelect: (category: string | null) => void
+  selectedId: number | null
+  onSelect: (id: number | null) => void
 }) {
   const { t } = useTranslation()
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -117,7 +121,7 @@ function CategoryScroller({
           type="button"
           onClick={() => onSelect(null)}
           className={`shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold transition ${
-            selected === null
+            selectedId === null
               ? 'border-[#9B4A2F] bg-[#9B4A2F] text-white'
               : 'border-[#D0BFAF] bg-white text-[#3A1F16] hover:bg-[#F6EFE6]'
           }`}
@@ -126,18 +130,18 @@ function CategoryScroller({
           <span className="ml-1.5 opacity-70">({totalCount})</span>
         </button>
 
-        {categories.map(({ category, count }) => (
+        {categories.map(({ id, name, count }) => (
           <button
-            key={category}
+            key={id}
             type="button"
-            onClick={() => onSelect(category)}
+            onClick={() => onSelect(id)}
             className={`shrink-0 whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold transition ${
-              selected === category
+              selectedId === id
                 ? 'border-[#9B4A2F] bg-[#9B4A2F] text-white'
                 : 'border-[#D0BFAF] bg-white text-[#3A1F16] hover:bg-[#F6EFE6]'
             }`}
           >
-            {category}
+            {name}
             <span className="ml-1.5 opacity-70">({count})</span>
           </button>
         ))}
@@ -228,28 +232,22 @@ function PriceFilterButton({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-[52px] z-30 w-[min(280px,90vw)] rounded-2xl border border-[#D0BFAF] bg-white p-4 shadow-xl">
+        <div className="absolute right-0 top-[52px] z-30 w-[min(280px,calc(100vw-2rem))] rounded-2xl border border-[#D0BFAF] bg-white p-4 shadow-xl">
           <h3 className="mb-3 text-sm font-black text-[#3A1F16]">{t('catalog.price_filter_title')}</h3>
           <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[#6B4A3C]">
             {t('catalog.price_range')}
           </p>
           <div className="grid grid-cols-2 gap-2">
-            <input
-              type="number"
-              min={0}
-              inputMode="numeric"
+            <CurrencyInput
               placeholder={t('catalog.price_min')}
               value={draftMin}
-              onChange={(e) => setDraftMin(e.target.value)}
+              onChange={(val, raw) => setDraftMin(raw ? String(val) : '')}
               className="w-full rounded-lg border border-[#D0BFAF] px-3 py-2 text-sm outline-none focus:border-[#9B4A2F]"
             />
-            <input
-              type="number"
-              min={0}
-              inputMode="numeric"
+            <CurrencyInput
               placeholder={t('catalog.price_max')}
               value={draftMax}
-              onChange={(e) => setDraftMax(e.target.value)}
+              onChange={(val, raw) => setDraftMax(raw ? String(val) : '')}
               className="w-full rounded-lg border border-[#D0BFAF] px-3 py-2 text-sm outline-none focus:border-[#9B4A2F]"
             />
           </div>
@@ -294,7 +292,7 @@ export default function CatalogPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null)
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '')
   const [priceMin, setPriceMin] = useState('')
   const [priceMax, setPriceMax] = useState('')
@@ -312,12 +310,30 @@ export default function CatalogPage() {
     setLoading(true)
     setError(null)
     try {
-      const [allProducts, catData] = await Promise.all([
+      const [allProducts, masterCategories] = await Promise.all([
         getAllProductsDetailed(),
-        getCategories(),
+        getBackendCategories(),
       ])
       setProducts(allProducts)
-      setCategories(catData)
+
+      const countMap = new Map<number, number>()
+      for (const p of allProducts) {
+        const catId = p.categoryId
+        if (catId && p.isActive !== false) {
+          countMap.set(catId, (countMap.get(catId) || 0) + 1)
+        }
+      }
+
+      const activeCats: CategoryOption[] = masterCategories
+        .map((cat) => ({
+          id: cat.id,
+          name: cat.name,
+          count: countMap.get(cat.id) || 0,
+        }))
+        .filter((cat) => cat.count > 0)
+        .sort((a, b) => a.name.localeCompare(b.name))
+
+      setCategories(activeCats)
     } catch (err: unknown) {
       console.error('Gagal load catalog products:', err)
       const e = err as { response?: { data?: { detail?: unknown } }; message?: string }
@@ -334,14 +350,14 @@ export default function CatalogPage() {
   }, [])
 
   const totalCount = useMemo(
-    () => categories.reduce((acc, c) => acc + c.count, 0),
-    [categories]
+    () => products.filter((p) => p.isActive !== false).length,
+    [products]
   )
 
   const filteredProducts = useMemo(() => {
     let result = products
-    if (selectedCategory) {
-      result = result.filter((p) => p.category === selectedCategory)
+    if (selectedCategoryId !== null) {
+      result = result.filter((p) => p.categoryId === selectedCategoryId)
     }
     if (searchQuery.trim()) {
       result = searchProducts(result, searchQuery)
@@ -357,12 +373,17 @@ export default function CatalogPage() {
       })
     }
     return result
-  }, [products, selectedCategory, searchQuery, priceMin, priceMax])
+  }, [products, selectedCategoryId, searchQuery, priceMin, priceMax])
 
-  const hasActiveFilters = Boolean(selectedCategory || priceMin || priceMax)
+  const selectedCategoryObj = useMemo(
+    () => categories.find((c) => c.id === selectedCategoryId),
+    [categories, selectedCategoryId]
+  )
+
+  const hasActiveFilters = Boolean(selectedCategoryId !== null || priceMin || priceMax)
 
   const clearAllFilters = () => {
-    setSelectedCategory(null)
+    setSelectedCategoryId(null)
     setPriceMin('')
     setPriceMax('')
   }
@@ -450,8 +471,8 @@ export default function CatalogPage() {
         <CategoryScroller
           categories={categories}
           totalCount={totalCount}
-          selected={selectedCategory}
-          onSelect={setSelectedCategory}
+          selectedId={selectedCategoryId}
+          onSelect={setSelectedCategoryId}
         />
       </section>
 
@@ -476,10 +497,10 @@ export default function CatalogPage() {
         {/* ACTIVE FILTER CHIPS */}
         {hasActiveFilters && (
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            {selectedCategory && (
+            {selectedCategoryObj && (
               <span className="flex items-center gap-1.5 rounded-full border border-[#D0BFAF] bg-white px-3 py-1.5 text-xs font-bold text-[#9B4A2F]">
-                {selectedCategory}
-                <button type="button" onClick={() => setSelectedCategory(null)} className="text-[#6B4A3C] hover:text-[#3A1F16]">
+                {selectedCategoryObj.name}
+                <button type="button" onClick={() => setSelectedCategoryId(null)} className="text-[#6B4A3C] hover:text-[#3A1F16]">
                   <X className="h-3.5 w-3.5" />
                 </button>
               </span>

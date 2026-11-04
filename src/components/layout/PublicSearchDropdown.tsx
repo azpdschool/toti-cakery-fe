@@ -1,6 +1,6 @@
 // src/components/layout/PublicSearchDropdown.tsx
 
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import axios from 'axios'
@@ -27,6 +27,12 @@ import { useWhatsApp } from '@/context/WhatsAppContext'
 import { formatRupiah, placeholderImage } from '@/services/productService'
 import { API_BASE_URL, ROUTES } from '@/constants'
 
+type NavItem =
+  | { type: 'product'; data: PublicProductSearchResult }
+  | { type: 'faq'; data: PublicFaqSearchResult }
+  | { type: 'store_info'; data: PublicStoreInfoSearchResult }
+  | { type: 'view_all' }
+
 interface PublicSearchDropdownProps {
   /** Optional callback fired when an item is clicked (e.g. to close mobile menu) */
   onItemClick?: () => void
@@ -51,7 +57,7 @@ export function PublicSearchDropdown({
   placeholder,
   autoFocus = false,
 }: PublicSearchDropdownProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
   const { getWhatsAppUrl, whatsappNumberDisplay } = useWhatsApp()
 
@@ -61,12 +67,35 @@ export function PublicSearchDropdown({
   const [results, setResults] = useState<PublicSearchResponse | null>(null)
   const [isRateLimited, setIsRateLimited] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [highlightedIndex, setHighlightedIndex] = useState<number>(-1)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
 
   const trimmedQuery = query.trim()
+
+  const navItems = useMemo<NavItem[]>(() => {
+    if (!results) return []
+    const items: NavItem[] = []
+    if (results.products) {
+      results.products.forEach((p) => items.push({ type: 'product', data: p }))
+    }
+    if (results.faqs) {
+      results.faqs.forEach((f) => items.push({ type: 'faq', data: f }))
+    }
+    if (results.store_info) {
+      results.store_info.forEach((s) => items.push({ type: 'store_info', data: s }))
+    }
+    if (items.length > 0) {
+      items.push({ type: 'view_all' })
+    }
+    return items
+  }, [results])
+
+  useEffect(() => {
+    setHighlightedIndex(-1)
+  }, [results, query])
 
   // ── Debounced Search Effect (300ms) ───────────────────────────
   useEffect(() => {
@@ -157,6 +186,7 @@ export function PublicSearchDropdown({
   // ── Navigation Handlers ───────────────────────────────────────
   const handleClose = useCallback(() => {
     setIsOpen(false)
+    setHighlightedIndex(-1)
     onItemClick?.()
   }, [onItemClick])
 
@@ -188,10 +218,34 @@ export function PublicSearchDropdown({
     handleClose()
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
+  const handleSelectNavItem = (item: NavItem) => {
+    if (item.type === 'product') {
+      handleSelectProduct(item.data)
+    } else if (item.type === 'faq') {
+      handleSelectFaq(item.data)
+    } else if (item.type === 'store_info') {
+      handleSelectStoreInfo(item.data)
+    } else if (item.type === 'view_all') {
       handleViewAllInCatalog()
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      if (!showDropdown || navItems.length === 0) return
+      e.preventDefault()
+      setHighlightedIndex((prev) => (prev < navItems.length - 1 ? prev + 1 : 0))
+    } else if (e.key === 'ArrowUp') {
+      if (!showDropdown || navItems.length === 0) return
+      e.preventDefault()
+      setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : navItems.length - 1))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      if (highlightedIndex >= 0 && highlightedIndex < navItems.length) {
+        handleSelectNavItem(navItems[highlightedIndex])
+      } else {
+        handleViewAllInCatalog()
+      }
     } else if (e.key === 'Escape') {
       setIsOpen(false)
       inputRef.current?.blur()
@@ -203,6 +257,7 @@ export function PublicSearchDropdown({
     setResults(null)
     setIsRateLimited(false)
     setErrorMessage(null)
+    setHighlightedIndex(-1)
     inputRef.current?.focus()
   }
 
@@ -234,10 +289,11 @@ export function PublicSearchDropdown({
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder || t('search.placeholder', 'Cari dessert favorit kamu...')}
-          className="h-10 w-full rounded-full border border-[#D0BFAF] bg-white/90 pl-10 pr-9 text-xs font-medium text-[#3A1F16] outline-none placeholder:text-[#9C8478] focus:border-[#9B4A2F] focus:bg-white focus:ring-2 focus:ring-[#9B4A2F]/25"
+          className="h-10 w-full rounded-full border border-[#D0BFAF] bg-white/90 pl-10 pr-9 text-base md:text-xs font-medium text-[#3A1F16] outline-none placeholder:text-[#9C8478] focus:border-[#9B4A2F] focus:bg-white focus:ring-2 focus:ring-[#9B4A2F]/25"
           aria-label={t('search.placeholder', 'Cari dessert favorit kamu...')}
           aria-expanded={showDropdown}
           aria-haspopup="listbox"
+          aria-activedescendant={highlightedIndex >= 0 ? `search-item-${highlightedIndex}` : undefined}
         />
 
         {isLoading ? (
@@ -317,37 +373,57 @@ export function PublicSearchDropdown({
                   </div>
 
                   <div className="space-y-1">
-                    {results?.products.map((product) => (
-                      <button
-                        key={product.id}
-                        type="button"
-                        onClick={() => handleSelectProduct(product)}
-                        className="flex w-full items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-[#F6EFE6] focus:bg-[#F6EFE6] focus:outline-none"
-                      >
-                        <img
-                          src={resolveProductImage(product.image_url)}
-                          alt={product.nama_produk}
-                          className="h-11 w-11 shrink-0 rounded-lg object-cover ring-1 ring-[#D0BFAF]/60"
-                          loading="lazy"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-xs font-bold text-[#3A1F16]">
-                            {product.nama_produk}
-                          </p>
-                          <div className="mt-0.5 flex items-center gap-2 text-[11px]">
-                            {product.kategori && (
-                              <span className="rounded bg-[#EFE4D6] px-1.5 py-0.5 text-[10px] font-medium text-[#6B4A3C]">
-                                {product.kategori}
+                    {results?.products.map((product) => {
+                      const itemIndex = navItems.findIndex((item) => item.type === 'product' && item.data.id === product.id)
+                      const isHighlighted = highlightedIndex === itemIndex
+                      return (
+                        <button
+                          key={product.id}
+                          id={`search-item-${itemIndex}`}
+                          role="option"
+                          aria-selected={isHighlighted}
+                          type="button"
+                          onMouseEnter={() => setHighlightedIndex(itemIndex)}
+                          onClick={() => handleSelectProduct(product)}
+                          className={`flex w-full items-center gap-3 rounded-xl p-2 text-left transition-colors focus:outline-none ${
+                            isHighlighted ? 'bg-[#F6EFE6] ring-1 ring-[#9B4A2F]/40' : 'hover:bg-[#F6EFE6]'
+                          }`}
+                        >
+                          <img
+                            src={resolveProductImage(product.image_url)}
+                            alt={product.nama_produk}
+                            className="h-11 w-11 shrink-0 rounded-lg object-cover ring-1 ring-[#D0BFAF]/60"
+                            loading="lazy"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs font-bold text-[#3A1F16]">
+                              {product.nama_produk}
+                            </p>
+                            {(() => {
+                              const desc = i18n.language?.toLowerCase().startsWith('en')
+                                ? (product.deskripsi_en || product.deskripsi_id || product.deskripsi)
+                                : (product.deskripsi_id || product.deskripsi);
+                              return desc ? (
+                                <p className="truncate text-[10px] text-[#6B4A3C]/80 mt-0.5" title={desc}>
+                                  {desc}
+                                </p>
+                              ) : null;
+                            })()}
+                            <div className="mt-0.5 flex items-center gap-2 text-[11px]">
+                              {product.kategori && (
+                                <span className="rounded bg-[#EFE4D6] px-1.5 py-0.5 text-[10px] font-medium text-[#6B4A3C]">
+                                  {product.kategori}
+                                </span>
+                              )}
+                              <span className="font-semibold text-[#9B4A2F]">
+                                {formatRupiah(product.harga_jual)}
                               </span>
-                            )}
-                            <span className="font-semibold text-[#9B4A2F]">
-                              {formatRupiah(product.harga_jual)}
-                            </span>
+                            </div>
                           </div>
-                        </div>
-                        <ChevronRight className="h-4 w-4 shrink-0 text-[#9C8478] opacity-60" />
-                      </button>
-                    ))}
+                          <ChevronRight className="h-4 w-4 shrink-0 text-[#9C8478] opacity-60" />
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
               )}
@@ -361,24 +437,34 @@ export function PublicSearchDropdown({
                   </div>
 
                   <div className="space-y-1">
-                    {results?.faqs.map((faq) => (
-                      <button
-                        key={faq.id}
-                        type="button"
-                        onClick={() => handleSelectFaq(faq)}
-                        className="flex w-full items-start gap-2.5 rounded-xl p-2.5 text-left transition-colors hover:bg-[#F6EFE6] focus:bg-[#F6EFE6] focus:outline-none"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-semibold text-[#3A1F16]">
-                            {faq.pertanyaan}
-                          </p>
-                          <p className="mt-0.5 line-clamp-1 text-[11px] text-[#6B4A3C]">
-                            {faq.jawaban}
-                          </p>
-                        </div>
-                        <ChevronRight className="mt-1 h-3.5 w-3.5 shrink-0 text-[#9C8478] opacity-60" />
-                      </button>
-                    ))}
+                    {results?.faqs.map((faq) => {
+                      const itemIndex = navItems.findIndex((item) => item.type === 'faq' && item.data.id === faq.id)
+                      const isHighlighted = highlightedIndex === itemIndex
+                      return (
+                        <button
+                          key={faq.id}
+                          id={`search-item-${itemIndex}`}
+                          role="option"
+                          aria-selected={isHighlighted}
+                          type="button"
+                          onMouseEnter={() => setHighlightedIndex(itemIndex)}
+                          onClick={() => handleSelectFaq(faq)}
+                          className={`flex w-full items-start gap-2.5 rounded-xl p-2.5 text-left transition-colors focus:outline-none ${
+                            isHighlighted ? 'bg-[#F6EFE6] ring-1 ring-[#9B4A2F]/40' : 'hover:bg-[#F6EFE6]'
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-semibold text-[#3A1F16]">
+                              {faq.pertanyaan}
+                            </p>
+                            <p className="mt-0.5 line-clamp-1 text-[11px] text-[#6B4A3C]">
+                              {faq.jawaban}
+                            </p>
+                          </div>
+                          <ChevronRight className="mt-1 h-3.5 w-3.5 shrink-0 text-[#9C8478] opacity-60" />
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
               )}
@@ -392,56 +478,78 @@ export function PublicSearchDropdown({
                   </div>
 
                   <div className="space-y-1">
-                    {results?.store_info.map((info) => (
-                      <button
-                        key={info.key}
-                        type="button"
-                        onClick={() => handleSelectStoreInfo(info)}
-                        className="flex w-full items-center justify-between gap-3 rounded-xl border border-[#25D366]/30 bg-[#25D366]/5 p-3 text-left transition-colors hover:bg-[#25D366]/10 focus:outline-none"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-[#1E3A24]">
-                              {info.title}
-                            </span>
-                            {whatsappNumberDisplay && (
-                              <span className="rounded-full bg-[#25D366]/20 px-2 py-0.5 text-[10px] font-semibold text-[#1E3A24]">
-                                {whatsappNumberDisplay}
+                    {results?.store_info.map((info) => {
+                      const itemIndex = navItems.findIndex((item) => item.type === 'store_info' && item.data.key === info.key)
+                      const isHighlighted = highlightedIndex === itemIndex
+                      return (
+                        <button
+                          key={info.key}
+                          id={`search-item-${itemIndex}`}
+                          role="option"
+                          aria-selected={isHighlighted}
+                          type="button"
+                          onMouseEnter={() => setHighlightedIndex(itemIndex)}
+                          onClick={() => handleSelectStoreInfo(info)}
+                          className={`flex w-full items-center justify-between gap-3 rounded-xl border border-[#25D366]/30 p-3 text-left transition-colors focus:outline-none ${
+                            isHighlighted ? 'bg-[#25D366]/20 ring-1 ring-[#25D366]' : 'bg-[#25D366]/5 hover:bg-[#25D366]/10'
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-[#1E3A24]">
+                                {info.title}
                               </span>
-                            )}
+                              {whatsappNumberDisplay && (
+                                <span className="rounded-full bg-[#25D366]/20 px-2 py-0.5 text-[10px] font-semibold text-[#1E3A24]">
+                                  {whatsappNumberDisplay}
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-0.5 text-[11px] text-[#2F5E38]">
+                              {info.description}
+                            </p>
                           </div>
-                          <p className="mt-0.5 text-[11px] text-[#2F5E38]">
-                            {info.description}
-                          </p>
-                        </div>
 
-                        <div className="flex shrink-0 items-center gap-1 text-xs font-bold text-[#25D366]">
-                          <span className="hidden sm:inline">
-                            {t('search.open_whatsapp', 'Chat via WhatsApp')}
-                          </span>
-                          <ExternalLink className="h-4 w-4" />
-                        </div>
-                      </button>
-                    ))}
+                          <div className="flex shrink-0 items-center gap-1 text-xs font-bold text-[#25D366]">
+                            <span className="hidden sm:inline">
+                              {t('search.open_whatsapp', 'Chat via WhatsApp')}
+                            </span>
+                            <ExternalLink className="h-4 w-4" />
+                          </div>
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
               )}
 
               {/* Footer: View All In Catalog */}
               <div className="border-t border-[#EFE4D6] pt-2">
-                <button
-                  type="button"
-                  onClick={handleViewAllInCatalog}
-                  className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-semibold text-[#9B4A2F] transition-colors hover:bg-[#F6EFE6]"
-                >
-                  <span>
-                    {t('search.view_all_catalog', {
-                      query: trimmedQuery,
-                      defaultValue: `Lihat semua produk untuk "${trimmedQuery}"`,
-                    })}
-                  </span>
-                  <ChevronRight className="h-4 w-4" />
-                </button>
+                {(() => {
+                  const viewAllIndex = navItems.findIndex((item) => item.type === 'view_all')
+                  const isViewAllHighlighted = highlightedIndex === viewAllIndex
+                  return (
+                    <button
+                      id={`search-item-${viewAllIndex}`}
+                      role="option"
+                      aria-selected={isViewAllHighlighted}
+                      type="button"
+                      onMouseEnter={() => setHighlightedIndex(viewAllIndex)}
+                      onClick={handleViewAllInCatalog}
+                      className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-semibold text-[#9B4A2F] transition-colors ${
+                        isViewAllHighlighted ? 'bg-[#F6EFE6] ring-1 ring-[#9B4A2F]/40' : 'hover:bg-[#F6EFE6]'
+                      }`}
+                    >
+                      <span>
+                        {t('search.view_all_catalog', {
+                          query: trimmedQuery,
+                          defaultValue: `Lihat semua produk untuk "${trimmedQuery}"`,
+                        })}
+                      </span>
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  )
+                })()}
               </div>
             </div>
           )}

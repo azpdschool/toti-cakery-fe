@@ -42,7 +42,10 @@ export interface Product {
   slug: string;
   name: string;
   category: string;
+  categoryId?: number | null;
   description: string;
+  descriptionId?: string | null;
+  descriptionEn?: string | null;
 
   /**
    * URL final yang siap dipakai <img src={product.image} />
@@ -101,7 +104,10 @@ export interface SimpleProduct {
   slug: string;
   name: string;
   category: string;
+  categoryId?: number | null;
   description: string;
+  descriptionId?: string | null;
+  descriptionEn?: string | null;
 
   /**
    * URL final yang siap dipakai <img src={product.image} />
@@ -154,7 +160,10 @@ export interface CategorySummary {
 export interface ProductCreateDTO {
   nama_produk: string;
   deskripsi?: string | null;
+  deskripsi_id?: string | null;
+  deskripsi_en?: string | null;
   kategori?: string | null;
+  category_id?: number | null;
   harga_jual?: number | string | null;
   minimum_order?: number;
   is_active?: boolean;

@@ -1,26 +1,21 @@
-import { useRef, useState, useEffect } from 'react'
-import { Package, TrendingUp, ShoppingBag, Clock, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Package, TrendingUp, ShoppingBag, Clock, AlertCircle } from 'lucide-react'
 import { fetchReportSummary, type ReportSummary } from '@/api/reports'
-import { getOrders, type Order } from '@/services/sellerOrderService'
 import { getInventoryItems, type InventoryItem } from '@/services/sellerInventoryService'
-import { formatSellerOrderStatus } from '@/utils/labelSanitizer'
+import { HorizontalCardScroller } from '@/components/common/HorizontalCardScroller'
+import { PageHeader } from '@/components/ui/PageHeader'
+import { OrdersDueTodaySection } from '@/components/seller/OrdersDueTodaySection'
 
 export default function SellerDashboardPage() {
+  const navigate = useNavigate()
   const [reportData, setReportData] = useState<ReportSummary | null>(null)
   const [reportLoading, setReportLoading] = useState(true)
   const [reportError, setReportError] = useState(false)
 
-  const [ordersDueToday, setOrdersDueToday] = useState<Order[]>([])
-  const [ordersLoading, setOrdersLoading] = useState(true)
-  const [ordersError, setOrdersError] = useState(false)
-
   const [inventoryAttention, setInventoryAttention] = useState<InventoryItem[]>([])
   const [inventoryLoading, setInventoryLoading] = useState(true)
   const [inventoryError, setInventoryError] = useState(false)
-
-  const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const [showLeftArrow, setShowLeftArrow] = useState(false)
-  const [showRightArrow, setShowRightArrow] = useState(false)
 
   useEffect(() => {
     let ignore = false
@@ -39,28 +34,6 @@ export default function SellerDashboardPage() {
           console.error(err)
           setReportError(true)
           setReportLoading(false)
-        })
-
-      // Backend needs to support `GET /orders?fulfillment_date=YYYY-MM-DD` or `GET /reports/due-today`
-      // to avoid downloading large lists just to find orders due today.
-      const todayStr = new Date().toISOString().split('T')[0]
-      getOrders({ fulfillment_date: todayStr } as any)
-        .then(res => {
-          if (ignore) return
-          // Filter fallback using fulfillment_date
-          const dueToday = res.filter(o => {
-            const fDate = o.rawFulfillmentDate || o.fulfillment_date
-            return fDate && fDate.split('T')[0] === todayStr
-          })
-          setOrdersDueToday(dueToday)
-          setOrdersError(false)
-          setOrdersLoading(false)
-        })
-        .catch(err => {
-          if (ignore) return
-          console.error(err)
-          setOrdersError(true)
-          setOrdersLoading(false)
         })
 
       // Inventory needs attention
@@ -87,29 +60,6 @@ export default function SellerDashboardPage() {
     }
   }, [])
 
-  const handleScroll = () => {
-    if (!scrollContainerRef.current) return
-    const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current
-    setShowLeftArrow(scrollLeft > 0)
-    setShowRightArrow(Math.ceil(scrollLeft + clientWidth) < scrollWidth)
-  }
-
-  useEffect(() => {
-    handleScroll()
-    window.addEventListener('resize', handleScroll)
-    return () => window.removeEventListener('resize', handleScroll)
-  }, [reportData]) // Re-check when data loads
-
-  const scroll = (direction: 'left' | 'right') => {
-    if (scrollContainerRef.current) {
-      const scrollAmount = scrollContainerRef.current.clientWidth * 0.8
-      scrollContainerRef.current.scrollBy({
-        left: direction === 'left' ? -scrollAmount : scrollAmount,
-        behavior: 'smooth'
-      })
-    }
-  }
-
   // Formatting helpers
   const formatCurrency = (amount: number) => {
     return `Rp ${amount.toLocaleString('id-ID')}`
@@ -118,10 +68,10 @@ export default function SellerDashboardPage() {
   return (
     <div className="space-y-8 pb-10 max-w-full">
       {/* 1. Page Header */}
-      <div>
-        <h1 className="text-2xl font-black text-gray-900">Seller Dashboard</h1>
-        <p className="mt-1 text-sm text-gray-600">Toti Cakery store performance summary</p>
-      </div>
+      <PageHeader
+        title="Seller Dashboard"
+        description="Toti Cakery store performance summary"
+      />
 
       {/* 2. Inventory Needs Attention */}
       <section>
@@ -137,7 +87,7 @@ export default function SellerDashboardPage() {
               <p className="text-sm text-gray-600">Unable to load this information right now.</p>
             </div>
           ) : inventoryAttention.length > 0 ? (
-            <div className="w-full flex gap-3 overflow-x-auto no-scrollbar scroll-smooth snap-x pb-2" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <HorizontalCardScroller scrollContainerClassName="gap-3 pb-2">
               {inventoryAttention.map(item => (
                 <div key={item.id} className={`flex-shrink-0 snap-start border rounded-lg px-4 py-3 min-w-[200px] ${item.stock === 0 ? 'border-red-200 bg-red-50' : 'border-yellow-200 bg-yellow-50'}`}>
                   <p className="font-semibold text-gray-900 truncate">{item.name}</p>
@@ -149,7 +99,7 @@ export default function SellerDashboardPage() {
                   </div>
                 </div>
               ))}
-            </div>
+            </HorizontalCardScroller>
           ) : (
             <div className="text-sm text-gray-600 w-full text-center">
                <p>No inventory items need attention.</p>
@@ -159,135 +109,74 @@ export default function SellerDashboardPage() {
       </section>
 
       {/* 3. Orders Due Today */}
-      <section>
-        <h2 className="text-lg font-bold text-gray-900 mb-3">Orders Due Today</h2>
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm min-h-[100px]">
-          {ordersLoading ? (
-            <div className="space-y-3">
-              <div className="h-4 bg-gray-200 rounded animate-pulse w-full"></div>
-              <div className="h-4 bg-gray-200 rounded animate-pulse w-full"></div>
-            </div>
-          ) : ordersError ? (
-            <div className="flex flex-col items-center justify-center h-full text-center py-4">
-              <AlertCircle className="mx-auto h-6 w-6 text-red-500 mb-2" />
-              <p className="text-sm text-gray-600">Unable to load this information right now.</p>
-              <button 
-                onClick={() => window.location.reload()} 
-                className="mt-3 text-sm font-semibold text-blue-600 hover:underline"
-              >
-                Retry
-              </button>
-            </div>
-          ) : ordersDueToday.length > 0 ? (
-            <ul className="space-y-3">
-              {ordersDueToday.map((order, i) => (
-                <li key={i} className="flex items-center justify-between text-sm p-4 bg-gray-50 border border-gray-100 rounded-xl">
-                  <div className="flex flex-col">
-                    <span className="font-bold text-gray-900">{order.orderNumber}</span>
-                    <span className="text-gray-600">{order.customerName}</span>
-                  </div>
-                  <div className="flex flex-col items-end">
-                    <span className="font-bold text-gray-900">{formatCurrency(order.total)}</span>
-                    {(() => {
-                      const badge = formatSellerOrderStatus(order);
-                      return (
-                        <span className={`text-xs px-2 py-0.5 rounded-full mt-1 font-semibold ${badge.className}`}>
-                          {badge.label}
-                        </span>
-                      );
-                    })()}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="flex items-center justify-center h-full py-4">
-              <p className="text-sm text-gray-600">No orders are due today.</p>
-            </div>
-          )}
-        </div>
-      </section>
+      <OrdersDueTodaySection
+        onOrderClick={(orderId) => navigate(`/seller/orders?orderId=${orderId}`)}
+      />
 
       {/* 4. KPI / Summary Cards */}
       <section className="relative group max-w-full">
-        
-        {showLeftArrow && (
-          <button 
-            onClick={() => scroll('left')}
-            className="absolute left-0 top-1/2 -translate-y-1/2 -ml-3 md:-ml-4 z-10 bg-white shadow-md border border-gray-200 rounded-full p-2 text-gray-600 hover:text-gray-900 focus:outline-none transition-opacity"
-            aria-label="Scroll left"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-        )}
-
-        <div 
-          ref={scrollContainerRef}
-          onScroll={handleScroll}
-          className="flex overflow-x-auto gap-4 pb-4 snap-x snap-mandatory hide-scrollbar"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-        >
+        <HorizontalCardScroller scrollContainerClassName="gap-3 sm:gap-4 pb-3 sm:pb-4 snap-mandatory">
           {/* Total Products */}
-          <div className="snap-start flex-none w-[280px] md:w-[300px] lg:flex-1 lg:min-w-[240px] rounded-2xl border border-gray-200 bg-white p-5 shadow-sm flex flex-col h-full">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50">
-                <Package className="h-5 w-5 text-blue-600" />
+          <div className="snap-start flex-none w-[165px] sm:w-[280px] md:w-[300px] lg:flex-1 lg:min-w-[240px] rounded-xl sm:rounded-2xl border border-gray-200 bg-white p-3.5 sm:p-5 shadow-sm flex flex-col h-full">
+            <div className="flex items-center justify-between mb-2.5 sm:mb-4">
+              <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-blue-50">
+                <Package className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
               </div>
             </div>
-            <p className="text-sm font-semibold text-gray-500 mb-1">Total Products</p>
+            <p className="text-xs sm:text-sm font-semibold text-gray-500 mb-1">Total Products</p>
             {reportLoading ? (
-               <div className="h-8 bg-gray-200 rounded animate-pulse w-1/2"></div>
+               <div className="h-6 sm:h-8 bg-gray-200 rounded animate-pulse w-1/2"></div>
             ) : reportError ? (
-               <p className="text-xl font-black text-gray-900">N/A</p>
+               <p className="text-lg sm:text-xl font-black text-gray-900">N/A</p>
             ) : (
-               <p className="text-3xl font-black text-gray-900 break-words">{reportData?.total_products ?? 0}</p>
+               <p className="text-xl sm:text-3xl font-black text-gray-900 break-words truncate" title={String(reportData?.total_products ?? 0)}>{reportData?.total_products ?? 0}</p>
             )}
           </div>
 
           {/* Active Products */}
-          <div className="snap-start flex-none w-[280px] md:w-[300px] lg:flex-1 lg:min-w-[240px] rounded-2xl border border-gray-200 bg-white p-5 shadow-sm flex flex-col h-full">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-50">
-                <TrendingUp className="h-5 w-5 text-green-600" />
+          <div className="snap-start flex-none w-[165px] sm:w-[280px] md:w-[300px] lg:flex-1 lg:min-w-[240px] rounded-xl sm:rounded-2xl border border-gray-200 bg-white p-3.5 sm:p-5 shadow-sm flex flex-col h-full">
+            <div className="flex items-center justify-between mb-2.5 sm:mb-4">
+              <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-green-50">
+                <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
               </div>
             </div>
-            <p className="text-sm font-semibold text-gray-500 mb-1">Active Products</p>
+            <p className="text-xs sm:text-sm font-semibold text-gray-500 mb-1">Active Products</p>
             {reportLoading ? (
-               <div className="h-8 bg-gray-200 rounded animate-pulse w-1/2"></div>
+               <div className="h-6 sm:h-8 bg-gray-200 rounded animate-pulse w-1/2"></div>
             ) : reportError ? (
-               <p className="text-xl font-black text-gray-900">N/A</p>
+               <p className="text-lg sm:text-xl font-black text-gray-900">N/A</p>
             ) : (
-               <p className="text-3xl font-black text-gray-900 break-words">{reportData?.active_products ?? 0}</p>
+               <p className="text-xl sm:text-3xl font-black text-gray-900 break-words truncate" title={String(reportData?.active_products ?? 0)}>{reportData?.active_products ?? 0}</p>
             )}
           </div>
 
           {/* Total Sales */}
-          <div className="snap-start flex-none w-[280px] md:w-[300px] lg:flex-1 lg:min-w-[240px] rounded-2xl border border-gray-200 bg-white p-5 shadow-sm flex flex-col h-full">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-50">
-                <ShoppingBag className="h-5 w-5 text-orange-600" />
+          <div className="snap-start flex-none w-[165px] sm:w-[280px] md:w-[300px] lg:flex-1 lg:min-w-[240px] rounded-xl sm:rounded-2xl border border-gray-200 bg-white p-3.5 sm:p-5 shadow-sm flex flex-col h-full">
+            <div className="flex items-center justify-between mb-2.5 sm:mb-4">
+              <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-orange-50">
+                <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600" />
               </div>
             </div>
-            <p className="text-sm font-semibold text-gray-500 mb-1">Total Sales</p>
+            <p className="text-xs sm:text-sm font-semibold text-gray-500 mb-1">Total Sales</p>
             {reportLoading ? (
-               <div className="h-8 bg-gray-200 rounded animate-pulse w-3/4"></div>
+               <div className="h-6 sm:h-8 bg-gray-200 rounded animate-pulse w-3/4"></div>
             ) : reportError ? (
-               <p className="text-xl font-black text-gray-900">N/A</p>
+               <p className="text-lg sm:text-xl font-black text-gray-900">N/A</p>
             ) : (
-               <p className="text-2xl md:text-3xl font-black text-gray-900 break-words leading-tight">
+               <p className="text-lg sm:text-2xl md:text-3xl font-black text-gray-900 break-words leading-tight truncate" title={formatCurrency(reportData?.total_revenue ?? 0)}>
                  {formatCurrency(reportData?.total_revenue ?? 0)}
                </p>
             )}
           </div>
 
           {/* Recent Orders */}
-          <div className="snap-start flex-none w-[280px] md:w-[300px] lg:flex-1 lg:min-w-[240px] rounded-2xl border border-gray-200 bg-white p-5 shadow-sm flex flex-col h-full overflow-hidden">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-50">
-                <Clock className="h-5 w-5 text-purple-600" />
+          <div className="snap-start flex-none w-[200px] sm:w-[280px] md:w-[300px] lg:flex-1 lg:min-w-[240px] rounded-xl sm:rounded-2xl border border-gray-200 bg-white p-3.5 sm:p-5 shadow-sm flex flex-col h-full overflow-hidden">
+            <div className="flex items-center justify-between mb-2.5 sm:mb-4">
+              <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-purple-50">
+                <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />
               </div>
             </div>
-            <p className="text-sm font-semibold text-gray-500 mb-2">Recent Orders</p>
+            <p className="text-xs sm:text-sm font-semibold text-gray-500 mb-1.5 sm:mb-2">Recent Orders</p>
             {reportLoading ? (
                <div className="space-y-2">
                  <div className="h-4 bg-gray-200 rounded animate-pulse w-full"></div>
@@ -315,18 +204,7 @@ export default function SellerDashboardPage() {
                </div>
             )}
           </div>
-        </div>
-
-        {showRightArrow && (
-          <button 
-            onClick={() => scroll('right')}
-            className="absolute right-0 top-1/2 -translate-y-1/2 -mr-3 md:-mr-4 z-10 bg-white shadow-md border border-gray-200 rounded-full p-2 text-gray-600 hover:text-gray-900 focus:outline-none transition-opacity"
-            aria-label="Scroll right"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
-        )}
-
+        </HorizontalCardScroller>
       </section>
 
       <style>{`

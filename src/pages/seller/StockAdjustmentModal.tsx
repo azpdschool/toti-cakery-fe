@@ -3,6 +3,8 @@ import { X } from 'lucide-react';
 import { adjustStockService, type InventoryItem } from '@/services/sellerInventoryService';
 import { toast } from 'react-hot-toast';
 import { friendlyError } from '@/utils/inventoryLabels';
+import { DecimalInput } from '@/components/ui/DecimalInput';
+import { CurrencyInput } from '@/components/ui/CurrencyInput';
 
 interface Props {
   isOpen: boolean;
@@ -73,11 +75,10 @@ export default function StockAdjustmentModal({ isOpen, item, onClose, onSuccess 
           </div>
           <div>
             <label className="block text-sm font-semibold text-[#4b2417]">Stock Change (+/-) <span className="text-red-500">*</span></label>
-            <input
-              type="number"
-              step="any"
+            <DecimalInput
+              allowNegative={true}
               value={quantityDiff}
-              onChange={(e) => setQuantityDiff(e.target.value)}
+              onChange={(_val, raw) => setQuantityDiff(raw)}
               placeholder="e.g. -2 or 3"
               className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
               required
@@ -104,12 +105,9 @@ export default function StockAdjustmentModal({ isOpen, item, onClose, onSuccess 
           </div>
           <div>
             <label className="block text-sm font-semibold text-[#4b2417]">Average Cost (Optional)</label>
-            <input
-              type="number"
-              step="any"
-              min="0"
+            <CurrencyInput
               value={unitCost}
-              onChange={(e) => setUnitCost(e.target.value)}
+              onChange={(val, raw) => setUnitCost(raw ? String(val) : '')}
               title="Average buying price. Updates when a purchase is received."
               placeholder="Leave empty if N/A"
               className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"

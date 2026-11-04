@@ -16,17 +16,20 @@ import {
   Plus,
   Calendar,
   X,
-  ChevronLeft,
-  ChevronRight,
   Filter,
   Search,
   BarChart2,
-  Table as TableIcon
+  Table as TableIcon,
 } from 'lucide-react';
+import { SellerSortDropdown } from '@/components/ui/SellerSortDropdown';
+import { SellerFilterSelect } from '@/components/ui/SellerFilterSelect';
+import { PaginationControls } from '@/components/ui/PaginationControls';
+import { HorizontalCardScroller } from '@/components/common/HorizontalCardScroller';
 import { formatRupiah } from '@/services/productService';
+import { CurrencyInput } from '@/components/ui/CurrencyInput';
 import {
   getFinanceStats,
-  getExpenseCategories,
+  getExpenseSummaryDashboard,
   getExpenseList,
   addExpense,
   updateExpense,
@@ -34,60 +37,42 @@ import {
   getExpenseAudit,
   fetchSalesTrends,
   type FinanceStats,
-  type ExpenseCategory,
+  type ExpenseDashboardSummary,
   type ExpenseAuditItem,
   type SalesTrendsResponse,
 } from '@/services/sellerFinanceService';
+import {
+  formatDateToLocalYYYYMMDD,
+  getTodayLocal,
+  getStartOfMonthLocal,
+  getEndOfMonthLocal,
+} from '@/utils/date';
 import type { ExpenseDetailResponse, ExpensePaymentMethod } from '@/types/expense';
+import type { ProductProfitabilityItem, SupplierSpendingItem } from '@/types/finance';
+import { PageHeader } from '@/components/ui/PageHeader';
 import { hasPermission } from '@/services/rbacService';
 import { useAuth } from '@/hooks/useAuth';
 import type { UserRole } from '@/services/sellerSettingsService';
 import { ROUTES } from '@/constants';
+
+const EXPENSE_PAYMENT_LABELS: Record<string, string> = {
+  cash: 'Cash',
+  bank_transfer: 'Bank Transfer',
+  e_wallet: 'E-Wallet',
+  card: 'Card',
+  other: 'Other'
+};
 
 // ============================================================
 // HORIZONTAL SCROLL CONTAINER
 // ============================================================
 
 function HorizontalScrollContainer({ children }: { children: React.ReactNode }) {
-  const containerRef = useState<HTMLDivElement | null>(null);
-
-  const scrollLeft = () => {
-    if (containerRef[0]) {
-      containerRef[0].scrollBy({ left: -300, behavior: 'smooth' });
-    }
-  };
-
-  const scrollRight = () => {
-    if (containerRef[0]) {
-      containerRef[0].scrollBy({ left: 300, behavior: 'smooth' });
-    }
-  };
-
   return (
-    <div className="group relative">
-      <button 
-        onClick={scrollLeft}
-        className="absolute left-0 top-1/2 z-10 -translate-y-1/2 -ml-4 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md border border-gray-100 opacity-0 transition-opacity group-hover:opacity-100 disabled:opacity-0"
-        aria-label="Previous"
-      >
-        <ChevronLeft className="h-5 w-5 text-gray-600" />
-      </button>
-      
-      <div 
-        ref={(el) => containerRef[1](el)}
-        className="flex gap-4 overflow-x-auto pb-4 snap-x hide-scrollbar"
-        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-      >
+    <div className="min-w-0 max-w-full">
+      <HorizontalCardScroller scrollContainerClassName="gap-3 sm:gap-4 pb-3 sm:pb-4 snap-x">
         {children}
-      </div>
-
-      <button 
-        onClick={scrollRight}
-        className="absolute right-0 top-1/2 z-10 -translate-y-1/2 -mr-4 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md border border-gray-100 opacity-0 transition-opacity group-hover:opacity-100 disabled:opacity-0"
-        aria-label="Next"
-      >
-        <ChevronRight className="h-5 w-5 text-gray-600" />
-      </button>
+      </HorizontalCardScroller>
     </div>
   );
 }
@@ -108,24 +93,24 @@ interface StatCardProps {
 function StatCard({ title, value, icon: Icon, color, subtitle, isLoading }: StatCardProps) {
   if (isLoading) {
     return (
-      <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100 shrink-0 min-w-[240px] snap-start animate-pulse">
-        <div className="h-10 w-10 rounded-full bg-gray-200 mb-4"></div>
-        <div className="h-8 w-32 bg-gray-200 rounded mb-2"></div>
-        <div className="h-4 w-24 bg-gray-200 rounded"></div>
+      <div className="rounded-xl bg-white p-3.5 sm:p-5 shadow-sm border border-gray-100 shrink-0 min-w-[160px] sm:min-w-[240px] snap-start animate-pulse">
+        <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full bg-gray-200 mb-2 sm:mb-4"></div>
+        <div className="h-6 sm:h-8 w-24 sm:w-32 bg-gray-200 rounded mb-1.5 sm:mb-2"></div>
+        <div className="h-3.5 sm:h-4 w-16 sm:w-24 bg-gray-200 rounded"></div>
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100 shrink-0 min-w-[240px] snap-start">
+    <div className="rounded-xl bg-white p-3.5 sm:p-5 shadow-sm border border-gray-100 shrink-0 min-w-[160px] sm:min-w-[240px] snap-start">
       <div className="flex items-start justify-between">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-full ${color}`}>
-          <Icon className="h-5 w-5" />
+        <div className={`flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full ${color}`}>
+          <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
         </div>
-        {subtitle && <span className="text-xs font-medium text-gray-500">{subtitle}</span>}
+        {subtitle && <span className="text-[10px] sm:text-xs font-medium text-gray-500">{subtitle}</span>}
       </div>
-      <p className="mt-4 text-2xl font-bold text-gray-900 truncate" title={value}>{value}</p>
-      <p className="mt-1 text-sm font-medium text-gray-500">{title}</p>
+      <p className="mt-2 sm:mt-4 text-lg sm:text-2xl font-bold text-gray-900 truncate" title={value}>{value}</p>
+      <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm font-medium text-gray-500">{title}</p>
     </div>
   );
 }
@@ -151,13 +136,23 @@ function NotAvailableCard({ title, description, message }: { title: string; desc
 // COMPONENT EXPENSE CATEGORY
 // ============================================================
 
-function ExpenseCategoriesCard({ data, isLoading }: { data: ExpenseCategory[], isLoading: boolean }) {
+function ExpenseCategoriesCard({
+  summary,
+  isLoading,
+  error,
+  onRetry,
+}: {
+  summary: ExpenseDashboardSummary | null;
+  isLoading: boolean;
+  error: string | null;
+  onRetry?: () => void;
+}) {
   if (isLoading) {
     return (
       <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100 h-full animate-pulse min-h-[300px]">
         <div className="h-5 w-40 bg-gray-200 rounded mb-6"></div>
         <div className="space-y-4">
-          {[1,2,3,4].map(i => (
+          {[1, 2, 3, 4].map((i) => (
             <div key={i}>
               <div className="flex justify-between mb-2">
                 <div className="h-4 w-24 bg-gray-200 rounded"></div>
@@ -171,36 +166,79 @@ function ExpenseCategoriesCard({ data, isLoading }: { data: ExpenseCategory[], i
     );
   }
 
-  if (data.length === 0) {
+  if (error) {
+    return (
+      <div className="rounded-xl bg-white p-5 shadow-sm border border-red-100 h-full flex flex-col items-center justify-center text-center p-6 min-h-[300px]">
+        <AlertCircle className="h-8 w-8 text-red-500 mb-2" />
+        <h4 className="text-sm font-semibold text-gray-900 mb-1">Failed to load Expense Breakdown</h4>
+        <p className="text-xs text-gray-500 max-w-xs mb-4">{error}</p>
+        {onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
+          >
+            Retry
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  const periodText = summary?.period?.start_date && summary?.period?.end_date
+    ? `${summary.period.start_date.split('T')[0]} - ${summary.period.end_date.split('T')[0]}`
+    : summary?.period?.start_date
+    ? `From ${summary.period.start_date.split('T')[0]}`
+    : '';
+
+  if (!summary || summary.count === 0 || summary.categories.length === 0) {
     return (
       <NotAvailableCard 
         title="Expense Breakdown" 
-        description="See how business expenses are distributed across categories." 
-        message="Expense breakdown data is not available yet." 
+        description={periodText ? `Period: ${periodText}` : "See how business expenses are distributed across categories."} 
+        message="No expenses recorded for this period." 
       />
     );
   }
 
   return (
-    <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100 h-full">
-      <h3 className="text-base font-semibold text-gray-900 mb-6">Expense Breakdown</h3>
-      <div className="space-y-5">
-        {data.map(cat => (
-          <div key={cat.category}>
-            <div className="flex items-center justify-between text-sm mb-2">
-              <span className="font-medium text-gray-700">{cat.category}</span>
-              <span className="font-semibold text-gray-900">
-                {formatRupiah(cat.amount)} <span className="text-gray-500 font-normal ml-1">({cat.percentage}%)</span>
+    <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100 h-full flex flex-col justify-between">
+      <div>
+        <div className="flex items-start justify-between mb-4 pb-3 border-b border-gray-50">
+          <div>
+            <h3 className="text-base font-semibold text-gray-900">Expense Breakdown</h3>
+            {periodText && (
+              <span className="inline-block mt-1 text-xs text-gray-500 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
+                {periodText}
               </span>
-            </div>
-            <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-500"
-                style={{ width: `${cat.percentage}%`, backgroundColor: cat.color || '#4b5563' }}
-              />
+            )}
+          </div>
+          <div className="text-right">
+            <div className="text-base font-bold text-gray-900">{formatRupiah(summary.total_expenses)}</div>
+            <div className="text-xs text-gray-500 font-medium">
+              {summary.count} {summary.count === 1 ? 'transaction' : 'transactions'}
             </div>
           </div>
-        ))}
+        </div>
+
+        <div className="space-y-4 pt-2">
+          {summary.categories.map((cat) => (
+            <div key={cat.category}>
+              <div className="flex items-center justify-between text-sm mb-1.5">
+                <span className="font-medium text-gray-700">{cat.category}</span>
+                <span className="font-semibold text-gray-900">
+                  {formatRupiah(cat.amount)} <span className="text-gray-500 font-normal ml-1">({cat.percentage}%)</span>
+                </span>
+              </div>
+              <div className="h-2 w-full rounded-full bg-gray-100 overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(cat.percentage, 100)}%`, backgroundColor: cat.color || '#4b5563' }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -343,9 +381,9 @@ function SalesTrendsCard({ startDate, endDate }: { startDate?: string; endDate?:
   }, [data]);
 
   return (
-    <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100 flex flex-col h-full">
+    <div className="rounded-xl bg-white p-3.5 sm:p-5 shadow-sm border border-gray-100 flex flex-col h-full min-w-0 max-w-full">
       {/* Header with Granularity & View Switchers */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4 min-w-0 max-w-full">
         <div>
           <h3 className="text-base font-semibold text-gray-900">Sales Trends</h3>
           <p className="text-xs text-gray-500 mt-0.5">Revenue, COGS, and gross profit by settlement period.</p>
@@ -403,22 +441,22 @@ function SalesTrendsCard({ startDate, endDate }: { startDate?: string; endDate?:
       </div>
 
       {/* Summary Metrics */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5 p-3 rounded-lg bg-gray-50 border border-gray-100 text-xs">
-        <div>
-          <span className="text-gray-500 block">Total Revenue</span>
-          <span className="text-sm font-bold text-gray-900">{formatRupiah(totals.revenue)}</span>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3 mb-5 p-2.5 sm:p-3 rounded-lg bg-gray-50 border border-gray-100 text-xs min-w-0 max-w-full">
+        <div className="min-w-0">
+          <span className="text-gray-500 block truncate">Total Revenue</span>
+          <span className="text-sm font-bold text-gray-900 break-words">{formatRupiah(totals.revenue)}</span>
         </div>
-        <div>
-          <span className="text-gray-500 block">Total COGS (HPP)</span>
-          <span className="text-sm font-bold text-amber-700">{formatRupiah(totals.hpp)}</span>
+        <div className="min-w-0">
+          <span className="text-gray-500 block truncate">Total COGS (HPP)</span>
+          <span className="text-sm font-bold text-amber-700 break-words">{formatRupiah(totals.hpp)}</span>
         </div>
-        <div>
-          <span className="text-gray-500 block">Gross Profit</span>
-          <span className="text-sm font-bold text-emerald-700">{formatRupiah(totals.grossProfit)}</span>
+        <div className="min-w-0">
+          <span className="text-gray-500 block truncate">Gross Profit</span>
+          <span className="text-sm font-bold text-emerald-700 break-words">{formatRupiah(totals.grossProfit)}</span>
         </div>
-        <div>
-          <span className="text-gray-500 block">Total Orders</span>
-          <span className="text-sm font-bold text-blue-700">{totals.orderCount}</span>
+        <div className="min-w-0">
+          <span className="text-gray-500 block truncate">Total Orders</span>
+          <span className="text-sm font-bold text-blue-700 break-words">{totals.orderCount}</span>
         </div>
       </div>
 
@@ -520,37 +558,86 @@ function SalesTrendsCard({ startDate, endDate }: { startDate?: string; endDate?:
           </div>
         </div>
       ) : (
-        /* Table View */
-        <div className="overflow-x-auto max-h-64 overflow-y-auto border border-gray-100 rounded-lg">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-gray-50 text-gray-600 font-semibold sticky top-0">
-              <tr>
-                <th className="p-2.5">Period</th>
-                <th className="p-2.5 text-center">Orders</th>
-                <th className="p-2.5 text-right">Revenue</th>
-                <th className="p-2.5 text-right">COGS (HPP)</th>
-                <th className="p-2.5 text-right">Gross Profit</th>
-                <th className="p-2.5 text-right">Margin</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {data.points.map((pt) => {
-                const revNum = Number(pt.revenue || 0);
-                const profNum = Number(pt.gross_profit || 0);
-                const margin = revNum > 0 ? ((profNum / revNum) * 100).toFixed(1) + '%' : '0%';
-                return (
-                  <tr key={pt.period_start} className="hover:bg-gray-50/60">
-                    <td className="p-2.5 font-medium text-gray-800">{pt.period_start}</td>
-                    <td className="p-2.5 text-center text-gray-600">{pt.order_count}</td>
-                    <td className="p-2.5 text-right font-medium text-gray-900">{formatRupiah(revNum)}</td>
-                    <td className="p-2.5 text-right text-gray-600">{formatRupiah(pt.hpp)}</td>
-                    <td className="p-2.5 text-right font-semibold text-emerald-700">{formatRupiah(profNum)}</td>
-                    <td className="p-2.5 text-right text-gray-600">{margin}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        /* Table / Card View */
+        <div className="border border-gray-100 rounded-lg overflow-hidden min-w-0 max-w-full">
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto max-h-64 overflow-y-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-gray-50 text-gray-600 font-semibold sticky top-0">
+                <tr>
+                  <th className="p-2.5">Period</th>
+                  <th className="p-2.5 text-center">Orders</th>
+                  <th className="p-2.5 text-right">Revenue</th>
+                  <th className="p-2.5 text-right">COGS (HPP)</th>
+                  <th className="p-2.5 text-right">Gross Profit</th>
+                  <th className="p-2.5 text-right">Margin</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {data.points.map((pt) => {
+                  const revNum = Number(pt.revenue || 0);
+                  const profNum = Number(pt.gross_profit || 0);
+                  const margin = revNum > 0 ? ((profNum / revNum) * 100).toFixed(1) + '%' : '0%';
+                  return (
+                    <tr key={pt.period_start} className="hover:bg-gray-50/60">
+                      <td className="p-2.5 font-medium text-gray-800">{pt.period_start}</td>
+                      <td className="p-2.5 text-center text-gray-600">{pt.order_count}</td>
+                      <td className="p-2.5 text-right font-medium text-gray-900">{formatRupiah(revNum)}</td>
+                      <td className="p-2.5 text-right text-gray-600">{formatRupiah(pt.hpp)}</td>
+                      <td className="p-2.5 text-right font-semibold text-emerald-700">{formatRupiah(profNum)}</td>
+                      <td className="p-2.5 text-right text-gray-600">{margin}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile Card List */}
+          <div className="block md:hidden max-h-64 overflow-y-auto p-2 space-y-2.5 min-w-0 max-w-full">
+            {data.points.map((pt) => {
+              const revNum = Number(pt.revenue || 0);
+              const profNum = Number(pt.gross_profit || 0);
+              const marginNum = revNum > 0 ? (profNum / revNum) * 100 : 0;
+              const margin = revNum > 0 ? marginNum.toFixed(1) + '%' : '0%';
+              return (
+                <div key={pt.period_start} className="p-3 bg-white border border-gray-100 rounded-xl space-y-2 text-xs min-w-0 max-w-full shadow-xs">
+                  <div className="flex items-center justify-between gap-2 min-w-0 pb-1.5 border-b border-gray-50">
+                    <span className="font-semibold text-gray-900 break-words flex-1 min-w-0">{pt.period_start}</span>
+                    <span
+                      className={`shrink-0 px-2 py-0.5 rounded-full font-medium text-[11px] whitespace-nowrap ${
+                        marginNum >= 30
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : marginNum >= 0
+                          ? 'bg-orange-100 text-orange-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}
+                    >
+                      {margin}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-gray-600 pt-1 min-w-0">
+                    <div className="min-w-0">
+                      <span className="text-gray-400 text-[10px] block uppercase font-medium">Orders</span>
+                      <span className="font-medium text-gray-800 break-words">{pt.order_count}</span>
+                    </div>
+                    <div className="min-w-0 text-right">
+                      <span className="text-gray-400 text-[10px] block uppercase font-medium">Revenue</span>
+                      <span className="font-semibold text-gray-900 break-words">{formatRupiah(revNum)}</span>
+                    </div>
+                    <div className="min-w-0">
+                      <span className="text-gray-400 text-[10px] block uppercase font-medium">COGS (HPP)</span>
+                      <span className="font-medium text-gray-700 break-words">{formatRupiah(pt.hpp)}</span>
+                    </div>
+                    <div className="min-w-0 text-right">
+                      <span className="text-gray-400 text-[10px] block uppercase font-medium">Gross Profit</span>
+                      <span className="font-semibold text-emerald-700 break-words">{formatRupiah(profNum)}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
@@ -576,18 +663,29 @@ interface FilterProps {
   options?: { label: string; value: string }[];
 }
 
+interface SortOption {
+  label: string;
+  value: string;
+}
+
 interface TableProps<T> {
   title: string;
   data: T[];
   columns: Column<T>[];
   isLoading: boolean;
   emptyMessage: string;
+  renderMobileCard?: (row: T, idx: number) => React.ReactNode;
   
   // Search
   searchPlaceholder?: string;
   searchValue: string;
   onSearchChange: (val: string) => void;
   
+  // Sort
+  sortOptions?: SortOption[];
+  sortBy?: string;
+  onSortChange?: (val: string) => void;
+
   // Filter
   filters?: FilterProps[];
   onApplyFilters?: () => void;
@@ -596,7 +694,8 @@ interface TableProps<T> {
   // Pagination
   page: number;
   pageSize: number;
-  totalRows: number;
+  totalRows?: number;
+  hasNextPage?: boolean;
   onPageChange: (p: number) => void;
   onPageSizeChange: (s: number) => void;
   
@@ -609,111 +708,140 @@ function DataTable<T>({
   columns,
   isLoading,
   emptyMessage,
+  renderMobileCard,
   searchPlaceholder,
   searchValue,
   onSearchChange,
+  sortOptions,
+  sortBy,
+  onSortChange,
   filters,
   onApplyFilters,
   onClearFilters,
   page,
   pageSize,
   totalRows,
+  hasNextPage,
   onPageChange,
   onPageSizeChange,
   headerAction
 }: TableProps<T>) {
   const [showFilter, setShowFilter] = useState(false);
-  const totalPages = Math.ceil(totalRows / pageSize) || 1;
 
   return (
-    <div className="rounded-xl bg-white shadow-sm border border-gray-100 overflow-hidden">
-      {/* Header */}
-      <div className="p-5 border-b border-gray-100">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+    <div className="space-y-4 min-w-0 max-w-full">
+      {/* Standalone Toolbar Card (NO overflow-hidden — identical to SellerInventoryPage) */}
+      <div className="rounded-xl bg-white shadow-sm border border-gray-100 p-3 sm:p-5 min-w-0 max-w-full">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-3 sm:mb-4">
           <h3 className="text-base font-semibold text-gray-900">{title}</h3>
           {headerAction}
         </div>
         
-        <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           {searchPlaceholder && (
-            <div className="relative flex-1 max-w-md">
+            <div className="relative flex-1 min-w-[140px] sm:max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" aria-hidden="true" />
               <input
                 type="text"
                 placeholder={searchPlaceholder}
                 value={searchValue}
                 onChange={(e) => onSearchChange(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                className="w-full pl-9 pr-3 sm:pr-4 py-2 text-xs sm:text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
                 aria-label="Search"
               />
             </div>
           )}
           
+          {sortOptions && sortOptions.length > 0 && onSortChange && (
+            <SellerSortDropdown
+              id={`sort-${title.replace(/\s+/g, '-').toLowerCase()}`}
+              value={sortBy || sortOptions[0].value}
+              onChange={onSortChange}
+              options={sortOptions}
+              ariaLabel={`Sort ${title}`}
+            />
+          )}
+
           {filters && filters.length > 0 && (
-            <div className="relative">
+            <div className="relative shrink-0">
               <button
+                type="button"
                 onClick={() => setShowFilter(!showFilter)}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 sm:px-3.5 py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer shrink-0"
                 aria-expanded={showFilter}
                 aria-haspopup="true"
-                aria-label="Filter"
+                aria-label={`Filter ${title}`}
               >
-                <Filter className="h-4 w-4" />
-                Filter
+                <Filter className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500 shrink-0" />
+                <span className="hidden sm:inline">Filter</span>
               </button>
               
               {showFilter && (
-                <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-lg border border-gray-100 z-20 p-4">
-                  <h4 className="text-sm font-semibold text-gray-900 mb-4">Filters</h4>
-                  <div className="space-y-4 mb-6">
+                <div className="absolute right-0 top-full mt-2 w-[min(300px,calc(100vw-2rem))] sm:w-80 rounded-2xl border border-[#e6d5c5] bg-white p-3.5 sm:p-5 shadow-xl max-h-[75dvh] overflow-y-auto overscroll-contain z-50 animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-100">
+                    <h4 className="text-sm font-bold text-[#4b2417]">Filters</h4>
+                    <button
+                      type="button"
+                      onClick={() => setShowFilter(false)}
+                      className="text-gray-400 hover:text-gray-600 p-0.5 rounded cursor-pointer"
+                      aria-label="Close filters"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="space-y-3">
                     {filters.map((f, idx) => (
                       <div key={idx}>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">{f.label}</label>
                         {f.type === 'date' ? (
-                          <input
-                            type="date"
-                            value={f.value}
-                            onChange={(e) => f.onChange(e.target.value)}
-                            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          />
+                          <div>
+                            <label className="block text-xs font-semibold text-[#4b2417] mb-1">{f.label}</label>
+                            <input
+                              type="date"
+                              value={f.value}
+                              onChange={(e) => f.onChange(e.target.value)}
+                              className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs sm:text-sm text-gray-800 outline-none focus:border-blue-500 bg-white"
+                            />
+                          </div>
                         ) : f.type === 'select' ? (
-                          <select
+                          <SellerFilterSelect
+                            label={f.label}
                             value={f.value}
-                            onChange={(e) => f.onChange(e.target.value)}
-                            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          >
-                            <option value="">All</option>
-                            {f.options?.map(opt => (
-                              <option key={opt.value} value={opt.value}>{opt.label}</option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input
-                            type="text"
-                            value={f.value}
-                            onChange={(e) => f.onChange(e.target.value)}
-                            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            onChange={(val) => f.onChange(val)}
+                            options={f.options || []}
+                            placeholder="All"
                           />
+                        ) : (
+                          <div>
+                            <label className="block text-xs font-semibold text-[#4b2417] mb-1">{f.label}</label>
+                            <input
+                              type="text"
+                              value={f.value}
+                              onChange={(e) => f.onChange(e.target.value)}
+                              className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs sm:text-sm text-gray-800 outline-none focus:border-blue-500 bg-white"
+                            />
+                          </div>
                         )}
                       </div>
                     ))}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 pt-3 mt-3 border-t border-gray-100">
                     <button
+                      type="button"
                       onClick={() => {
                         onClearFilters?.();
                         setShowFilter(false);
                       }}
-                      className="flex-1 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-50 border border-gray-200 rounded-md hover:bg-gray-100"
+                      className="flex-1 rounded-lg px-3 py-2 text-xs sm:text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer"
                     >
                       Clear All
                     </button>
                     <button
+                      type="button"
                       onClick={() => {
                         onApplyFilters?.();
                         setShowFilter(false);
                       }}
-                      className="flex-1 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                      className="flex-1 rounded-lg px-3 py-2 text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors cursor-pointer"
                     >
                       Apply Filters
                     </button>
@@ -725,8 +853,10 @@ function DataTable<T>({
         </div>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
+      {/* Standalone Table Card (overflow-hidden safely confined to table rounding) */}
+      <div className="rounded-xl bg-white shadow-sm border border-gray-100 overflow-hidden min-w-0 max-w-full">
+        {/* Table: Desktop View */}
+        <div className="hidden md:block overflow-x-auto">
         <table className="w-full text-sm text-left text-gray-600">
           <thead className="text-xs text-gray-500 uppercase bg-gray-50 border-b border-gray-100">
             <tr>
@@ -756,7 +886,7 @@ function DataTable<T>({
               </tr>
             ) : (
               data.map((row, rowIdx) => (
-                <tr key={rowIdx} className="bg-white border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                <tr key={(row as any).id ?? (row as any).supplier_id ?? (row as any).product_id ?? rowIdx} className="bg-white border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
                   {columns.map((col, colIdx) => (
                     <td key={colIdx} className={`px-5 py-4 ${col.align === 'right' ? 'text-right' : col.align === 'center' ? 'text-center' : 'text-left'}`}>
                       {col.render ? col.render(row) : String(row[col.accessor as keyof T] ?? '-')}
@@ -769,48 +899,119 @@ function DataTable<T>({
         </table>
       </div>
 
-      {/* Pagination */}
-      <div className="p-4 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between gap-4 bg-gray-50/30">
-        <div className="flex items-center gap-2 text-sm text-gray-600">
-          <span>Rows per page:</span>
-          <select 
-            value={pageSize}
-            onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            className="border border-gray-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-            aria-label="Rows per page"
-          >
-            <option value={10}>10</option>
-            <option value={25}>25</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-          </select>
-        </div>
-        
-        <div className="flex items-center gap-1 text-sm">
-          <button 
-            onClick={() => onPageChange(page - 1)}
-            disabled={page <= 1}
-            className="flex items-center px-3 py-1 text-gray-600 hover:text-gray-900 disabled:text-gray-300 disabled:cursor-not-allowed"
-            aria-label="Previous page"
-          >
-            &larr; Previous
-          </button>
-          <span className="px-3 py-1 font-medium text-gray-700">
-            {page} of {totalPages}
-          </span>
-          <button 
-            onClick={() => onPageChange(page + 1)}
-            disabled={page >= totalPages}
-            className="flex items-center px-3 py-1 text-gray-600 hover:text-gray-900 disabled:text-gray-300 disabled:cursor-not-allowed"
-            aria-label="Next page"
-          >
-            Next &rarr;
-          </button>
-        </div>
+      {/* Cards: Mobile View */}
+      <div className="block md:hidden p-3 space-y-3 min-w-0 max-w-full">
+        {isLoading ? (
+          Array(3).fill(0).map((_, idx) => (
+            <div key={idx} className="p-4 bg-white border border-gray-100 rounded-xl space-y-3 animate-pulse">
+              <div className="h-4 bg-gray-100 rounded w-1/2"></div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="h-3 bg-gray-100 rounded"></div>
+                <div className="h-3 bg-gray-100 rounded"></div>
+              </div>
+            </div>
+          ))
+        ) : data.length === 0 ? (
+          <div className="py-8 text-center text-sm text-gray-500">
+            {emptyMessage}
+          </div>
+        ) : (
+          data.map((row, rowIdx) => (
+            renderMobileCard ? (
+              renderMobileCard(row, rowIdx)
+            ) : (
+              <div
+                key={(row as any).id ?? (row as any).supplier_id ?? (row as any).product_id ?? rowIdx}
+                className="p-3.5 bg-white border border-gray-100 rounded-xl space-y-2.5 shadow-xs"
+              >
+                {/* Header Row: Column 0 and Status/Margin if present */}
+                <div className="flex items-center justify-between gap-2 pb-2 border-b border-gray-100">
+                  <div className="font-semibold text-gray-900 text-sm min-w-0 flex-1">
+                    {columns[0].render ? columns[0].render(row) : String(row[columns[0].accessor as keyof T] ?? '-')}
+                  </div>
+                  {columns.some(c => c.header === 'Margin') && (
+                    <div className="shrink-0">
+                      {columns.find(c => c.header === 'Margin')?.render?.(row) ?? String(row[columns.find(c => c.header === 'Margin')?.accessor as keyof T] ?? '')}
+                    </div>
+                  )}
+                  {columns.some(c => c.header === 'Status') && (
+                    <div className="shrink-0">
+                      {columns.find(c => c.header === 'Status')?.render?.(row) ?? String(row[columns.find(c => c.header === 'Status')?.accessor as keyof T] ?? '')}
+                    </div>
+                  )}
+                </div>
+
+                {/* Details Grid */}
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  {columns.slice(1).map((col, cIdx) => {
+                    if (col.header === 'Actions' || col.header === 'Margin' || col.header === 'Status') return null;
+                    return (
+                      <div key={cIdx} className={col.align === 'right' ? 'text-right' : 'text-left'}>
+                        <span className="text-[10px] text-gray-400 block uppercase font-medium">{col.header}</span>
+                        <div className="text-gray-800 mt-0.5 font-medium">
+                          {col.render ? col.render(row) : String(row[col.accessor as keyof T] ?? '-')}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Actions Row */}
+                {columns.some(c => c.header === 'Actions') && (
+                  <div className="pt-2 border-t border-gray-100 flex items-center justify-end">
+                    {columns.find(c => c.header === 'Actions')?.render?.(row)}
+                  </div>
+                )}
+              </div>
+            )
+          ))
+        )}
       </div>
+
+      {/* Pagination */}
+      <PaginationControls
+        currentPage={page}
+        limit={pageSize}
+        totalItems={totalRows}
+        hasNextPage={hasNextPage}
+        onPageChange={onPageChange}
+        onLimitChange={onPageSizeChange}
+      />
     </div>
-  );
+  </div>
+);
 }
+
+const PRODUCT_SORT_OPTIONS: SortOption[] = [
+  { label: 'Revenue: High to Low', value: 'revenue_desc' },
+  { label: 'Revenue: Low to High', value: 'revenue_asc' },
+  { label: 'Gross Profit: High to Low', value: 'profit_desc' },
+  { label: 'Gross Profit: Low to High', value: 'profit_asc' },
+  { label: 'Margin: High to Low', value: 'margin_desc' },
+  { label: 'Margin: Low to High', value: 'margin_asc' },
+  { label: 'Qty Sold: High to Low', value: 'qty_desc' },
+  { label: 'Qty Sold: Low to High', value: 'qty_asc' },
+  { label: 'Product Name: A to Z', value: 'name_asc' },
+  { label: 'Product Name: Z to A', value: 'name_desc' },
+];
+
+const SUPPLIER_SORT_OPTIONS: SortOption[] = [
+  { label: 'Total Spending: High to Low', value: 'spending_desc' },
+  { label: 'Total Spending: Low to High', value: 'spending_asc' },
+  { label: 'Transactions: High to Low', value: 'transactions_desc' },
+  { label: 'Transactions: Low to High', value: 'transactions_asc' },
+  { label: 'Supplier Name: A to Z', value: 'name_asc' },
+  { label: 'Supplier Name: Z to A', value: 'name_desc' },
+];
+
+const EXPENSE_SORT_OPTIONS: SortOption[] = [
+  { label: 'Date: Newest First', value: 'date_desc' },
+  { label: 'Date: Oldest First', value: 'date_asc' },
+  { label: 'Amount: High to Low', value: 'amount_desc' },
+  { label: 'Amount: Low to High', value: 'amount_asc' },
+  { label: 'Category: A to Z', value: 'category_asc' },
+  { label: 'Category: Z to A', value: 'category_desc' },
+];
 
 // ============================================================
 // MAIN COMPONENT
@@ -828,19 +1029,22 @@ export default function SellerFinancePage() {
 
   // Stats Data
   const [stats, setStats] = useState<FinanceStats | null>(null);
-  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
+  const [expenseSummary, setExpenseSummary] = useState<ExpenseDashboardSummary | null>(null);
+  const [expenseSummaryLoading, setExpenseSummaryLoading] = useState(false);
+  const [expenseSummaryError, setExpenseSummaryError] = useState<string | null>(null);
 
   // Tables Data (Client-side filtered for Product & Supplier)
       
   // Expenses (Server-side paginated)
   const [expenses, setExpenses] = useState<ExpenseDetailResponse[]>([]);
-  const [expensesTotal, setExpensesTotal] = useState(0); // Optional if backend doesn't return it
+  const [expHasNextPage, setExpHasNextPage] = useState(false);
   
   // Expenses State
   const [expPage, setExpPage] = useState(1);
   const [expPageSize, setExpPageSize] = useState(10);
   const [expSearch, setExpSearch] = useState('');
   const [expDebouncedSearch, setExpDebouncedSearch] = useState('');
+  const [expSortBy, setExpSortBy] = useState('date_desc');
   const [expFilters, setExpFilters] = useState({
     kategori: '',
     startDate: '',
@@ -852,22 +1056,30 @@ export default function SellerFinancePage() {
   const [prodPage, setProdPage] = useState(1);
   const [prodPageSize, setProdPageSize] = useState(10);
   const [prodSearch, setProdSearch] = useState('');
+  const [prodSortBy, setProdSortBy] = useState('revenue_desc');
   const [prodFilters, setProdFilters] = useState({ marginStatus: '' });
   
   // Supplier State
   const [supPage, setSupPage] = useState(1);
   const [supPageSize, setSupPageSize] = useState(10);
   const [supSearch, setSupSearch] = useState('');
+  const [supSortBy, setSupSortBy] = useState('spending_desc');
+
+  useEffect(() => {
+    setProdPage(1);
+  }, [prodSearch, prodFilters, prodSortBy]);
+
+  useEffect(() => {
+    setSupPage(1);
+  }, [supSearch, supSortBy]);
+
+  useEffect(() => {
+    setExpPage(1);
+  }, [expDebouncedSearch, expSortBy]);
 
   // Global Date Filter (for KPIs)
-  const [globalStartDate, setGlobalStartDate] = useState(() => {
-    const today = new Date();
-    return new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-  });
-  const [globalEndDate, setGlobalEndDate] = useState(() => {
-    const today = new Date();
-    return new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString().split('T')[0];
-  });
+  const [globalStartDate, setGlobalStartDate] = useState(() => getStartOfMonthLocal());
+  const [globalEndDate, setGlobalEndDate] = useState(() => getEndOfMonthLocal());
   const [globalAppliedDates, setGlobalAppliedDates] = useState({
     start: globalStartDate,
     end: globalEndDate
@@ -930,21 +1142,38 @@ export default function SellerFinancePage() {
     if (!canViewFinance) return;
     setStatsLoading(true);
     setStatsError(null);
-    try {
-      const sd = globalAppliedDates.start || undefined;
-      const ed = globalAppliedDates.end || undefined;
-      const [statsRes, categoriesRes] = await Promise.all([
-        getFinanceStats(sd, ed),
-        getExpenseCategories(sd, ed),
-      ]);
-      setStats(statsRes);
-      setExpenseCategories(categoriesRes);
-    } catch (err) {
-      console.error('Failed to load finance stats:', err);
-      setStatsError('Unable to load financial information right now.');
-    } finally {
-      setStatsLoading(false);
-    }
+    setExpenseSummaryLoading(true);
+    setExpenseSummaryError(null);
+
+    const sd = globalAppliedDates.start || undefined;
+    const ed = globalAppliedDates.end || undefined;
+
+    const statsPromise = getFinanceStats(sd, ed)
+      .then((res) => {
+        setStats(res);
+      })
+      .catch((err) => {
+        console.error('Failed to load finance stats:', err);
+        setStatsError('Unable to load financial information right now.');
+      })
+      .finally(() => {
+        setStatsLoading(false);
+      });
+
+    const summaryPromise = getExpenseSummaryDashboard(sd, ed)
+      .then((res) => {
+        setExpenseSummary(res);
+      })
+      .catch((err) => {
+        console.error('Failed to load expense summary:', err);
+        setExpenseSummaryError('Failed to load expense breakdown. Please try again.');
+        setExpenseSummary(null);
+      })
+      .finally(() => {
+        setExpenseSummaryLoading(false);
+      });
+
+    await Promise.allSettled([statsPromise, summaryPromise]);
   };
 
   useEffect(() => {
@@ -960,20 +1189,18 @@ export default function SellerFinancePage() {
       const skip = (expPage - 1) * expPageSize;
       const res = await getExpenseList({
         skip,
-        limit: expPageSize,
+        limit: expPageSize + 1,
         kategori: expAppliedFilters.kategori || undefined,
         start_date: sd,
         end_date: ed
       });
-      setExpenses(res);
-      if (res.length === expPageSize) {
-        setExpensesTotal(skip + expPageSize + 1);
-      } else {
-        setExpensesTotal(skip + res.length);
-      }
+      const hasMore = res.length > expPageSize;
+      setExpHasNextPage(hasMore);
+      setExpenses(hasMore ? res.slice(0, expPageSize) : res);
     } catch (err) {
       console.error('Failed to load expenses list:', err);
       setExpenses([]);
+      setExpHasNextPage(false);
     } finally {
       setExpensesLoading(false);
     }
@@ -986,7 +1213,7 @@ export default function SellerFinancePage() {
   // Product & Supplier Client-side filtering logic
   const filteredProducts = useMemo(() => {
     if (!stats?.productProfitability) return [];
-    let result = stats.productProfitability;
+    let result = [...stats.productProfitability];
     
     if (prodSearch) {
       const s = prodSearch.toLowerCase();
@@ -998,9 +1225,44 @@ export default function SellerFinancePage() {
     } else if (prodFilters.marginStatus === 'low') {
       result = result.filter(p => p.margin_percentage < 30);
     }
+
+    switch (prodSortBy) {
+      case 'revenue_desc':
+        result.sort((a, b) => b.total_revenue - a.total_revenue);
+        break;
+      case 'revenue_asc':
+        result.sort((a, b) => a.total_revenue - b.total_revenue);
+        break;
+      case 'profit_desc':
+        result.sort((a, b) => b.gross_profit - a.gross_profit);
+        break;
+      case 'profit_asc':
+        result.sort((a, b) => a.gross_profit - b.gross_profit);
+        break;
+      case 'margin_desc':
+        result.sort((a, b) => b.margin_percentage - a.margin_percentage);
+        break;
+      case 'margin_asc':
+        result.sort((a, b) => a.margin_percentage - b.margin_percentage);
+        break;
+      case 'qty_desc':
+        result.sort((a, b) => b.qty_sold - a.qty_sold);
+        break;
+      case 'qty_asc':
+        result.sort((a, b) => a.qty_sold - b.qty_sold);
+        break;
+      case 'name_asc':
+        result.sort((a, b) => a.nama_produk.localeCompare(b.nama_produk));
+        break;
+      case 'name_desc':
+        result.sort((a, b) => b.nama_produk.localeCompare(a.nama_produk));
+        break;
+      default:
+        break;
+    }
     
     return result;
-  }, [stats?.productProfitability, prodSearch, prodFilters]);
+  }, [stats?.productProfitability, prodSearch, prodFilters, prodSortBy]);
   
   const paginatedProducts = useMemo(() => {
     const start = (prodPage - 1) * prodPageSize;
@@ -1009,31 +1271,83 @@ export default function SellerFinancePage() {
 
   const filteredSuppliers = useMemo(() => {
     if (!stats?.supplierSpending) return [];
-    let result = stats.supplierSpending;
+    let result = [...stats.supplierSpending];
     
     if (supSearch) {
-      const s = supSearch.toLowerCase();
-      result = result.filter(sup => sup.nama_supplier.toLowerCase().includes(s));
+      const s = supSearch.toLowerCase().trim();
+      result = result.filter(sup =>
+        sup.nama_supplier.toLowerCase().includes(s) ||
+        String(sup.supplier_id).includes(s)
+      );
+    }
+
+    switch (supSortBy) {
+      case 'spending_desc':
+        result.sort((a, b) => b.total_spending - a.total_spending);
+        break;
+      case 'spending_asc':
+        result.sort((a, b) => a.total_spending - b.total_spending);
+        break;
+      case 'transactions_desc':
+        result.sort((a, b) => b.purchase_count - a.purchase_count);
+        break;
+      case 'transactions_asc':
+        result.sort((a, b) => a.purchase_count - b.purchase_count);
+        break;
+      case 'name_asc':
+        result.sort((a, b) => a.nama_supplier.localeCompare(b.nama_supplier));
+        break;
+      case 'name_desc':
+        result.sort((a, b) => b.nama_supplier.localeCompare(a.nama_supplier));
+        break;
+      default:
+        break;
     }
     
     return result;
-  }, [stats?.supplierSpending, supSearch]);
+  }, [stats?.supplierSpending, supSearch, supSortBy]);
   
   const paginatedSuppliers = useMemo(() => {
     const start = (supPage - 1) * supPageSize;
     return filteredSuppliers.slice(start, start + supPageSize);
   }, [filteredSuppliers, supPage, supPageSize]);
   
-  // Client-side search fallback for Expenses if search text is provided
-  // (Since backend lacks search parameter)
+  // Client-side search and sort fallback for Expenses
   const displayExpenses = useMemo(() => {
-    if (!expDebouncedSearch) return expenses;
-    const s = expDebouncedSearch.toLowerCase();
-    return expenses.filter(e => 
-      e.kategori.toLowerCase().includes(s) || 
-      e.recorded_by_username.toLowerCase().includes(s)
-    );
-  }, [expenses, expDebouncedSearch]);
+    let result = [...expenses];
+    if (expDebouncedSearch) {
+      const s = expDebouncedSearch.toLowerCase();
+      result = result.filter(e => 
+        e.kategori.toLowerCase().includes(s) || 
+        e.recorded_by_username.toLowerCase().includes(s)
+      );
+    }
+
+    switch (expSortBy) {
+      case 'date_asc':
+        result.sort((a, b) => new Date(a.tanggal || 0).getTime() - new Date(b.tanggal || 0).getTime());
+        break;
+      case 'date_desc':
+        result.sort((a, b) => new Date(b.tanggal || 0).getTime() - new Date(a.tanggal || 0).getTime());
+        break;
+      case 'amount_desc':
+        result.sort((a, b) => b.jumlah - a.jumlah);
+        break;
+      case 'amount_asc':
+        result.sort((a, b) => a.jumlah - b.jumlah);
+        break;
+      case 'category_asc':
+        result.sort((a, b) => a.kategori.localeCompare(b.kategori));
+        break;
+      case 'category_desc':
+        result.sort((a, b) => b.kategori.localeCompare(a.kategori));
+        break;
+      default:
+        break;
+    }
+
+    return result;
+  }, [expenses, expDebouncedSearch, expSortBy]);
 
   const handleGlobalFilterApply = () => {
     setGlobalAppliedDates({ start: globalStartDate, end: globalEndDate });
@@ -1044,7 +1358,7 @@ export default function SellerFinancePage() {
     setExpenseForm({
       kategori: '',
       jumlah: '',
-      tanggal: new Date().toISOString().split('T')[0],
+      tanggal: getTodayLocal(),
       metode_pembayaran: '',
       penerima: '',
       deskripsi: '',
@@ -1055,14 +1369,7 @@ export default function SellerFinancePage() {
 
   const handleOpenEditModal = (expense: ExpenseDetailResponse) => {
     setEditingExpense(expense);
-    let dateStr = '';
-    if (expense.tanggal) {
-      try {
-        dateStr = new Date(expense.tanggal).toISOString().split('T')[0];
-      } catch {
-        dateStr = '';
-      }
-    }
+    const dateStr = expense.tanggal ? formatDateToLocalYYYYMMDD(expense.tanggal) : '';
     setExpenseForm({
       kategori: expense.kategori || '',
       jumlah: String(expense.jumlah ?? ''),
@@ -1149,7 +1456,7 @@ export default function SellerFinancePage() {
           hasChanges = true;
         }
 
-        const origDateStr = editingExpense.tanggal ? editingExpense.tanggal.split('T')[0] : '';
+        const origDateStr = editingExpense.tanggal ? formatDateToLocalYYYYMMDD(editingExpense.tanggal) : '';
         if (expenseForm.tanggal && expenseForm.tanggal !== origDateStr) {
           updatePayload.tanggal = `${expenseForm.tanggal}T00:00:00`;
           hasChanges = true;
@@ -1216,53 +1523,286 @@ export default function SellerFinancePage() {
     }
   };
 
+  // Mobile Card Renderers for Finance Tables
+  const renderProductMobileCard = (row: ProductProfitabilityItem, idx: number) => {
+    const isHighMargin = row.margin_percentage >= 30;
+    return (
+      <div
+        key={row.product_id ?? idx}
+        className="p-3.5 bg-white border border-gray-100 rounded-xl space-y-2.5 shadow-xs min-w-0 max-w-full"
+      >
+        <div className="flex items-start justify-between gap-2 pb-2 border-b border-gray-100 min-w-0">
+          <div className="font-semibold text-gray-900 text-sm min-w-0 flex-1 break-words">
+            {row.nama_produk}
+          </div>
+          <span
+            className={`shrink-0 px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${
+              isHighMargin ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+            }`}
+          >
+            {row.margin_percentage}%
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 text-xs min-w-0">
+          <div className="min-w-0">
+            <span className="text-[10px] text-gray-400 block uppercase font-medium">Qty Terjual</span>
+            <div className="text-gray-800 mt-0.5 font-medium break-words">
+              {row.qty_sold}
+            </div>
+          </div>
+          <div className="min-w-0 text-right">
+            <span className="text-[10px] text-gray-400 block uppercase font-medium">Revenue</span>
+            <div className="text-gray-900 mt-0.5 font-semibold break-words">
+              {formatRupiah(row.total_revenue)}
+            </div>
+          </div>
+          <div className="min-w-0">
+            <span className="text-[10px] text-gray-400 block uppercase font-medium">HPP</span>
+            <div className="text-gray-700 mt-0.5 font-medium break-words">
+              {formatRupiah(row.total_hpp)}
+            </div>
+          </div>
+          <div className="min-w-0 text-right">
+            <span className="text-[10px] text-gray-400 block uppercase font-medium">Gross Profit</span>
+            <div className="text-emerald-700 mt-0.5 font-semibold break-words">
+              {formatRupiah(row.gross_profit)}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderSupplierMobileCard = (row: SupplierSpendingItem, idx: number) => {
+    return (
+      <div
+        key={row.supplier_id ?? idx}
+        className="p-3.5 bg-white border border-gray-100 rounded-xl space-y-2.5 shadow-xs min-w-0 max-w-full"
+      >
+        <div className="pb-2 border-b border-gray-100 min-w-0">
+          <span className="text-[10px] text-gray-400 block uppercase font-medium">Nama Supplier</span>
+          <div className="font-semibold text-gray-900 text-sm mt-0.5 break-words">
+            {row.nama_supplier}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 text-xs min-w-0">
+          <div className="min-w-0">
+            <span className="text-[10px] text-gray-400 block uppercase font-medium">Jumlah Transaksi</span>
+            <div className="text-gray-800 mt-0.5 font-medium break-words">
+              {row.purchase_count} transaksi
+            </div>
+          </div>
+          <div className="min-w-0 text-right">
+            <span className="text-[10px] text-gray-400 block uppercase font-medium">Total Spending</span>
+            <div className="text-gray-900 mt-0.5 font-semibold break-words">
+              {formatRupiah(row.total_spending)}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderExpenseMobileCard = (row: ExpenseDetailResponse, idx: number) => {
+    const isCancelling = cancellingExpenseId === row.id;
+    const paymentMethodText = row.metode_pembayaran
+      ? (EXPENSE_PAYMENT_LABELS[row.metode_pembayaran] || row.metode_pembayaran)
+      : '-';
+
+    return (
+      <div
+        key={row.id ?? idx}
+        className={`p-3.5 bg-white border rounded-xl space-y-3 shadow-xs min-w-0 max-w-full ${
+          row.is_voided ? 'border-red-100 bg-red-50/10' : 'border-gray-100'
+        }`}
+      >
+        {/* Header: Kategori + Badge Status */}
+        <div className="flex items-start justify-between gap-2 pb-2 border-b border-gray-100 min-w-0">
+          <span className={`font-semibold text-sm break-words flex-1 min-w-0 ${row.is_voided ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+            {row.kategori}
+          </span>
+          {row.is_voided ? (
+            <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800 whitespace-nowrap">
+              Voided
+            </span>
+          ) : (
+            <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 whitespace-nowrap">
+              Active
+            </span>
+          )}
+        </div>
+
+        {/* Nominal (bold) + Link Bukti Struk */}
+        <div className="flex items-baseline justify-between gap-2 min-w-0">
+          <div className="min-w-0">
+            <span className="text-[10px] text-gray-400 block uppercase font-medium">Nominal</span>
+            <span className={`text-base font-bold break-words ${row.is_voided ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+              {formatRupiah(row.jumlah)}
+            </span>
+          </div>
+          {row.bukti_url && (
+            <a
+              href={row.bukti_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-blue-600 hover:text-blue-800 underline inline-flex items-center gap-0.5 font-medium shrink-0"
+            >
+              Receipt
+            </a>
+          )}
+        </div>
+
+        {/* Tanggal, Metode Pembayaran, Penerima/Vendor, Dicatat Oleh */}
+        <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-gray-50 min-w-0">
+          <div className="min-w-0">
+            <span className="text-[10px] text-gray-400 block uppercase font-medium">Tanggal</span>
+            <span className="text-gray-700 font-medium break-words">
+              {new Date(row.tanggal).toLocaleDateString()}
+            </span>
+          </div>
+          <div className="min-w-0 text-right">
+            <span className="text-[10px] text-gray-400 block uppercase font-medium">Metode Pembayaran</span>
+            <span className="text-gray-700 font-medium break-words">
+              {paymentMethodText}
+            </span>
+          </div>
+          <div className="min-w-0">
+            <span className="text-[10px] text-gray-400 block uppercase font-medium">Penerima / Vendor</span>
+            <span className="text-gray-700 font-medium break-words">
+              {row.penerima || '-'}
+            </span>
+          </div>
+          <div className="min-w-0 text-right">
+            <span className="text-[10px] text-gray-400 block uppercase font-medium">Dicatat Oleh</span>
+            <span className="text-gray-600 font-medium break-words">
+              {row.recorded_by_username || '-'}
+            </span>
+          </div>
+        </div>
+
+        {/* Deskripsi lengkap (wrap, no truncate) */}
+        {row.deskripsi && (
+          <div className="pt-2 border-t border-gray-50 text-xs min-w-0">
+            <span className="text-[10px] text-gray-400 block uppercase font-medium mb-0.5">Deskripsi</span>
+            <p className="text-gray-600 break-words whitespace-pre-wrap">
+              {row.deskripsi}
+            </p>
+          </div>
+        )}
+
+        {/* Jika voided: Alasan void dan waktu void */}
+        {row.is_voided && (
+          <div className="p-2.5 rounded-lg bg-red-50 border border-red-100 text-xs space-y-1 min-w-0">
+            {row.void_reason && (
+              <div className="min-w-0">
+                <span className="text-[10px] text-red-500 block uppercase font-semibold">Alasan Void</span>
+                <p className="text-red-700 break-words">{row.void_reason}</p>
+              </div>
+            )}
+            {row.voided_at && (
+              <div className="min-w-0">
+                <span className="text-[10px] text-red-500 block uppercase font-semibold">Waktu Void</span>
+                <p className="text-red-600 break-words">
+                  {new Date(row.voided_at).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tombol aksi: History, Edit, Cancel */}
+        <div className="pt-2 border-t border-gray-100 flex items-center justify-end gap-2 flex-wrap min-w-0">
+          <button
+            type="button"
+            onClick={() => handleOpenAuditModal(row)}
+            className="px-2.5 py-1 text-xs font-medium text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 rounded-md transition-colors"
+            title="View Audit History"
+          >
+            History
+          </button>
+          {!row.is_voided && canManageExpenses && (
+            <>
+              <button
+                type="button"
+                onClick={() => handleOpenEditModal(row)}
+                className="px-2.5 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                onClick={() => handleCancelExpense(row.id)}
+                disabled={isCancelling}
+                className="px-2.5 py-1 text-xs font-medium text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 rounded-md disabled:opacity-50 transition-colors"
+              >
+                {isCancelling ? 'Cancelling...' : 'Cancel'}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   if (!canViewFinance) {
     return <Navigate to={ROUTES.SELLER_DASHBOARD} replace />;
   }
 
   return (
-    <div className="space-y-8 max-w-[1600px] mx-auto pb-12">
+    <div className="space-y-4 sm:space-y-8 max-w-[1600px] mx-auto pb-6 sm:pb-12 min-w-0 max-w-full">
       {/* HEADER */}
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 tracking-tight">Finance</h1>
-          <p className="text-gray-500 mt-1">Monitor cash flow, profitability, expenses, and financial performance.</p>
-        </div>
-        
-        {/* Global Date Filter */}
-        <div className="flex flex-wrap items-end gap-3 bg-white p-3 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex flex-col">
-            <label className="text-xs font-semibold text-gray-600 mb-1">Start Date</label>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input 
-                type="date"
-                value={globalStartDate}
-                onChange={e => setGlobalStartDate(e.target.value)}
-                className="pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+      <PageHeader
+        title="Finance"
+        description="Monitor cash flow, profitability, expenses, and financial performance."
+        className="flex flex-col lg:flex-row lg:items-end justify-between gap-3 sm:gap-6 min-w-0 max-w-full"
+        actions={
+          /* Global Date Filter */
+          <div className="flex items-center gap-1.5 sm:gap-3 bg-white p-2 sm:p-3 rounded-xl shadow-sm border border-gray-100 w-full lg:w-auto min-w-0 max-w-full">
+            <div className="flex-1 min-w-0">
+              <label className="hidden sm:block text-xs font-semibold text-gray-600 mb-1">Start Date</label>
+              <div className="relative">
+                <Calendar className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-400 pointer-events-none" />
+                <input 
+                  type="date"
+                  value={globalStartDate}
+                  onChange={e => setGlobalStartDate(e.target.value)}
+                  className="w-full pl-7 sm:pl-9 pr-1 sm:pr-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  aria-label="Start Date"
+                />
+              </div>
             </div>
-          </div>
-          <div className="flex flex-col">
-            <label className="text-xs font-semibold text-gray-600 mb-1">End Date</label>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input 
-                type="date"
-                value={globalEndDate}
-                onChange={e => setGlobalEndDate(e.target.value)}
-                className="pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+            <span className="text-gray-400 text-xs sm:hidden self-center">-</span>
+            <div className="flex-1 min-w-0">
+              <label className="hidden sm:block text-xs font-semibold text-gray-600 mb-1">End Date</label>
+              <div className="relative">
+                <Calendar className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-400 pointer-events-none" />
+                <input 
+                  type="date"
+                  value={globalEndDate}
+                  onChange={e => setGlobalEndDate(e.target.value)}
+                  className="w-full pl-7 sm:pl-9 pr-1 sm:pr-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  aria-label="End Date"
+                />
+              </div>
             </div>
+            <button 
+              onClick={handleGlobalFilterApply}
+              className="shrink-0 px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors sm:self-end"
+            >
+              <span className="inline sm:hidden">Update</span>
+              <span className="hidden sm:inline">Update Summary</span>
+            </button>
           </div>
-          <button 
-            onClick={handleGlobalFilterApply}
-            className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Update Summary
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {statsError && !stats && (
         <div className="rounded-xl bg-red-50 p-6 flex flex-col items-center justify-center text-center border border-red-100">
@@ -1275,7 +1815,7 @@ export default function SellerFinancePage() {
       )}
 
       {/* CASH FLOW */}
-      <section>
+      <section className="min-w-0 max-w-full">
         <h2 className="text-lg font-bold text-gray-900 mb-4">Cash Flow</h2>
         <HorizontalScrollContainer>
           <StatCard
@@ -1303,7 +1843,7 @@ export default function SellerFinancePage() {
       </section>
 
       {/* PROFIT & LOSS */}
-      <section>
+      <section className="min-w-0 max-w-full">
         <h2 className="text-lg font-bold text-gray-900 mb-4">Profit & Loss</h2>
         <HorizontalScrollContainer>
           <StatCard
@@ -1359,15 +1899,20 @@ export default function SellerFinancePage() {
       </section>
 
       {/* CHARTS / VISUALS */}
-      <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3">
-        <div className="xl:col-span-2">
+      <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-3 min-w-0 max-w-full">
+        <div className="xl:col-span-2 min-w-0 max-w-full">
            <SalesTrendsCard 
              startDate={globalAppliedDates.start || undefined} 
              endDate={globalAppliedDates.end || undefined} 
            />
         </div>
-        <div>
-           <ExpenseCategoriesCard data={expenseCategories} isLoading={statsLoading} />
+        <div className="min-w-0 max-w-full">
+           <ExpenseCategoriesCard
+             summary={expenseSummary}
+             isLoading={expenseSummaryLoading}
+             error={expenseSummaryError}
+             onRetry={loadStats}
+           />
         </div>
       </div>
 
@@ -1377,9 +1922,13 @@ export default function SellerFinancePage() {
         data={paginatedProducts}
         isLoading={statsLoading}
         emptyMessage="No product profitability data available."
+        renderMobileCard={renderProductMobileCard}
         searchPlaceholder="Search product..."
         searchValue={prodSearch}
         onSearchChange={setProdSearch}
+        sortOptions={PRODUCT_SORT_OPTIONS}
+        sortBy={prodSortBy}
+        onSortChange={setProdSortBy}
         filters={[
           {
             label: 'Margin Status',
@@ -1418,9 +1967,13 @@ export default function SellerFinancePage() {
         data={paginatedSuppliers}
         isLoading={statsLoading}
         emptyMessage="No supplier spending data available."
+        renderMobileCard={renderSupplierMobileCard}
         searchPlaceholder="Search supplier..."
         searchValue={supSearch}
         onSearchChange={setSupSearch}
+        sortOptions={SUPPLIER_SORT_OPTIONS}
+        sortBy={supSortBy}
+        onSortChange={setSupSortBy}
         page={supPage}
         pageSize={supPageSize}
         totalRows={filteredSuppliers.length}
@@ -1439,9 +1992,13 @@ export default function SellerFinancePage() {
         data={displayExpenses}
         isLoading={expensesLoading}
         emptyMessage="No expenses found."
+        renderMobileCard={renderExpenseMobileCard}
         searchPlaceholder="Search expense category or user..."
         searchValue={expSearch}
         onSearchChange={setExpSearch}
+        sortOptions={EXPENSE_SORT_OPTIONS}
+        sortBy={expSortBy}
+        onSortChange={setExpSortBy}
         filters={[
           {
             label: 'Category',
@@ -1475,7 +2032,7 @@ export default function SellerFinancePage() {
         }}
         page={expPage}
         pageSize={expPageSize}
-        totalRows={expensesTotal}
+        hasNextPage={expHasNextPage}
         onPageChange={setExpPage}
         onPageSizeChange={(s) => { setExpPageSize(s); setExpPage(1); }}
         headerAction={
@@ -1691,15 +2248,12 @@ export default function SellerFinancePage() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Amount (IDR) <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="number"
+                  <CurrencyInput
                     required
-                    min="0.01"
-                    step="0.01"
                     value={expenseForm.jumlah}
-                    onChange={e => setExpenseForm(prev => ({ ...prev, jumlah: e.target.value }))}
+                    onChange={(val, raw) => setExpenseForm(prev => ({ ...prev, jumlah: raw ? String(val) : '' }))}
                     className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-shadow"
-                    placeholder="0.00"
+                    placeholder="0"
                   />
                 </div>
 

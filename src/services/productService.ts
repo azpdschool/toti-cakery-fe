@@ -9,6 +9,8 @@ import {
   updateProduct as updateProductApi,
   deleteProduct as deleteProductApi,
   uploadProductImage as uploadProductImageApi,
+  getBackendCategories,
+  type CategoryResponse,
   type ProductCreate,
   type ProductUpdate,
   type ProductOut,
@@ -180,14 +182,20 @@ export function mapProductOutToProduct(product: ProductOut): Product {
     ];
   }
 
+  const descId = product.deskripsi_id ?? product.deskripsi ?? null;
+  const descEn = product.deskripsi_en ?? null;
+
   return {
     id: String(product.id),
     backendId: product.id,
 
     slug: product.slug || makeSlug(product),
     name: product.nama_produk,
-    category: product.kategori ?? '',
-    description: product.deskripsi ?? '',
+    category: product.category?.name || product.kategori || '',
+    categoryId: product.category_id ?? product.category?.id ?? null,
+    description: descId ?? '',
+    descriptionId: descId,
+    descriptionEn: descEn,
 
     /**
      * image = URL final untuk browser.
@@ -229,7 +237,7 @@ export function mapProductOutToProduct(product: ProductOut): Product {
 
     rasa: null,
     ukuranAtauIsi: null,
-    parentCategory: product.parent_category ?? product.kategori ?? null,
+    parentCategory: product.parent_category ?? product.category?.name ?? product.kategori ?? null,
     minimumOrder: product.minimum_order ?? 1,
 
     optionGroups: [],
@@ -251,7 +259,10 @@ export function mapProductOutToSimpleProduct(product: ProductOut): SimpleProduct
     slug: mapped.slug,
     name: mapped.name,
     category: mapped.category,
+    categoryId: mapped.categoryId ?? null,
     description: mapped.description,
+    descriptionId: mapped.descriptionId ?? null,
+    descriptionEn: mapped.descriptionEn ?? null,
 
     image: mapped.image,
     imageUrlRaw: mapped.imageUrlRaw,
@@ -306,8 +317,8 @@ export function getLowestPrice(
  * Buyer catalog.
  * Hanya produk aktif.
  */
-export async function getAllProductsDetailed(): Promise<Product[]> {
-  const products = await getAllProductsApi(true);
+export async function getAllProductsDetailed(forceRefresh: boolean = false): Promise<Product[]> {
+  const products = await getAllProductsApi(true, undefined, forceRefresh);
 
   return products.map(mapProductOutToProduct);
 }
@@ -392,24 +403,49 @@ export async function getProductByBackendId(id: number): Promise<Product> {
   return mapProductOutToProduct(product);
 }
 
-export async function getCategories(): Promise<CategorySummary[]> {
-  const products = await getAllProductsApi(false);
-  const map = new Map<string, number>();
+export interface MasterCategoryOption {
+  id: number;
+  name: string;
+  count: number;
+}
 
-  for (const product of products) {
-    const category = product.kategori?.trim();
+export async function getMasterCategoriesWithCounts(onlyActive: boolean = true): Promise<MasterCategoryOption[]> {
+  try {
+    const [backendCats, products] = await Promise.all([
+      getBackendCategories().catch(() => [] as CategoryResponse[]),
+      getAllProductsApi(onlyActive).catch(() => [] as ProductOut[]),
+    ]);
 
-    if (!category) continue;
+    // Active product counts per category using category_id
+    const countMap = new Map<number, number>();
+    for (const product of products) {
+      const catId = product.category_id ?? product.category?.id;
+      if (product.is_active && catId) {
+        countMap.set(catId, (countMap.get(catId) || 0) + 1);
+      }
+    }
 
-    map.set(category, (map.get(category) ?? 0) + 1);
+    // Hide categories that have zero active products
+    return backendCats
+      .map((cat) => ({
+        id: cat.id,
+        name: cat.name,
+        count: countMap.get(cat.id) || 0,
+      }))
+      .filter((cat) => cat.count > 0)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  } catch (err) {
+    console.error('Failed to get master categories with counts:', err);
+    return [];
   }
+}
 
-  return Array.from(map.entries())
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([category, count]) => ({
-      category,
-      count,
-    }));
+export async function getCategories(onlyActive: boolean = true): Promise<CategorySummary[]> {
+  const masterCats = await getMasterCategoriesWithCounts(onlyActive);
+  return masterCats.map((c) => ({
+    category: c.name,
+    count: c.count,
+  }));
 }
 
 import { getLatestReviewsAPI, ReviewImageOut } from '@/api/review';
@@ -508,24 +544,12 @@ export async function createProductWithOptionalPrice(
   payload: ProductCreate,
   price?: number | string | null
 ): Promise<SimpleProduct> {
-  const created = await createProductApi(payload);
+  const finalPayload: ProductCreate = {
+    ...payload,
+    harga_jual: payload.harga_jual ?? (price !== null && price !== undefined && price !== '' ? price : null),
+  };
 
-  if (price !== null && price !== undefined && price !== '') {
-    const request: SetPriceRequest = {
-      harga_jual: price,
-    };
-
-    const priceResponse = await setProductPrice(created.id, request);
-
-    const refreshed = await getProductById(created.id);
-    const mapped = mapProductOutToSimpleProduct(refreshed);
-    mapped.warningBelowHpp = priceResponse.warning_below_hpp;
-    mapped.hppTotal = parseNumber(priceResponse.hpp_total);
-    mapped.marginPersen = priceResponse.margin_persen;
-    mapped.hargaJualBaru = parseNumber(priceResponse.harga_jual_baru);
-
-    return mapped;
-  }
+  const created = await createProductApi(finalPayload);
 
   return mapProductOutToSimpleProduct(created);
 }
@@ -535,31 +559,19 @@ export async function createProductWithOptionalPriceAndImage(
   price?: number | string | null,
   imageFile?: File | null
 ): Promise<SimpleProduct> {
-  const created = await createProductApi(payload);
-  let priceResponse: SetPriceResponse | undefined;
+  const finalPayload: ProductCreate = {
+    ...payload,
+    harga_jual: payload.harga_jual ?? (price !== null && price !== undefined && price !== '' ? price : null),
+  };
 
-  if (price !== null && price !== undefined && price !== '') {
-    const request: SetPriceRequest = {
-      harga_jual: price,
-    };
-
-    priceResponse = await setProductPrice(created.id, request);
-  }
+  const created = await createProductApi(finalPayload);
 
   if (imageFile) {
     await uploadProductImageApi(created.id, imageFile);
   }
 
   const refreshed = await getProductById(created.id);
-  const mapped = mapProductOutToSimpleProduct(refreshed);
-  if (priceResponse) {
-    mapped.warningBelowHpp = priceResponse.warning_below_hpp;
-    mapped.hppTotal = parseNumber(priceResponse.hpp_total);
-    mapped.marginPersen = priceResponse.margin_persen;
-    mapped.hargaJualBaru = parseNumber(priceResponse.harga_jual_baru);
-  }
-
-  return mapped;
+  return mapProductOutToSimpleProduct(refreshed);
 }
 
 export async function updateProductPrice(
@@ -581,4 +593,6 @@ export {
   setPrimaryProductImage,
   deleteProductImage,
   getProductPricing,
+  invalidateProductsCache,
+  invalidateProductByIdCache,
 } from '../api/product';

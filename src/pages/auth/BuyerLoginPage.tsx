@@ -424,7 +424,7 @@ function MethodButton({ icon, label, active, onClick }: { icon: React.ReactNode,
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-xl px-1 py-2 text-xs font-bold transition ${
+      className={`rounded-xl px-1.5 sm:px-2 py-2 text-[11px] sm:text-xs font-bold transition ${
         active
           ? 'bg-[#d85b30] text-white shadow'
           : 'bg-[#fff7f0] text-[#8b7166] hover:bg-[#ffeadb] hover:text-[#4b2417]'

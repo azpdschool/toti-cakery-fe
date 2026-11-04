@@ -6,6 +6,8 @@ export interface PublicProductSearchResult {
   nama_produk: string
   slug: string | null
   deskripsi: string | null
+  deskripsi_id?: string | null
+  deskripsi_en?: string | null
   kategori: string | null
   harga_jual: number | null
   image_url: string | null

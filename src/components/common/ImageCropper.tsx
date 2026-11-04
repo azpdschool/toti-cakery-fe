@@ -47,13 +47,24 @@ const createImage = (url: string): Promise<HTMLImageElement> =>
 async function getCroppedImg(
   imageSrc: string,
   pixelCrop: Area,
-  rotation = 0
+  rotation = 0,
+  backgroundColor = 'transparent'
 ): Promise<File | null> {
   const image = await createImage(imageSrc)
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d')
 
   if (!ctx) return null
+
+  // Detect mime type from imageSrc if possible
+  let mimeType = 'image/jpeg'
+  try {
+    const res = await fetch(imageSrc)
+    const blob = await res.blob()
+    if (blob.type) mimeType = blob.type
+  } catch {}
+
+  const isTransparent = backgroundColor === 'transparent' && (mimeType.includes('png') || mimeType.includes('webp'))
 
   const rotRad = getRadianAngle(rotation)
   const { width: bBoxWidth, height: bBoxHeight } = calculateRotatedBox(
@@ -65,8 +76,12 @@ async function getCroppedImg(
   canvas.width = Math.round(bBoxWidth)
   canvas.height = Math.round(bBoxHeight)
 
-  ctx.fillStyle = '#ffffff'
-  ctx.fillRect(0, 0, canvas.width, canvas.height)
+  if (!isTransparent) {
+    ctx.fillStyle = backgroundColor || '#ffffff'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+  } else {
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+  }
 
   ctx.translate(canvas.width / 2, canvas.height / 2)
   ctx.rotate(rotRad)
@@ -83,22 +98,29 @@ async function getCroppedImg(
   croppedCanvas.width = targetWidth
   croppedCanvas.height = targetHeight
 
-  croppedCtx.fillStyle = '#ffffff'
-  croppedCtx.fillRect(0, 0, targetWidth, targetHeight)
+  if (!isTransparent) {
+    croppedCtx.fillStyle = backgroundColor || '#ffffff'
+    croppedCtx.fillRect(0, 0, targetWidth, targetHeight)
+  } else {
+    croppedCtx.clearRect(0, 0, targetWidth, targetHeight)
+  }
 
   croppedCtx.drawImage(canvas, -pixelCrop.x, -pixelCrop.y)
+
+  const outputMime = isTransparent ? (mimeType.includes('png') ? 'image/png' : 'image/webp') : 'image/jpeg'
+  const outputExt = outputMime.includes('png') ? 'png' : outputMime.includes('webp') ? 'webp' : 'jpg'
 
   return new Promise((resolve) => {
     croppedCanvas.toBlob(
       (blob) => {
         if (blob) {
-          resolve(new File([blob], 'cropped_image.jpg', { type: 'image/jpeg' }))
+          resolve(new File([blob], `cropped_image.${outputExt}`, { type: outputMime }))
         } else {
           resolve(null)
         }
       },
-      'image/jpeg',
-      0.92
+      outputMime,
+      outputMime === 'image/jpeg' ? 0.92 : undefined
     )
   })
 }
@@ -157,8 +179,8 @@ export default function ImageCropper({
 
   // Aspect ratio state (for product / rect images)
   const [naturalAspect, setNaturalAspect] = useState<number>(aspectRatio || 1)
-  const [selectedRatioKey, setSelectedRatioKey] = useState<'1:1' | '4:3' | 'original'>(
-    aspectRatio === 1 ? '1:1' : aspectRatio === 4 / 3 ? '4:3' : 'original'
+  const [selectedRatioKey, setSelectedRatioKey] = useState<'1:1' | '4:3' | '16:9' | 'original'>(
+    aspectRatio === 1 ? '1:1' : aspectRatio === 4 / 3 ? '4:3' : aspectRatio === 16 / 9 ? '16:9' : 'original'
   )
 
   useEffect(() => {
@@ -179,6 +201,8 @@ export default function ImageCropper({
       ? 1
       : selectedRatioKey === '4:3'
       ? 4 / 3
+      : selectedRatioKey === '16:9'
+      ? 16 / 9
       : naturalAspect
 
   const onCropComplete = useCallback((_croppedArea: Area, currentCroppedAreaPixels: Area) => {
@@ -189,7 +213,9 @@ export default function ImageCropper({
     setZoom(1)
     setCrop({ x: 0, y: 0 })
     setRotation(0)
-    setSelectedRatioKey(aspectRatio === 1 ? '1:1' : aspectRatio === 4 / 3 ? '4:3' : 'original')
+    setSelectedRatioKey(
+      aspectRatio === 1 ? '1:1' : aspectRatio === 4 / 3 ? '4:3' : aspectRatio === 16 / 9 ? '16:9' : 'original'
+    )
   }
 
   const handleConfirm = async () => {
@@ -221,7 +247,7 @@ export default function ImageCropper({
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-lg rounded-2xl bg-white p-5 sm:p-6 shadow-2xl border border-gray-100 flex flex-col max-h-[92vh] overflow-y-auto">
+      <div className="w-full max-w-lg rounded-2xl bg-white p-5 sm:p-6 shadow-2xl border border-gray-100 flex flex-col max-h-[92dvh] overflow-y-auto">
         {/* Header */}
         <div className="mb-4 flex items-center justify-between border-b border-gray-100 pb-3">
           <h3 className="text-lg font-bold text-[#4b2417] truncate">{dialogTitle}</h3>
@@ -268,7 +294,7 @@ export default function ImageCropper({
         {/* Canvas / Preview Container */}
         {mode === 'original' ? (
           <div>
-            <div className="relative flex h-72 sm:h-80 w-full items-center justify-center overflow-hidden rounded-xl border border-gray-800 bg-gray-950 p-3 shadow-inner">
+            <div className="relative flex h-52 sm:h-72 md:h-80 w-full items-center justify-center overflow-hidden rounded-xl border border-gray-800 bg-gray-950 p-3 shadow-inner">
               <img
                 src={imageSrc}
                 alt={t('profile.preview_original', 'Ukuran Asli')}
@@ -287,7 +313,7 @@ export default function ImageCropper({
           </div>
         ) : (
           <div>
-            <div className="relative h-72 sm:h-80 w-full overflow-hidden rounded-xl border border-gray-800 bg-gray-950 shadow-inner">
+            <div className="relative h-52 sm:h-72 md:h-80 w-full overflow-hidden rounded-xl border border-gray-800 bg-gray-950 shadow-inner">
               <Cropper
                 image={imageSrc}
                 crop={crop}
@@ -343,6 +369,17 @@ export default function ImageCropper({
                   </button>
                   <button
                     type="button"
+                    onClick={() => setSelectedRatioKey('16:9')}
+                    className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
+                      selectedRatioKey === '16:9'
+                        ? 'bg-[#d85b30] text-white shadow-sm'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    16:9
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setSelectedRatioKey('original')}
                     className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
                       selectedRatioKey === 'original'
@@ -350,7 +387,7 @@ export default function ImageCropper({
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >
-                    {t('profile.ratio_original', 'Free / Original')}
+                    {t('profile.ratio_original', 'Original')}
                   </button>
                 </div>
               </div>
@@ -429,30 +466,54 @@ export default function ImageCropper({
         )}
 
         {/* Footer actions */}
-        <div className="mt-6 flex justify-end gap-3 border-t border-gray-100 pt-4">
+        <div className="mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 border-t border-gray-100 pt-4">
           <button
             type="button"
-            onClick={onCancel}
+            onClick={async () => {
+              if (isUploading || isProcessing) return
+              setIsProcessing(true)
+              try {
+                const file = await getOriginalFile(imageSrc)
+                onCrop(file)
+              } catch (err) {
+                console.error('Failed to use original file:', err)
+              } finally {
+                setIsProcessing(false)
+              }
+            }}
             disabled={isUploading || isProcessing}
-            className="rounded-xl border border-[#d0bfaf] px-4 py-2 text-sm font-bold text-[#4b2417] transition hover:bg-[#fff4ed] disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#d85b30] bg-[#fff4ed] px-4 py-2 text-sm font-bold text-[#d85b30] transition hover:bg-[#ffe8db] disabled:opacity-50"
+            title="Use the original image dimensions without any cropping"
           >
-            {t('profile.cancel', 'Batal')}
+            <Maximize2 className="h-4 w-4" />
+            <span>Use Original Size (No Crop)</span>
           </button>
-          <button
-            type="button"
-            onClick={handleConfirm}
-            disabled={isUploading || isProcessing}
-            className="inline-flex items-center gap-2 rounded-xl bg-[#d85b30] px-5 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-[#c04e28] disabled:opacity-50"
-          >
-            {isUploading || isProcessing ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>{t('profile.uploading', 'Mengunggah...')}</span>
-              </>
-            ) : (
-              <span>{t('profile.use_photo', 'Gunakan Foto')}</span>
-            )}
-          </button>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={isUploading || isProcessing}
+              className="rounded-xl border border-[#d0bfaf] px-4 py-2 text-sm font-bold text-[#4b2417] transition hover:bg-[#fff4ed] disabled:opacity-50"
+            >
+              {t('profile.cancel', 'Batal')}
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirm}
+              disabled={isUploading || isProcessing}
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#d85b30] px-5 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-[#c04e28] disabled:opacity-50"
+            >
+              {isUploading || isProcessing ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>{t('profile.uploading', 'Mengunggah...')}</span>
+                </>
+              ) : (
+                <span>{t('profile.use_photo', 'Gunakan Foto')}</span>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>

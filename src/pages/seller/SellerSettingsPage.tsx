@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useToast } from '@/components/ui/Toast';
 import { toast } from 'react-hot-toast';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import { SellerModal } from '@/components/ui/SellerModal';
+import { PageHeader } from '@/components/ui/PageHeader';
 import {
   User,
   Users,
@@ -15,7 +16,24 @@ import {
   Plus,
   Mail,
   AlertCircle,
+  Store,
+  Upload,
+  Image as ImageIcon,
+  MapPin,
+  Globe,
+  Check,
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
+import { SellerSortDropdown } from '@/components/ui/SellerSortDropdown';
+import { SellerFilterDropdown } from '@/components/ui/SellerFilterDropdown';
+import {
+  getStoreCustomization,
+  uploadHeroImage,
+  updateStoreCustomization,
+  type StoreCustomizationPatchPayload,
+} from '@/services/storeCustomizationService';
 import {
   getMyProfile,
   updateMyProfile,
@@ -37,6 +55,7 @@ import {
   getWhatsAppStatus,
   getWhatsAppQr,
   resetWhatsAppNumber,
+  invalidatePublicContactCache,
   type WhatsAppStatus
 } from "@/services/whatsappService";
 import ImageCropper from '@/components/common/ImageCropper';
@@ -56,13 +75,13 @@ function TabButton({ label, icon: Icon, isActive, onClick }: TabButtonProps) {
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold transition border-b-2 ${
+      className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold transition border-b-2 whitespace-nowrap shrink-0 ${
         isActive
           ? 'border-[#d85b30] text-[#d85b30]'
           : 'border-transparent text-[#6f5448] hover:text-[#4b2417]'
       }`}
     >
-      <Icon className="h-4 w-4" />
+      <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
       {label}
     </button>
   );
@@ -96,6 +115,7 @@ function ProfileTab() {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Password State
+  const [isEditingPassword, setIsEditingPassword] = useState(false);
   const [passwordData, setPasswordData] = useState({
     current: '',
     new: '',
@@ -245,6 +265,24 @@ function ProfileTab() {
   };
 
   // Password Handlers
+  const handleEditPasswordClick = () => {
+    setPasswordData({ current: '', new: '', confirm: '' });
+    setPasswordError(null);
+    setShowCurrent(false);
+    setShowNew(false);
+    setShowConfirm(false);
+    setIsEditingPassword(true);
+  };
+
+  const handleCancelPasswordClick = () => {
+    setPasswordData({ current: '', new: '', confirm: '' });
+    setPasswordError(null);
+    setShowCurrent(false);
+    setShowNew(false);
+    setShowConfirm(false);
+    setIsEditingPassword(false);
+  };
+
   const handleUpdatePassword = async () => {
     if (!passwordData.current) {
       setPasswordError('Current password is required');
@@ -268,6 +306,10 @@ function ProfileTab() {
       });
       showToast({ message: 'Password updated successfully.', type: 'success' });
       setPasswordData({ current: '', new: '', confirm: '' });
+      setShowCurrent(false);
+      setShowNew(false);
+      setShowConfirm(false);
+      setIsEditingPassword(false);
     } catch (err: any) {
       if (err.response?.data?.detail) {
         setPasswordError(err.response.data.detail);
@@ -284,15 +326,15 @@ function ProfileTab() {
   if (!profile) return <div className="py-8 text-center text-red-500">Failed to load profile.</div>;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Profile Header */}
-      <div className="rounded-xl bg-white p-6 shadow-sm">
-        <div className="flex items-center gap-4">
+      <div className="rounded-xl bg-white p-4 sm:p-6 shadow-sm">
+        <div className="flex items-center gap-3 sm:gap-4">
           <div className="relative group">
             {profile.avatar_url ? (
-              <img src={profile.avatar_url} alt="Avatar" className="h-16 w-16 rounded-full object-cover border border-[#d0bfaf]" />
+              <img src={profile.avatar_url} alt="Avatar" className="h-14 w-14 sm:h-16 sm:w-16 rounded-full object-cover border border-[#d0bfaf]" />
             ) : (
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#d85b30] text-2xl font-black text-white">
+              <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-[#d85b30] text-xl sm:text-2xl font-black text-white">
                 {profile.username?.charAt(0).toUpperCase()}
               </div>
             )}
@@ -308,27 +350,27 @@ function ProfileTab() {
             </label>
           </div>
           <div>
-            <h3 className="text-lg font-bold text-[#4b2417]">{profile.username}</h3>
-            <p className="text-sm capitalize text-[#6f5448]">
+            <h3 className="text-base sm:text-lg font-bold text-[#4b2417]">{profile.username}</h3>
+            <p className="text-xs sm:text-sm capitalize text-[#6f5448]">
               {profile.role_name || (profile.role_id === 1 ? 'Owner' : profile.role_id === 2 ? 'Admin' : 'Staff')}
             </p>
             {profile.is_active ? (
-              <p className="text-sm text-green-600 font-semibold">Active</p>
+              <p className="text-xs sm:text-sm text-green-600 font-semibold">Active</p>
             ) : (
-              <p className="text-sm text-red-600 font-semibold">Inactive</p>
+              <p className="text-xs sm:text-sm text-red-600 font-semibold">Inactive</p>
             )}
           </div>
         </div>
       </div>
 
       {/* Personal Data Section */}
-      <div className="rounded-xl bg-white p-6 shadow-sm">
+      <div className="rounded-xl bg-white p-4 sm:p-6 shadow-sm">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-bold uppercase text-[#6f5448]">Personal Data</h3>
+          <h3 className="text-xs sm:text-sm font-bold uppercase text-[#6f5448]">Personal Data</h3>
           {!isEditing && (
             <button
               onClick={handleEditClick}
-              className="flex items-center gap-2 text-sm font-semibold text-[#d85b30] hover:text-[#c04e28]"
+              className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-semibold text-[#d85b30] hover:text-[#c04e28]"
             >
               <Edit className="h-4 w-4" />
               Edit
@@ -337,20 +379,20 @@ function ProfileTab() {
         </div>
         
         {error && isEditing && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-xs sm:text-sm text-red-700">
             {error}
           </div>
         )}
 
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">Username *</label>
+            <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">Username *</label>
             <input
               type="text"
               value={isEditing ? formData.username : profile.username}
               onChange={(e) => setFormData({ ...formData, username: e.target.value })}
               readOnly={!isEditing}
-              className={`mt-1 w-full rounded-lg border px-4 py-2 text-sm outline-none ${
+              className={`mt-1 w-full rounded-lg border px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none ${
                 isEditing 
                   ? 'border-[#d0bfaf] focus:border-[#d85b30]' 
                   : 'border-transparent bg-gray-50 text-gray-700 focus:border-transparent'
@@ -358,13 +400,13 @@ function ProfileTab() {
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">Email (Optional)</label>
+            <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">Email (Optional)</label>
             <input
               type="email"
               value={isEditing ? formData.email : (profile.email || '')}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               readOnly={!isEditing}
-              className={`mt-1 w-full rounded-lg border px-4 py-2 text-sm outline-none ${
+              className={`mt-1 w-full rounded-lg border px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none ${
                 isEditing 
                   ? 'border-[#d0bfaf] focus:border-[#d85b30]' 
                   : 'border-transparent bg-gray-50 text-gray-700 focus:border-transparent'
@@ -372,13 +414,13 @@ function ProfileTab() {
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">Phone Number (Optional)</label>
+            <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">Phone Number (Optional)</label>
             <input
               type="tel"
               value={isEditing ? formData.phone_number : (profile.phone_number || '')}
               onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
               readOnly={!isEditing}
-              className={`mt-1 w-full rounded-lg border px-4 py-2 text-sm outline-none ${
+              className={`mt-1 w-full rounded-lg border px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none ${
                 isEditing 
                   ? 'border-[#d0bfaf] focus:border-[#d85b30]' 
                   : 'border-transparent bg-gray-50 text-gray-700 focus:border-transparent'
@@ -386,14 +428,14 @@ function ProfileTab() {
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">Admin WhatsApp Number (Optional)</label>
+            <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">Admin WhatsApp Number (Optional)</label>
             <input
               type="tel"
               value={isEditing ? formData.nomor_wa_admin : (profile.nomor_wa_admin || '')}
               onChange={(e) => setFormData({ ...formData, nomor_wa_admin: e.target.value })}
               readOnly={!isEditing}
               placeholder={isEditing ? "Example: +62812..." : ""}
-              className={`mt-1 w-full rounded-lg border px-4 py-2 text-sm outline-none ${
+              className={`mt-1 w-full rounded-lg border px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none ${
                 isEditing 
                   ? 'border-[#d0bfaf] focus:border-[#d85b30]' 
                   : 'border-transparent bg-gray-50 text-gray-700 focus:border-transparent'
@@ -403,18 +445,18 @@ function ProfileTab() {
         </div>
 
         {isEditing && (
-          <div className="mt-6 flex gap-3 border-t border-gray-200 pt-6">
+          <div className="mt-4 sm:mt-6 flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 border-t border-gray-200 pt-4 sm:pt-6">
             <button
               onClick={handleCancelClick}
               disabled={saving}
-              className="rounded-lg border border-gray-300 px-6 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+              className="w-full sm:w-auto rounded-lg border border-gray-300 px-4 sm:px-6 py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={handleSaveProfile}
               disabled={saving || !hasChanges}
-              className="rounded-lg bg-[#d85b30] px-6 py-2 text-sm font-semibold text-white hover:bg-[#c04e28] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full sm:w-auto rounded-lg bg-[#d85b30] px-4 sm:px-6 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-[#c04e28] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {saving ? 'Saving...' : 'Save Changes'}
             </button>
@@ -423,89 +465,130 @@ function ProfileTab() {
       </div>
 
       {/* Change Password Section */}
-      <div className="rounded-xl bg-white p-6 shadow-sm">
-        <h3 className="text-sm font-bold uppercase text-[#6f5448]">Password & Security</h3>
-        <p className="mt-1 text-xs text-[#8b7166]">
-          Change your account password to keep your account secure.
-        </p>
+      <div className="rounded-xl bg-white p-4 sm:p-6 shadow-sm">
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div>
+            <h3 className="text-xs sm:text-sm font-bold uppercase text-[#6f5448]">Password & Security</h3>
+            <p className="mt-0.5 sm:mt-1 text-[11px] sm:text-xs text-[#8b7166]">
+              Change your account password to keep your account secure.
+            </p>
+          </div>
+          {!isEditingPassword && (
+            <button
+              type="button"
+              onClick={handleEditPasswordClick}
+              className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-semibold text-[#d85b30] hover:text-[#c04e28] shrink-0"
+            >
+              <Edit className="h-4 w-4" />
+              Edit
+            </button>
+          )}
+        </div>
 
-        {passwordError && (
-          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        {passwordError && isEditingPassword && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-xs sm:text-sm text-red-700">
             {passwordError}
           </div>
         )}
 
-        <div className="mt-4 space-y-4 max-w-md">
-          <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">Current Password *</label>
-            <div className="relative mt-1">
+        {!isEditingPassword ? (
+          <div className="space-y-3 sm:space-y-4">
+            <div>
+              <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">Password</label>
               <input
-                type={showCurrent ? 'text' : 'password'}
-                value={passwordData.current}
-                onChange={(e) => setPasswordData({ ...passwordData, current: e.target.value })}
-                placeholder="Enter current password"
-                className="w-full rounded-lg border border-[#d0bfaf] px-4 py-2 pr-10 text-sm outline-none focus:border-[#d85b30]"
+                type="text"
+                value="••••••••••••"
+                readOnly
+                className="mt-1 w-full rounded-lg border border-transparent bg-gray-50 px-3 sm:px-4 py-2 text-xs sm:text-sm text-gray-700 outline-none focus:border-transparent"
               />
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div className="space-y-3 sm:space-y-4">
+              <div>
+                <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">Current Password *</label>
+                <div className="relative mt-1">
+                  <input
+                    type={showCurrent ? 'text' : 'password'}
+                    value={passwordData.current}
+                    onChange={(e) => setPasswordData({ ...passwordData, current: e.target.value })}
+                    placeholder="Enter current password"
+                    className="w-full rounded-lg border border-[#d0bfaf] px-3 sm:px-4 py-2 pr-10 text-xs sm:text-sm outline-none focus:border-[#d85b30]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrent(!showCurrent)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166]"
+                  >
+                    {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">New Password *</label>
+                <div className="relative mt-1">
+                  <input
+                    type={showNew ? 'text' : 'password'}
+                    value={passwordData.new}
+                    onChange={(e) => setPasswordData({ ...passwordData, new: e.target.value })}
+                    placeholder="Min. 8 characters"
+                    minLength={8}
+                    className="w-full rounded-lg border border-[#d0bfaf] px-3 sm:px-4 py-2 pr-10 text-xs sm:text-sm outline-none focus:border-[#d85b30]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNew(!showNew)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166]"
+                  >
+                    {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">Confirm New Password *</label>
+                <div className="relative mt-1">
+                  <input
+                    type={showConfirm ? 'text' : 'password'}
+                    value={passwordData.confirm}
+                    onChange={(e) => setPasswordData({ ...passwordData, confirm: e.target.value })}
+                    placeholder="Repeat new password"
+                    minLength={8}
+                    className="w-full rounded-lg border border-[#d0bfaf] px-3 sm:px-4 py-2 pr-10 text-xs sm:text-sm outline-none focus:border-[#d85b30]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirm(!showConfirm)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166]"
+                  >
+                    {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 sm:mt-6 flex flex-col-reverse sm:flex-row gap-2 sm:gap-3 border-t border-gray-200 pt-4 sm:pt-6">
               <button
                 type="button"
-                onClick={() => setShowCurrent(!showCurrent)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166]"
+                onClick={handleCancelPasswordClick}
+                disabled={savingPassword}
+                className="w-full sm:w-auto rounded-lg border border-gray-300 px-4 sm:px-6 py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
               >
-                {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleUpdatePassword}
+                disabled={savingPassword || !passwordData.current || !passwordData.new || !passwordData.confirm}
+                className="w-full sm:w-auto rounded-lg bg-[#d85b30] px-4 sm:px-6 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-[#c04e28] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {savingPassword ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">New Password *</label>
-            <div className="relative mt-1">
-              <input
-                type={showNew ? 'text' : 'password'}
-                value={passwordData.new}
-                onChange={(e) => setPasswordData({ ...passwordData, new: e.target.value })}
-                placeholder="Min. 8 characters"
-                minLength={8}
-                className="w-full rounded-lg border border-[#d0bfaf] px-4 py-2 pr-10 text-sm outline-none focus:border-[#d85b30]"
-              />
-              <button
-                type="button"
-                onClick={() => setShowNew(!showNew)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166]"
-              >
-                {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">Confirm New Password *</label>
-            <div className="relative mt-1">
-              <input
-                type={showConfirm ? 'text' : 'password'}
-                value={passwordData.confirm}
-                onChange={(e) => setPasswordData({ ...passwordData, confirm: e.target.value })}
-                placeholder="Repeat new password"
-                minLength={8}
-                className="w-full rounded-lg border border-[#d0bfaf] px-4 py-2 pr-10 text-sm outline-none focus:border-[#d85b30]"
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirm(!showConfirm)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166]"
-              >
-                {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </div>
-
-          <button
-            onClick={handleUpdatePassword}
-            disabled={savingPassword || !passwordData.current || !passwordData.new || !passwordData.confirm}
-            className="w-full rounded-lg bg-[#d85b30] py-2 text-sm font-semibold text-white hover:bg-[#c04e28] disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {savingPassword ? 'Updating...' : 'Change Password'}
-          </button>
-        </div>
+        )}
       </div>
 
       {/* Avatar Edit Modal */}
@@ -600,27 +683,27 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
       title={initialData ? 'Edit User' : 'Add User'}
       size="lg"
       footer={
-        <div className="flex justify-end gap-3 w-full">
+        <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 w-full">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-gray-300 px-6 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+            className="w-full sm:w-auto rounded-lg border border-gray-300 px-4 sm:px-6 py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
           >
             Cancel
           </button>
           <button
             type="submit"
             form="user-form"
-            className="rounded-lg bg-[#d85b30] px-6 py-2 text-sm font-semibold text-white hover:bg-[#c04e28]"
+            className="w-full sm:w-auto rounded-lg bg-[#d85b30] px-4 sm:px-6 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-[#c04e28] transition-colors"
           >
             {initialData ? 'Save Changes' : 'Add User'}
           </button>
         </div>
       }
     >
-      <form id="user-form" onSubmit={handleSubmit} className="space-y-4">
+      <form id="user-form" onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
         <div>
-          <label className="block text-sm font-semibold text-[#4b2417]">
+          <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">
             Username *
           </label>
           <input
@@ -628,52 +711,52 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
             required
             value={formData.username}
             onChange={e => setFormData({...formData, username: e.target.value})}
-            className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 outline-none focus:border-[#d85b30]"
+            className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none focus:border-[#d85b30]"
             placeholder="johndoe"
           />
         </div>
         
         <div>
-          <label className="block text-sm font-semibold text-[#4b2417]">
+          <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">
             Email
           </label>
           <input
             type="email"
             value={formData.email}
             onChange={e => setFormData({...formData, email: e.target.value})}
-            className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 outline-none focus:border-[#d85b30]"
+            className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none focus:border-[#d85b30]"
             placeholder="johndoe@example.com"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-[#4b2417]">
+          <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">
             Phone Number
           </label>
           <input
             type="text"
             value={formData.phone_number}
             onChange={e => setFormData({...formData, phone_number: e.target.value})}
-            className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 outline-none focus:border-[#d85b30]"
+            className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none focus:border-[#d85b30]"
             placeholder="628123456789"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-semibold text-[#4b2417]">
+          <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">
             Role *
           </label>
           <select
             value={formData.role_id}
             onChange={e => setFormData({...formData, role_id: Number(e.target.value)})}
-            className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 outline-none focus:border-[#d85b30]"
+            className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none focus:border-[#d85b30]"
           >
             <option value={2}>Admin</option>
             <option value={3}>Staff</option>
           </select>
         </div>
 
-        <label className="flex items-center gap-2 text-sm font-semibold text-[#4b2417]">
+        <label className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-[#4b2417]">
           <input
             type="checkbox"
             checked={formData.handles_takeover}
@@ -685,7 +768,7 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
 
         {!initialData && (
           <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">
+            <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">
               Password *
             </label>
             <div className="relative mt-1">
@@ -695,7 +778,7 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
                 value={formData.password}
                 onChange={e => setFormData({...formData, password: e.target.value})}
                 minLength={8}
-                className="w-full rounded-lg border border-[#d0bfaf] px-4 py-2 pr-10 outline-none focus:border-[#d85b30]"
+                className="w-full rounded-lg border border-[#d0bfaf] px-3 sm:px-4 py-2 pr-10 text-xs sm:text-sm outline-none focus:border-[#d85b30]"
                 placeholder="Enter password (min. 8 characters)"
               />
               <button
@@ -720,7 +803,8 @@ function UsersTab() {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterRole, setFilterRole] = useState('All roles');
+  const [filterRole, setFilterRole] = useState('all');
+  const [userSortBy, setUserSortBy] = useState('name_asc');
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
   const [toastMessage, setToastMessage] = useState('');
@@ -750,17 +834,45 @@ function UsersTab() {
     loadUsers();
   }, []);
 
-  const filteredUsers = users.filter((u) => {
-    const matchSearch =
-      u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (u.phone_number && u.phone_number.includes(searchQuery)) ||
-      (u.email && u.email.toLowerCase().includes(searchQuery.toLowerCase()));
-    let targetRoleId = 0;
-    if (filterRole === 'admin') targetRoleId = 2;
-    if (filterRole === 'staff') targetRoleId = 3;
-    const matchRole = filterRole === 'All roles' || u.role_id === targetRoleId;
-    return matchSearch && matchRole;
-  });
+  const filteredUsers = useMemo(() => {
+    const result = users.filter((u) => {
+      const matchSearch =
+        u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (u.phone_number && u.phone_number.includes(searchQuery)) ||
+        (u.email && u.email.toLowerCase().includes(searchQuery.toLowerCase()));
+      let targetRoleId = 0;
+      if (filterRole === 'owner') targetRoleId = 1;
+      if (filterRole === 'admin') targetRoleId = 2;
+      if (filterRole === 'staff') targetRoleId = 3;
+      const matchRole = filterRole === 'all' || filterRole === 'All roles' || u.role_id === targetRoleId;
+      return matchSearch && matchRole;
+    });
+
+    switch (userSortBy) {
+      case 'name_asc':
+        result.sort((a, b) => a.username.localeCompare(b.username));
+        break;
+      case 'name_desc':
+        result.sort((a, b) => b.username.localeCompare(a.username));
+        break;
+      case 'role_asc':
+        result.sort((a, b) => (a.role_id || 0) - (b.role_id || 0));
+        break;
+      case 'role_desc':
+        result.sort((a, b) => (b.role_id || 0) - (a.role_id || 0));
+        break;
+      case 'newest':
+        result.sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+        break;
+      case 'oldest':
+        result.sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+        break;
+      default:
+        break;
+    }
+
+    return result;
+  }, [users, searchQuery, filterRole, userSortBy]);
 
   const getStatusBadge = (isActive: boolean) => {
     if (isActive) {
@@ -840,75 +952,120 @@ function UsersTab() {
   if (loading) return <div className="py-8 text-center text-gray-500">Loading...</div>;
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-4 shadow-sm">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#8b7166]" />
-          <input
-            type="text"
-            placeholder="Search name or username..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-[#d0bfaf] py-2 pl-9 pr-4 text-sm outline-none focus:border-[#d85b30]"
-          />
+    <div className="space-y-3 sm:space-y-4">
+      <div className="flex flex-col sm:flex-row gap-2 sm:gap-2.5 rounded-xl bg-white p-2.5 sm:p-4 shadow-sm border border-gray-100">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="relative flex-1 min-w-0">
+            <Search className="pointer-events-none absolute left-2.5 sm:left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#8b7166]" />
+            <input
+              type="text"
+              placeholder="Search name or username..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full rounded-lg border border-[#d0bfaf] py-1.5 sm:py-2 pl-8 sm:pl-9 pr-2 sm:pr-4 text-xs sm:text-sm outline-none focus:border-[#d85b30]"
+            />
+          </div>
+          {canManageUsers && (
+            <button
+              type="button"
+              onClick={openAddModal}
+              className="sm:hidden shrink-0 flex items-center gap-1 rounded-lg bg-[#d85b30] px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-[#c04e28] transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              <span>Add User</span>
+            </button>
+          )}
         </div>
-        <select
-          value={filterRole}
-          onChange={(e) => setFilterRole(e.target.value)}
-          className="rounded-lg border border-[#d0bfaf] px-3 py-2 text-sm outline-none focus:border-[#d85b30]"
-        >
-          <option value="All roles">All roles</option>
-          <option value="admin">Admin</option>
-          <option value="staff">Staff</option>
-        </select>
-        {canManageUsers && (
-          <button
-            onClick={openAddModal}
-            className="flex items-center gap-1 rounded-lg bg-[#d85b30] px-4 py-2 text-sm font-semibold text-white hover:bg-[#c04e28]"
-          >
-            <Plus className="h-4 w-4" />
-            Add
-          </button>
-        )}
+
+        <div className="grid grid-cols-2 gap-2 w-full sm:flex sm:w-auto sm:items-center sm:gap-2.5 shrink-0">
+          <SellerSortDropdown
+            id="users-sort"
+            value={userSortBy}
+            onChange={(val) => setUserSortBy(val)}
+            options={[
+              { label: 'Name: A-Z', value: 'name_asc' },
+              { label: 'Name: Z-A', value: 'name_desc' },
+              { label: 'Role: Owner to Staff', value: 'role_asc' },
+              { label: 'Role: Staff to Owner', value: 'role_desc' },
+              { label: 'Newest', value: 'newest' },
+              { label: 'Oldest', value: 'oldest' },
+            ]}
+            align="left"
+            ariaLabel="Sort users"
+            className="w-full [&>div]:w-full [&>div>button]:w-full sm:w-auto sm:[&>div]:w-auto sm:[&>div>button]:w-auto"
+          />
+          <SellerFilterDropdown
+            id="users-role-filter"
+            value={filterRole}
+            onChange={(val) => setFilterRole(val)}
+            options={[
+              { label: 'All roles', value: 'all' },
+              { label: 'Owner', value: 'owner' },
+              { label: 'Admin', value: 'admin' },
+              { label: 'Staff', value: 'staff' },
+            ]}
+            align="right"
+            ariaLabel="Filter users by role"
+            className="w-full [&>div]:w-full [&>div>button]:w-full sm:w-auto sm:[&>div]:w-auto sm:[&>div>button]:w-auto"
+          />
+          {canManageUsers && (
+            <button
+              type="button"
+              onClick={openAddModal}
+              className="hidden sm:flex shrink-0 items-center gap-1.5 rounded-lg bg-[#d85b30] px-3.5 sm:px-4 py-2 text-sm font-semibold text-white hover:bg-[#c04e28] transition-colors"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add User</span>
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2.5 sm:space-y-3">
         {filteredUsers.length === 0 ? (
            <div className="py-8 text-center text-gray-500">No users found.</div>
         ) : filteredUsers.map((user) => (
           <div
             key={user.id}
-            className="flex flex-wrap items-center justify-between rounded-xl bg-white p-4 shadow-sm"
+            className="flex items-center justify-between gap-3 rounded-xl bg-white p-3.5 sm:p-4 shadow-sm border border-gray-100/80"
           >
-            <div className="flex items-center gap-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f3e2d7] text-sm font-black text-[#4b2417] uppercase">
+            {/* Left info block */}
+            <div className="flex items-center gap-2.5 sm:gap-3 min-w-0 flex-1">
+              <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full bg-[#f3e2d7] text-xs sm:text-sm font-black text-[#4b2417] uppercase">
                 {user.username.charAt(0)}
               </div>
-              <div>
-                <p className="font-bold text-[#4b2417]">{user.username}</p>
-                <p className="text-xs text-[#6f5448]">
-                  @{user.username} · {user.phone_number} · {getStatusBadge(user.is_active)}
-                  {user.email && <span className="ml-2">{user.email}</span>}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                  <p className="font-bold text-xs sm:text-sm text-[#4b2417] truncate">{user.username}</p>
+                  <span className="shrink-0">{getStatusBadge(user.is_active)}</span>
+                </div>
+                <p className="text-[11px] sm:text-xs text-[#6f5448] truncate block mt-0.5">
+                  @{user.username} · {user.phone_number}
+                  {user.email && <span className="ml-1 sm:ml-1.5">· {user.email}</span>}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="rounded bg-[#f3e2d7] px-2 py-0.5 text-xs font-bold capitalize text-[#4b2417]">
+
+            {/* Right actions block (permanently anchored) */}
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              <span className="rounded bg-[#f3e2d7] px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs font-bold capitalize text-[#4b2417]">
                 {user.role_id === 1 ? 'Owner' : user.role_id === 2 ? 'Admin' : 'Staff'}
               </span>
               {canManageUsers && user.role_id !== 1 && (
                 <>
                   <button
                     onClick={() => openEditModal(user)}
-                    className="rounded p-1 text-[#6f5448] hover:bg-gray-100"
+                    aria-label={`Edit ${user.username}`}
+                    className="rounded p-1 text-[#6f5448] hover:bg-gray-100 transition-colors"
                   >
-                    <Edit className="h-4 w-4" />
+                    <Edit className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   </button>
                   <button
                     onClick={() => setUserToDeleteId(user.id)}
-                    className="rounded p-1 text-red-500 hover:bg-red-50"
+                    aria-label={`Delete ${user.username}`}
+                    className="rounded p-1 text-red-500 hover:bg-red-50 transition-colors"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   </button>
                 </>
               )}
@@ -1117,6 +1274,7 @@ function WhatsAppTab() {
       setIsSavingOwnerPhone(true);
       setOwnerPhoneError(null);
       const updated = await updateMyProfile({ phone_number: ownerPhoneInput });
+      invalidatePublicContactCache();
       setOwnerProfile(updated);
       setIsEditingOwnerPhone(false);
       showToast({ message: t('whatsapp.owner_updated_success', 'Owner number updated successfully'), type: 'success' });
@@ -1340,8 +1498,11 @@ function WhatsAppTab() {
 function EmailSenderTab() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [fromName, setFromName] = useState('');
   const [fromEmail, setFromEmail] = useState('');
+  const [initialFromName, setInitialFromName] = useState('');
+  const [initialFromEmail, setInitialFromEmail] = useState('');
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
 
   useEffect(() => {
@@ -1351,8 +1512,12 @@ function EmailSenderTab() {
         setLoading(true);
         const data = await getEmailSenderSettings();
         if (ignore) return;
-        setFromName(data.from_name || '');
-        setFromEmail(data.from_email || '');
+        const name = data.from_name || '';
+        const email = data.from_email || '';
+        setFromName(name);
+        setFromEmail(email);
+        setInitialFromName(name);
+        setInitialFromEmail(email);
         setUpdatedAt(data.updated_at || null);
       } catch (err: any) {
         if (ignore) return;
@@ -1371,6 +1536,14 @@ function EmailSenderTab() {
     loadSettings();
     return () => { ignore = true; };
   }, []);
+
+  const isDirty = fromName.trim() !== initialFromName || fromEmail.trim() !== initialFromEmail;
+
+  const handleCancel = () => {
+    setFromName(initialFromName);
+    setFromEmail(initialFromEmail);
+    setIsEditing(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1396,7 +1569,10 @@ function EmailSenderTab() {
       });
       setFromName(updated.from_name);
       setFromEmail(updated.from_email);
+      setInitialFromName(updated.from_name);
+      setInitialFromEmail(updated.from_email);
       setUpdatedAt(updated.updated_at || new Date().toISOString());
+      setIsEditing(false);
       toast.success('Email sender settings updated successfully.');
     } catch (err: any) {
       console.error('Failed to update email sender settings:', err);
@@ -1432,25 +1608,136 @@ function EmailSenderTab() {
     return <div className="py-8 text-center text-gray-500">Loading email sender settings...</div>;
   }
 
+  // ------------------------------------------------------------
+  // VIEW MODE: Tampilan Informasi Aktif Pengirim Email
+  // ------------------------------------------------------------
+  if (!isEditing) {
+    return (
+      <div className="rounded-xl bg-white p-6 shadow-sm space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-bold text-[#4b2417]">Store Email Sender</h2>
+              {initialFromEmail ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  <Check className="h-3 w-3 text-emerald-600" />
+                  Active
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                  <AlertCircle className="h-3 w-3 text-amber-600" />
+                  Not Configured
+                </span>
+              )}
+            </div>
+            <p className="mt-1 text-sm text-[#6f5448]">
+              Used as the official sender identity for automated customer emails (order confirmations, payment invoices, and password resets).
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsEditing(true)}
+            className="inline-flex items-center gap-2 rounded-lg border border-[#d0bfaf] bg-white px-4 py-2 text-sm font-semibold text-[#d85b30] shadow-xs hover:bg-[#fff7f2] hover:border-[#d85b30] transition self-start sm:self-auto"
+          >
+            <Edit className="h-4 w-4" />
+            Edit
+          </button>
+        </div>
+
+        <div className="max-w-xl space-y-5">
+          <div className="rounded-xl border border-[#d0bfaf]/60 bg-[#fbf9f8] p-5 space-y-4 shadow-xs">
+            <div>
+              <span className="block text-xs font-bold uppercase tracking-wider text-[#6f5448]">From Name</span>
+              <p className="mt-1 text-base font-semibold text-[#4b2417]">{fromName || '—'}</p>
+              <p className="mt-0.5 text-xs text-gray-500">Sender display name shown in customer email inboxes.</p>
+            </div>
+
+            <div className="border-t border-[#d0bfaf]/40 pt-4">
+              <span className="block text-xs font-bold uppercase tracking-wider text-[#6f5448]">From Email</span>
+              <div className="mt-1">
+                {fromEmail ? (
+                  <p className="text-base font-semibold text-[#4b2417] flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-[#d85b30]" />
+                    {fromEmail}
+                  </p>
+                ) : (
+                  <p className="text-sm italic text-stone-500">
+                    Belum diatur (Not configured yet)
+                  </p>
+                )}
+              </div>
+              <p className="mt-0.5 text-xs text-gray-500">Sender address in the From header.</p>
+            </div>
+
+            {fromEmail && (
+              <div className="border-t border-[#d0bfaf]/40 pt-4">
+                <span className="block text-xs font-bold uppercase tracking-wider text-[#6f5448]">Customer Inbox Preview</span>
+                <div className="mt-2 rounded-lg border border-stone-200 bg-white p-3 text-xs text-stone-700 font-mono space-y-1 shadow-xs">
+                  <p><span className="text-stone-400">From:</span> <span className="font-semibold text-stone-900">{fromName || 'Store'}</span> &lt;{fromEmail}&gt;</p>
+                  <p><span className="text-stone-400">Subject:</span> Order Confirmation #TC-1024</p>
+                </div>
+              </div>
+            )}
+
+            {updatedAt && (
+              <div className="border-t border-[#d0bfaf]/40 pt-3 text-xs text-gray-500">
+                Last updated: {new Date(updatedAt).toLocaleString('en-US', {
+                  dateStyle: 'medium',
+                  timeStyle: 'short',
+                })}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <button
+              type="button"
+              onClick={() => setIsEditing(true)}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#d85b30] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#c04e28] transition shadow-sm"
+            >
+              <Edit className="h-4 w-4" />
+              {fromEmail ? 'Edit Sender Identity' : 'Configure Email Sender'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ------------------------------------------------------------
+  // EDIT MODE: Formulir Pengubahan Pengirim Email Toko
+  // ------------------------------------------------------------
   return (
     <div className="rounded-xl bg-white p-6 shadow-sm space-y-6">
-      <div>
-        <h2 className="text-xl font-bold text-[#4b2417]">Store Email Sender</h2>
-        <p className="mt-1 text-sm text-[#6f5448]">
-          Configure the sender name and email address displayed on outgoing notifications and invoices.
-        </p>
-      </div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-bold text-[#4b2417]">Edit Store Email Sender</h2>
+            {isDirty ? (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                Unsaved Changes
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
+                Editing
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-sm text-[#6f5448]">
+            Configure the sender name and email address displayed on outgoing notifications and invoices.
+          </p>
+        </div>
 
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900 space-y-1.5 leading-relaxed">
-        <p className="font-bold flex items-center gap-1.5 text-amber-950">
-          <AlertCircle className="h-4 w-4 text-amber-700 shrink-0" />
-          Important Information Before Updating:
-        </p>
-        <ul className="list-disc list-inside space-y-1 pl-1 text-amber-850">
-          <li>The sender address/domain must be verified with your email provider before sending emails.</li>
-          <li>Rate limit: Maximum 5 changes per minute.</li>
-          <li>SMTP passwords and credentials are securely stored in server environment variables and are never transmitted to this API.</li>
-        </ul>
+        <button
+          type="button"
+          onClick={handleCancel}
+          disabled={saving}
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-stone-600 hover:text-stone-900 transition self-start sm:self-auto"
+        >
+          Cancel
+        </button>
       </div>
 
       <form onSubmit={handleSubmit} className="max-w-xl space-y-4">
@@ -1486,26 +1773,746 @@ function EmailSenderTab() {
             className="w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
             disabled={saving}
           />
-          <p className="mt-1 text-xs text-gray-500">Sender address in the From header.</p>
+          <p className="mt-1 text-xs text-gray-500">
+            Sender address in From header. Address/domain must be verified with your email provider before sending.
+          </p>
         </div>
 
-        {updatedAt && (
-          <p className="text-xs text-gray-500">
-            Last updated: {new Date(updatedAt).toLocaleString('en-US', {
-              dateStyle: 'medium',
-              timeStyle: 'short',
-            })}
+        <div className="space-y-1">
+          {updatedAt && (
+            <p className="text-xs text-gray-500">
+              Last updated: {new Date(updatedAt).toLocaleString('en-US', {
+                dateStyle: 'medium',
+                timeStyle: 'short',
+              })}
+            </p>
+          )}
+          <p className="text-[11px] text-gray-400">
+            Rate limit: Max. 5 updates per minute. SMTP credentials remain securely configured on server.
           </p>
-        )}
+        </div>
 
-        <div className="pt-2">
+        <div className="pt-2 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleCancel}
+            disabled={saving}
+            className="rounded-lg border border-stone-300 bg-white px-5 py-2.5 text-sm font-medium text-stone-700 hover:bg-stone-50 transition"
+          >
+            Cancel
+          </button>
+
           <button
             type="submit"
-            disabled={saving}
-            className="rounded-lg bg-[#d85b30] px-6 py-2 text-sm font-semibold text-white hover:bg-[#c04e28] disabled:opacity-50 transition"
+            disabled={saving || !isDirty}
+            className={`flex items-center justify-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition shadow-sm ${
+              !isDirty
+                ? 'bg-stone-200 text-stone-500 cursor-not-allowed'
+                : 'bg-[#B64827] text-white hover:bg-[#9c3c1e]'
+            }`}
           >
-            {saving ? 'Saving...' : 'Save Settings'}
+            {!isDirty && !saving ? (
+              <>
+                <Check className="h-4 w-4 text-stone-500" />
+                All Changes Saved
+              </>
+            ) : saving ? (
+              'Saving...'
+            ) : (
+              'Save Changes'
+            )}
           </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// ============================================================
+// TAB 5: STORE CUSTOMIZATION (OWNER ONLY)
+// ============================================================
+
+function isGoogleMapsEmbedUrl(url: string): boolean {
+  if (!url || !url.trim()) return false;
+  try {
+    const parsed = new URL(url.trim());
+    return (
+      parsed.protocol === 'https:' &&
+      parsed.hostname === 'www.google.com' &&
+      parsed.pathname === '/maps/embed' &&
+      Boolean(parsed.search) &&
+      !parsed.hash
+    );
+  } catch {
+    return false;
+  }
+}
+
+interface StoreCustomizationFormState {
+  heroImageUrl: string;
+  storeAddress: string;
+  mapsEmbedUrl: string;
+  contentId: {
+    hero_title: string;
+    hero_subtitle: string;
+    about_title: string;
+    about_description: string;
+  };
+  contentEn: {
+    hero_title: string;
+    hero_subtitle: string;
+    about_title: string;
+    about_description: string;
+  };
+}
+
+function StoreCustomizationTab() {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [activeLangTab, setActiveLangTab] = useState<'id' | 'en'>('id');
+
+  const [heroImageUrl, setHeroImageUrl] = useState('');
+  const [storeAddress, setStoreAddress] = useState('');
+  const [mapsEmbedUrl, setMapsEmbedUrl] = useState('');
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+
+  const [contentId, setContentId] = useState({
+    hero_title: '',
+    hero_subtitle: '',
+    about_title: '',
+    about_description: '',
+  });
+
+  const [contentEn, setContentEn] = useState({
+    hero_title: '',
+    hero_subtitle: '',
+    about_title: '',
+    about_description: '',
+  });
+
+  const [initialCustomization, setInitialCustomization] = useState<StoreCustomizationFormState | null>(null);
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let ignore = false;
+    const load = async () => {
+      try {
+        setLoading(true);
+        const data = await getStoreCustomization();
+        if (ignore) return;
+        const initial: StoreCustomizationFormState = {
+          heroImageUrl: data.hero_image_url || '',
+          storeAddress: data.store_address || '',
+          mapsEmbedUrl: data.maps_embed_url || '',
+          contentId: {
+            hero_title: data.content?.id?.hero_title || '',
+            hero_subtitle: data.content?.id?.hero_subtitle || '',
+            about_title: data.content?.id?.about_title || '',
+            about_description: data.content?.id?.about_description || '',
+          },
+          contentEn: {
+            hero_title: data.content?.en?.hero_title || '',
+            hero_subtitle: data.content?.en?.hero_subtitle || '',
+            about_title: data.content?.en?.about_title || '',
+            about_description: data.content?.en?.about_description || '',
+          },
+        };
+        setHeroImageUrl(initial.heroImageUrl);
+        setStoreAddress(initial.storeAddress);
+        setMapsEmbedUrl(initial.mapsEmbedUrl);
+        setUpdatedAt(data.updated_at || null);
+        setContentId(initial.contentId);
+        setContentEn(initial.contentEn);
+        setInitialCustomization(initial);
+      } catch (err) {
+        if (!ignore) {
+          console.error('Failed to load store customization:', err);
+          toast.error('Failed to load store customization settings.');
+        }
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  const isDirty = useMemo(() => {
+    if (!initialCustomization) return false;
+    return (
+      heroImageUrl.trim() !== initialCustomization.heroImageUrl.trim() ||
+      storeAddress.trim() !== initialCustomization.storeAddress.trim() ||
+      mapsEmbedUrl.trim() !== initialCustomization.mapsEmbedUrl.trim() ||
+      contentId.hero_title !== initialCustomization.contentId.hero_title ||
+      contentId.hero_subtitle !== initialCustomization.contentId.hero_subtitle ||
+      contentId.about_title !== initialCustomization.contentId.about_title ||
+      contentId.about_description !== initialCustomization.contentId.about_description ||
+      contentEn.hero_title !== initialCustomization.contentEn.hero_title ||
+      contentEn.hero_subtitle !== initialCustomization.contentEn.hero_subtitle ||
+      contentEn.about_title !== initialCustomization.contentEn.about_title ||
+      contentEn.about_description !== initialCustomization.contentEn.about_description
+    );
+  }, [
+    initialCustomization,
+    heroImageUrl,
+    storeAddress,
+    mapsEmbedUrl,
+    contentId,
+    contentEn,
+  ]);
+
+  const handleDiscard = () => {
+    if (!initialCustomization) return;
+    setHeroImageUrl(initialCustomization.heroImageUrl);
+    setStoreAddress(initialCustomization.storeAddress);
+    setMapsEmbedUrl(initialCustomization.mapsEmbedUrl);
+    setContentId({ ...initialCustomization.contentId });
+    setContentEn({ ...initialCustomization.contentEn });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    const validExt = ext && ['jpg', 'jpeg', 'png', 'webp'].includes(ext);
+
+    if (!allowedTypes.includes(file.type) && !validExt) {
+      toast.error('Banner format must be JPEG, PNG, or WEBP.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Banner file size exceeds 5 MB limit.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
+    try {
+      setUploadingImage(true);
+      const res = await uploadHeroImage(file);
+      setHeroImageUrl(res.hero_image_url);
+      toast.success('Banner uploaded successfully! Click "Save Settings" to publish.');
+    } catch (err: any) {
+      console.error('Failed to upload hero banner:', err);
+      if (err.response?.status === 429) {
+        toast.error('Upload rate limit reached (max 5 uploads per minute). Please wait.');
+      } else if (err.response?.status === 413) {
+        toast.error('Banner file size is too large (max 5 MB).');
+      } else {
+        toast.error(err.response?.data?.detail || 'Failed to upload banner.');
+      }
+    } finally {
+      setUploadingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (mapsEmbedUrl.trim() && !isGoogleMapsEmbedUrl(mapsEmbedUrl.trim())) {
+      toast.error('Google Maps must use a valid HTTPS embed URL (https://www.google.com/maps/embed?...).');
+      return;
+    }
+
+    const payload: StoreCustomizationPatchPayload = {
+      content: {
+        id: {
+          hero_title: contentId.hero_title.trim() || null,
+          hero_subtitle: contentId.hero_subtitle.trim() || null,
+          about_title: contentId.about_title.trim() || null,
+          about_description: contentId.about_description.trim() || null,
+        },
+        en: {
+          hero_title: contentEn.hero_title.trim() || null,
+          hero_subtitle: contentEn.hero_subtitle.trim() || null,
+          about_title: contentEn.about_title.trim() || null,
+          about_description: contentEn.about_description.trim() || null,
+        },
+      },
+      hero_image_url: heroImageUrl.trim() || null,
+      store_address: storeAddress.trim() || null,
+      maps_embed_url: mapsEmbedUrl.trim() || null,
+    };
+
+    try {
+      setSaving(true);
+      const updated = await updateStoreCustomization(payload);
+      const nextSaved: StoreCustomizationFormState = {
+        heroImageUrl: updated.hero_image_url || '',
+        storeAddress: updated.store_address || '',
+        mapsEmbedUrl: updated.maps_embed_url || '',
+        contentId: {
+          hero_title: updated.content?.id?.hero_title || '',
+          hero_subtitle: updated.content?.id?.hero_subtitle || '',
+          about_title: updated.content?.id?.about_title || '',
+          about_description: updated.content?.id?.about_description || '',
+        },
+        contentEn: {
+          hero_title: updated.content?.en?.hero_title || '',
+          hero_subtitle: updated.content?.en?.hero_subtitle || '',
+          about_title: updated.content?.en?.about_title || '',
+          about_description: updated.content?.en?.about_description || '',
+        },
+      };
+      setHeroImageUrl(nextSaved.heroImageUrl);
+      setStoreAddress(nextSaved.storeAddress);
+      setMapsEmbedUrl(nextSaved.mapsEmbedUrl);
+      setContentId(nextSaved.contentId);
+      setContentEn(nextSaved.contentEn);
+      setInitialCustomization(nextSaved);
+      setUpdatedAt(updated.updated_at);
+      toast.success('Store customization settings saved successfully!');
+    } catch (err: any) {
+      console.error('Failed to update store customization:', err);
+      if (err.response?.status === 429) {
+        toast.error('Rate limit reached (max 5 updates per minute). Please wait a moment.');
+      } else if (err.response?.status === 403) {
+        toast.error('Permission denied. Only Owner can modify store customization.');
+      } else {
+        const detail = err.response?.data?.detail;
+        if (Array.isArray(detail)) {
+          const errorMsg = detail
+            .map((d: any) => {
+              if (typeof d === 'string') return d;
+              const field = d.loc && d.loc.length > 0 ? d.loc[d.loc.length - 1] : '';
+              return field && field !== 'body' ? `${field}: ${d.msg}` : d.msg || JSON.stringify(d);
+            })
+            .join(', ');
+          toast.error(errorMsg || 'Failed to update store customization.');
+        } else if (typeof detail === 'string') {
+          toast.error(detail);
+        } else {
+          toast.error('Failed to update store customization.');
+        }
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="py-8 text-center text-gray-500">Loading store customization settings...</div>;
+  }
+
+  const isMapsValid = !mapsEmbedUrl.trim() || isGoogleMapsEmbedUrl(mapsEmbedUrl.trim());
+
+  return (
+    <div className="rounded-xl bg-white p-4 sm:p-6 shadow-sm space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <h2 className="text-base sm:text-xl font-bold text-[#4b2417] flex items-center gap-2">
+              <Store className="h-5 w-5 sm:h-6 sm:w-6 text-[#d85b30] shrink-0" />
+              Store Customization (Homepage CMS)
+            </h2>
+            {isDirty ? (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                Unsaved Changes
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                <Check className="h-3 w-3 text-emerald-600" />
+                Saved
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-xs sm:text-sm text-[#6f5448]">
+            Configure the buyer homepage banner, bilingual content (ID/EN), physical address, and Google Maps location.
+          </p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+        {/* BAGIAN 1: HERO BANNER IMAGE */}
+        <div className="rounded-xl border border-[#e6d5c5]/80 bg-[#fcf8f5]/70 p-3.5 sm:p-5 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="text-xs sm:text-sm font-bold text-[#4b2417] flex items-center gap-2">
+                <ImageIcon className="h-4 w-4 text-[#d85b30]" />
+                Main Banner (Hero Image)
+              </h3>
+              <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5">
+                Background image for the homepage hero section.
+              </p>
+            </div>
+            {heroImageUrl && (
+              <button
+                type="button"
+                onClick={() => setHeroImageUrl('')}
+                className="rounded-lg border border-red-200 bg-red-50/60 px-2.5 py-1 text-xs font-semibold text-red-600 hover:bg-red-100 transition"
+              >
+                Reset to Default Banner
+              </button>
+            )}
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-12 md:gap-5 md:items-center">
+            <div className="md:col-span-7 relative aspect-[16/7] w-full overflow-hidden rounded-lg border border-[#d0bfaf] bg-gray-100 shadow-inner">
+              {heroImageUrl ? (
+                <img
+                  src={heroImageUrl}
+                  alt="Hero Banner Preview"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full flex-col items-center justify-center p-4 text-center text-gray-400">
+                  <ImageIcon className="h-10 w-10 mb-1 opacity-60" />
+                  <span className="text-xs font-medium">Using default store banner</span>
+                </div>
+              )}
+            </div>
+
+            <div className="md:col-span-5 space-y-2.5">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleFileChange}
+                className="hidden"
+                disabled={uploadingImage || saving}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingImage || saving}
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#d85b30] bg-white px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-[#d85b30] hover:bg-[#d85b30] hover:text-white transition disabled:opacity-50"
+              >
+                <Upload className="h-4 w-4" />
+                {uploadingImage ? 'Uploading Banner...' : 'Select & Upload Banner'}
+              </button>
+              <p className="text-[10px] sm:text-[11px] text-gray-500 leading-normal">
+                Supported formats: JPEG, PNG, or WEBP (max. 5 MB). Recommended aspect ratio: 16:9 or 21:9 (min. 1280x720px). If cleared, default store banner will be used.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* BAGIAN 2: BILINGUAL CONTENT (ID & EN) */}
+        <div className="rounded-xl border border-[#e6d5c5]/80 bg-[#fcf8f5]/70 p-3.5 sm:p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 border-b border-[#e6d5c5]/60 pb-3">
+            <div>
+              <h3 className="text-xs sm:text-sm font-bold text-[#4b2417] flex items-center gap-2">
+                <Globe className="h-4 w-4 text-[#d85b30]" />
+                Bilingual Text Content
+              </h3>
+              <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5">
+                Manage Hero and About section copy in both Indonesian and English.
+              </p>
+            </div>
+
+            {/* Language Switcher Tabs */}
+            <div className="flex w-full sm:w-auto rounded-lg bg-[#efe4d6] p-1 gap-1">
+              <button
+                type="button"
+                onClick={() => setActiveLangTab('id')}
+                className={`flex-1 sm:flex-initial justify-center rounded-md px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 ${
+                  activeLangTab === 'id'
+                    ? 'bg-white text-[#d85b30] shadow-sm'
+                    : 'text-[#6f5448] hover:text-[#4b2417]'
+                }`}
+              >
+                <span>🇮🇩</span> Indonesian (ID)
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveLangTab('en')}
+                className={`flex-1 sm:flex-initial justify-center rounded-md px-3 py-1.5 text-xs font-bold transition flex items-center gap-1.5 ${
+                  activeLangTab === 'en'
+                    ? 'bg-white text-[#d85b30] shadow-sm'
+                    : 'text-[#6f5448] hover:text-[#4b2417]'
+                }`}
+              >
+                <span>🇬🇧</span> English (EN)
+              </button>
+            </div>
+          </div>
+
+          {/* ACTIVE LOCALE FORM FIELDS */}
+          {activeLangTab === 'id' ? (
+            <div className="space-y-3.5 sm:space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-[#4b2417] mb-1">
+                  Hero Title (ID)
+                </label>
+                <input
+                  type="text"
+                  maxLength={120}
+                  value={contentId.hero_title}
+                  onChange={(e) => setContentId({ ...contentId, hero_title: e.target.value })}
+                  placeholder="Kue Lezat,&#10;Momen Berkesan"
+                  className="w-full rounded-lg border border-[#d0bfaf] bg-white px-3 sm:px-3.5 py-2 text-xs sm:text-sm text-[#4b2417] focus:border-[#d85b30] outline-none"
+                  disabled={saving}
+                />
+                <p className="mt-1 text-[11px] text-[#8b7166]">Max. 120 characters. Newline breaks (\n) are supported.</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#4b2417] mb-1">
+                  Hero Subtitle (ID)
+                </label>
+                <textarea
+                  rows={2}
+                  maxLength={600}
+                  value={contentId.hero_subtitle}
+                  onChange={(e) => setContentId({ ...contentId, hero_subtitle: e.target.value })}
+                  placeholder="Toti Cakery hadir dengan kue berkualitas, dibuat dari bahan pilihan untuk setiap momen spesial Anda."
+                  className="w-full rounded-lg border border-[#d0bfaf] bg-white px-3 sm:px-3.5 py-2 text-xs sm:text-sm text-[#4b2417] focus:border-[#d85b30] outline-none"
+                  disabled={saving}
+                />
+                <p className="mt-1 text-[11px] text-[#8b7166]">Max. 600 characters.</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#4b2417] mb-1">
+                  About Section Title (ID)
+                </label>
+                <input
+                  type="text"
+                  maxLength={120}
+                  value={contentId.about_title}
+                  onChange={(e) => setContentId({ ...contentId, about_title: e.target.value })}
+                  placeholder="Tentang Toti Cakery"
+                  className="w-full rounded-lg border border-[#d0bfaf] bg-white px-3 sm:px-3.5 py-2 text-xs sm:text-sm text-[#4b2417] focus:border-[#d85b30] outline-none"
+                  disabled={saving}
+                />
+                <p className="mt-1 text-[11px] text-[#8b7166]">Max. 120 characters.</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#4b2417] mb-1">
+                  About Description (ID)
+                </label>
+                <textarea
+                  rows={4}
+                  maxLength={3000}
+                  value={contentId.about_description}
+                  onChange={(e) => setContentId({ ...contentId, about_description: e.target.value })}
+                  placeholder="Toti Cakery adalah toko kue rumahan yang berdedikasi menghadirkan kue lezat dengan cita rasa istimewa..."
+                  className="w-full rounded-lg border border-[#d0bfaf] bg-white px-3 sm:px-3.5 py-2 text-xs sm:text-sm text-[#4b2417] focus:border-[#d85b30] outline-none"
+                  disabled={saving}
+                />
+                <p className="mt-1 text-[11px] text-[#8b7166]">Max. 3,000 characters. Paragraph formatting and line breaks will be rendered on the homepage.</p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3.5 sm:space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-[#4b2417] mb-1">
+                  Hero Title (EN)
+                </label>
+                <input
+                  type="text"
+                  maxLength={120}
+                  value={contentEn.hero_title}
+                  onChange={(e) => setContentEn({ ...contentEn, hero_title: e.target.value })}
+                  placeholder="Delicious Cakes,&#10;Memorable Moments"
+                  className="w-full rounded-lg border border-[#d0bfaf] bg-white px-3 sm:px-3.5 py-2 text-xs sm:text-sm text-[#4b2417] focus:border-[#d85b30] outline-none"
+                  disabled={saving}
+                />
+                <p className="mt-1 text-[11px] text-[#8b7166]">Max. 120 characters. Newline breaks (\n) are supported.</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#4b2417] mb-1">
+                  Hero Subtitle (EN)
+                </label>
+                <textarea
+                  rows={2}
+                  maxLength={600}
+                  value={contentEn.hero_subtitle}
+                  onChange={(e) => setContentEn({ ...contentEn, hero_subtitle: e.target.value })}
+                  placeholder="Toti Cakery is here with quality cakes, made from selected ingredients for your every special moment."
+                  className="w-full rounded-lg border border-[#d0bfaf] bg-white px-3 sm:px-3.5 py-2 text-xs sm:text-sm text-[#4b2417] focus:border-[#d85b30] outline-none"
+                  disabled={saving}
+                />
+                <p className="mt-1 text-[11px] text-[#8b7166]">Max. 600 characters.</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#4b2417] mb-1">
+                  About Section Title (EN)
+                </label>
+                <input
+                  type="text"
+                  maxLength={120}
+                  value={contentEn.about_title}
+                  onChange={(e) => setContentEn({ ...contentEn, about_title: e.target.value })}
+                  placeholder="About Toti Cakery"
+                  className="w-full rounded-lg border border-[#d0bfaf] bg-white px-3 sm:px-3.5 py-2 text-xs sm:text-sm text-[#4b2417] focus:border-[#d85b30] outline-none"
+                  disabled={saving}
+                />
+                <p className="mt-1 text-[11px] text-[#8b7166]">Max. 120 characters.</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#4b2417] mb-1">
+                  About Description (EN)
+                </label>
+                <textarea
+                  rows={4}
+                  maxLength={3000}
+                  value={contentEn.about_description}
+                  onChange={(e) => setContentEn({ ...contentEn, about_description: e.target.value })}
+                  placeholder="Toti Cakery is a home bakery dedicated to presenting delicious cakes with a special taste..."
+                  className="w-full rounded-lg border border-[#d0bfaf] bg-white px-3 sm:px-3.5 py-2 text-xs sm:text-sm text-[#4b2417] focus:border-[#d85b30] outline-none"
+                  disabled={saving}
+                />
+                <p className="mt-1 text-[11px] text-[#8b7166]">Max. 3,000 characters. Paragraph formatting and line breaks will be rendered on the homepage.</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* BAGIAN 3: ALAMAT & GOOGLE MAPS EMBED */}
+        <div className="rounded-xl border border-[#e6d5c5]/80 bg-[#fcf8f5]/70 p-3.5 sm:p-5 space-y-4">
+          <div>
+            <h3 className="text-xs sm:text-sm font-bold text-[#4b2417] flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-[#d85b30]" />
+              Store Location & Google Maps
+            </h3>
+            <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5">
+              Physical address and interactive map embed to help customers easily find your bakery.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-[#4b2417] mb-1">
+              Store Address
+            </label>
+            <textarea
+              rows={2}
+              maxLength={500}
+              value={storeAddress}
+              onChange={(e) => setStoreAddress(e.target.value)}
+              placeholder="e.g. Ruko Mahkota Niaga Blok C No. 5, Batam Center, Batam"
+              className="w-full rounded-lg border border-[#d0bfaf] bg-white px-3 sm:px-3.5 py-2 text-xs sm:text-sm text-[#4b2417] focus:border-[#d85b30] outline-none"
+              disabled={saving}
+            />
+            <p className="mt-1 text-[11px] text-[#8b7166]">Max. 500 characters. Leave empty to hide the text address badge.</p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-[#4b2417] mb-1">
+              Google Maps Embed URL
+            </label>
+            <input
+              type="url"
+              maxLength={2048}
+              value={mapsEmbedUrl}
+              onChange={(e) => setMapsEmbedUrl(e.target.value)}
+              placeholder="https://www.google.com/maps/embed?pb=..."
+              className={`w-full rounded-lg border bg-white px-3 sm:px-3.5 py-2 text-xs sm:text-sm outline-none transition ${
+                mapsEmbedUrl.trim() && !isMapsValid
+                  ? 'border-red-400 focus:border-red-500 bg-red-50/50'
+                  : 'border-[#d0bfaf] focus:border-[#d85b30] text-[#4b2417]'
+              }`}
+              disabled={saving}
+            />
+            
+            {mapsEmbedUrl.trim() && !isMapsValid ? (
+              <div className="mt-2 flex items-start gap-2 rounded-md bg-red-50 p-2.5 text-xs text-red-700 border border-red-200">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-red-600 mt-0.5" />
+                <div>
+                  <p className="font-semibold">Invalid Embed URL Format!</p>
+                  <p className="mt-0.5 text-[11px]">
+                    URL must begin with <code>https://www.google.com/maps/embed?pb=...</code>. Short links (<code>maps.app.goo.gl</code>) and regular search links cannot be embedded in an iframe.
+                  </p>
+                  <p className="mt-1 text-[11px] font-medium text-red-800">
+                    How to get this: Open Google Maps &rarr; Search for your store &rarr; Click 'Share' &rarr; Select 'Embed a map' &rarr; Copy the URL inside <code>src="..."</code> from the iframe code.
+                  </p>
+                </div>
+              </div>
+            ) : mapsEmbedUrl.trim() ? (
+              <p className="mt-1 text-[11px] text-green-700 flex items-center gap-1 font-medium">
+                <Check className="h-3.5 w-3.5" /> Valid Google Maps Embed URL.
+              </p>
+            ) : (
+              <p className="mt-1 text-[11px] text-[#8b7166]">
+                Leave empty to use the default store map location.
+              </p>
+            )}
+          </div>
+
+          {/* MAP LIVE PREVIEW */}
+          {mapsEmbedUrl.trim() && isMapsValid && (
+            <div className="mt-3 overflow-hidden rounded-lg border border-[#d0bfaf] shadow-sm">
+              <div className="bg-[#efe4d6] px-3 py-1.5 text-[11px] font-bold text-[#4b2417] flex items-center justify-between">
+                <span>Live Map Preview</span>
+                <span className="text-[10px] text-[#9b4a2f]">Google Maps iframe</span>
+              </div>
+              <div className="h-44 sm:h-56 w-full bg-gray-100">
+                <iframe
+                  src={mapsEmbedUrl.trim()}
+                  width="100%"
+                  height="100%"
+                  style={{ border: 0 }}
+                  allowFullScreen
+                  loading="lazy"
+                  scrolling="yes"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  title="Store Location Preview"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* TIMESTAMP & SUBMIT BUTTON */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3 border-t border-gray-100">
+          <div>
+            {updatedAt ? (
+              <p className="text-xs text-gray-500">
+                Last updated: {new Date(updatedAt).toLocaleString('en-US', {
+                  dateStyle: 'medium',
+                  timeStyle: 'short',
+                })}
+              </p>
+            ) : (
+              <p className="text-xs text-gray-400">No customization updates recorded yet.</p>
+            )}
+            <p className="text-[11px] text-gray-400 mt-0.5">Rate limit: Maximum 5 updates per minute.</p>
+          </div>
+
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+            {isDirty && !saving && (
+              <button
+                type="button"
+                onClick={handleDiscard}
+                className="w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-lg justify-center border border-stone-300 bg-white text-stone-700 hover:bg-stone-50 transition"
+              >
+                Discard
+              </button>
+            )}
+            <button
+              type="submit"
+              disabled={saving || !isDirty || (Boolean(mapsEmbedUrl.trim()) && !isMapsValid)}
+              className={`w-full sm:w-auto px-4 sm:px-5 py-2 sm:py-2.5 text-xs sm:text-sm font-semibold rounded-lg justify-center transition shadow-sm flex items-center gap-2 ${
+                !isDirty
+                  ? 'bg-stone-200 text-stone-500 cursor-not-allowed'
+                  : 'bg-[#B64827] text-white hover:bg-[#9c3c1e]'
+              }`}
+            >
+              {!isDirty && !saving ? (
+                <>
+                  <Check className="h-4 w-4 text-stone-500" />
+                  All Changes Saved
+                </>
+              ) : saving ? (
+                'Saving Changes...'
+              ) : (
+                'Save Settings'
+              )}
+            </button>
+          </div>
         </div>
       </form>
     </div>
@@ -1516,34 +2523,120 @@ function EmailSenderTab() {
 // KOMPONEN UTAMA SETTINGS
 // ============================================================
 
-type SettingsTab = 'profile' | 'users' | 'whatsapp' | 'email_sender';
+type SettingsTab = 'profile' | 'users' | 'whatsapp' | 'email_sender' | 'store_customization';
 
 export default function SellerSettingsPage() {
   const { user: currentUser } = useAuth();
   const isStaff = currentUser?.role === 'staff';
   const isOwner = currentUser?.role === 'owner';
 
-  const tabs = [
+  const tabs = useMemo(() => [
     { key: 'profile' as const, label: 'My Profile', icon: User },
     ...(isOwner ? [{ key: 'users' as const, label: 'Users', icon: Users }] : []),
     ...(!isStaff ? [{ key: 'whatsapp' as const, label: 'WhatsApp', icon: MessageCircle }] : []),
     ...(isOwner ? [{ key: 'email_sender' as const, label: 'Email Sender', icon: Mail }] : []),
-  ];
+    ...(isOwner ? [{ key: 'store_customization' as const, label: 'Store Customization', icon: Store }] : []),
+  ], [isOwner, isStaff]);
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
+  const tabsContainerRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkScroll = useCallback(() => {
+    const el = tabsContainerRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    setCanScrollLeft(scrollLeft > 4);
+    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    checkScroll();
+    const el = tabsContainerRef.current;
+    if (!el) return;
+
+    el.addEventListener('scroll', checkScroll, { passive: true });
+    window.addEventListener('resize', checkScroll);
+
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => checkScroll());
+      ro.observe(el);
+      Array.from(el.children).forEach((child) => ro?.observe(child));
+    }
+
+    return () => {
+      el.removeEventListener('scroll', checkScroll);
+      window.removeEventListener('resize', checkScroll);
+      ro?.disconnect();
+    };
+  }, [checkScroll, tabs]);
+
+  const scrollTabs = (direction: 'left' | 'right') => {
+    const el = tabsContainerRef.current;
+    if (!el) return;
+    const amount = direction === 'left' ? -150 : 150;
+    el.scrollBy({ left: amount, behavior: 'smooth' });
+  };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap gap-1 rounded-xl bg-white p-2 shadow-sm">
-        {tabs.map((tab) => (
-          <TabButton
-            key={tab.key}
-            label={tab.label}
-            icon={tab.icon}
-            isActive={activeTab === tab.key}
-            onClick={() => setActiveTab(tab.key)}
-          />
-        ))}
+    <div className="space-y-4 sm:space-y-6">
+      <PageHeader
+        title="Settings"
+        description="Manage your store profile, team members, and account settings."
+      />
+
+      <div className="relative group">
+        {/* Left scroll chevron */}
+        {canScrollLeft && (
+          <button
+            type="button"
+            onClick={() => scrollTabs('left')}
+            className="absolute left-1 top-1/2 -translate-y-1/2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-[#4b2417] shadow-md border border-gray-200 transition-all hover:bg-white active:scale-95"
+            aria-label="Scroll tabs left"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+        )}
+
+        {/* Left edge fade gradient */}
+        {canScrollLeft && (
+          <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-white to-transparent z-[5] rounded-l-xl" />
+        )}
+
+        {/* Tab container */}
+        <div
+          ref={tabsContainerRef}
+          className="flex overflow-x-auto no-scrollbar gap-1 sm:gap-2 rounded-xl bg-white p-2 shadow-sm scroll-smooth"
+        >
+          {tabs.map((tab) => (
+            <TabButton
+              key={tab.key}
+              label={tab.label}
+              icon={tab.icon}
+              isActive={activeTab === tab.key}
+              onClick={() => setActiveTab(tab.key)}
+            />
+          ))}
+        </div>
+
+        {/* Right edge fade gradient */}
+        {canScrollRight && (
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent z-[5] rounded-r-xl" />
+        )}
+
+        {/* Right scroll chevron */}
+        {canScrollRight && (
+          <button
+            type="button"
+            onClick={() => scrollTabs('right')}
+            className="absolute right-1 top-1/2 -translate-y-1/2 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/95 text-[#4b2417] shadow-md border border-gray-200 transition-all hover:bg-white active:scale-95"
+            aria-label="Scroll tabs right"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       <div>
@@ -1551,6 +2644,7 @@ export default function SellerSettingsPage() {
         {activeTab === 'users' && isOwner && <UsersTab />}
         {activeTab === 'whatsapp' && !isStaff && <WhatsAppTab />}
         {activeTab === 'email_sender' && isOwner && <EmailSenderTab />}
+        {activeTab === 'store_customization' && isOwner && <StoreCustomizationTab />}
       </div>
     </div>
   );

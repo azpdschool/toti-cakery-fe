@@ -9,6 +9,7 @@ import {
   MessageCircleQuestion,
   Settings,
   LogOut,
+  X,
 } from 'lucide-react'
 import { ROUTES, LOGO_URL } from '@/constants'
 import { useAuth } from '@/hooks/useAuth'
@@ -63,9 +64,10 @@ const allMenuItems = [
 
 interface SellerSidebarProps {
   isOpen: boolean
+  onClose?: () => void
 }
 
-export function SellerSidebar({ isOpen }: SellerSidebarProps) {
+export function SellerSidebar({ isOpen, onClose }: SellerSidebarProps) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
@@ -112,12 +114,20 @@ export function SellerSidebar({ isOpen }: SellerSidebarProps) {
       `}
     >
       <div className="flex h-full w-64 flex-col overflow-y-auto p-4">
-        <div className="mb-8 flex items-center justify-center">
+        <div className="mb-8 flex items-center justify-between">
           <img
             src={LOGO_URL}
             alt="Toti Cakery"
             className="w-40 h-auto object-contain"
           />
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-[#4b2417] hover:bg-[#4b2417]/10 lg:hidden"
+            aria-label="Close sidebar"
+          >
+            <X className="h-5 w-5" />
+          </button>
         </div>
 
         <nav className="flex-1 space-y-1">
@@ -125,6 +135,11 @@ export function SellerSidebar({ isOpen }: SellerSidebarProps) {
             <NavLink
               key={item.path}
               to={item.path}
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.innerWidth < 1024 && onClose) {
+                  onClose()
+                }
+              }}
               className={({ isActive }) =>
                 `flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
                   isActive

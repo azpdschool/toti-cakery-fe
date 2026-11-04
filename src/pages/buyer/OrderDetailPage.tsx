@@ -24,6 +24,7 @@ import {
 import { useAuth } from '@/hooks/useAuth'
 import { downloadInvoice } from '@/services/invoiceService'
 import { Download } from 'lucide-react'
+import { ConfirmationModal } from '@/components/ui/ConfirmationModal'
 import { formatRupiah } from '@/services/productService'
 import { submitReview, getProductReviews, deleteReviewImage } from '@/services/reviewService'
 import type { ReviewResponse } from '@/api/review'
@@ -429,11 +430,12 @@ export default function OrderDetailPage() {
     } else {
       setLoading(false)
     }
-  }, [loadOrder, isAuthenticated, user])
+  }, [loadOrder, isAuthenticated, user?.id, user?.role])
 
   const [isCancelling, setIsCancelling] = useState(false);
+  const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
 
-  const handleCancelOrder = async () => {
+  const handleCancelOrder = () => {
     if (!order || !id) return;
     const isEn = i18n.language === 'en';
 
@@ -446,9 +448,12 @@ export default function OrderDetailPage() {
       return;
     }
 
-    if (!window.confirm(isEn ? 'Are you sure you want to cancel this order?' : 'Apakah Anda yakin ingin membatalkan pesanan ini?')) {
-      return;
-    }
+    setIsCancelConfirmOpen(true);
+  };
+
+  const executeCancelOrder = async () => {
+    if (!order || !id) return;
+    const isEn = i18n.language === 'en';
 
     setIsCancelling(true);
     try {
@@ -472,6 +477,7 @@ export default function OrderDetailPage() {
       }
     } finally {
       setIsCancelling(false);
+      setIsCancelConfirmOpen(false);
     }
   };
 
@@ -665,8 +671,8 @@ export default function OrderDetailPage() {
       </Link>
 
       <div className="overflow-hidden rounded-2xl border border-[#ead8ca] bg-white shadow-sm">
-        <div className="border-b border-[#ead8ca] bg-[#f8f4f0] px-6 py-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="border-b border-[#ead8ca] bg-[#f8f4f0] px-4 py-3 sm:px-6 sm:py-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 className="text-xl font-bold text-[#4b2417]">
                 {order.orderNumber}
@@ -686,46 +692,50 @@ export default function OrderDetailPage() {
               )}
             </div>
 
-            <div className="flex items-center gap-2 flex-wrap">
-              {getStatusBadge(order)}
-              {isBuyerOrderOverdue(order) && (
-                <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                  {i18n.language === 'en' ? 'Overdue' : 'Terlambat'}
-                </span>
-              )}
-              {isOrderCancellable(order) && (
+            <div className="w-full sm:w-auto flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                {getStatusBadge(order)}
+                {isBuyerOrderOverdue(order) && (
+                  <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                    {i18n.language === 'en' ? 'Overdue' : 'Terlambat'}
+                  </span>
+                )}
+              </div>
+              <div className="w-full sm:w-auto grid grid-cols-2 sm:flex gap-2">
+                {isOrderCancellable(order) && (
+                  <button
+                    onClick={handleCancelOrder}
+                    disabled={isCancelling}
+                    className="flex items-center justify-center gap-1.5 rounded-lg border border-red-500 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                  >
+                    {isCancelling ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        {i18n.language === 'en' ? 'Cancelling...' : 'Membatalkan...'}
+                      </>
+                    ) : (
+                      i18n.language === 'en' ? 'Cancel Order' : 'Batalkan Pesanan'
+                    )}
+                  </button>
+                )}
                 <button
-                  onClick={handleCancelOrder}
-                  disabled={isCancelling}
-                  className="flex items-center gap-1.5 rounded-lg border border-red-500 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                  onClick={handleDownloadInvoice}
+                  disabled={isDownloading}
+                  className="flex items-center justify-center gap-1.5 rounded-lg border border-[#d85b30] bg-white px-3 py-1.5 text-xs font-semibold text-[#d85b30] transition hover:bg-[#fff9f6] disabled:opacity-50"
                 >
-                  {isCancelling ? (
+                  {isDownloading ? (
                     <>
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      {i18n.language === 'en' ? 'Cancelling...' : 'Membatalkan...'}
+                      {t('order_detail.downloading')}
                     </>
                   ) : (
-                    i18n.language === 'en' ? 'Cancel Order' : 'Batalkan Pesanan'
+                    <>
+                      <Download className="h-3.5 w-3.5" />
+                      {t('order_detail.download_invoice')}
+                    </>
                   )}
                 </button>
-              )}
-              <button
-                onClick={handleDownloadInvoice}
-                disabled={isDownloading}
-                className="flex items-center gap-1.5 rounded-lg border border-[#d85b30] bg-white px-3 py-1.5 text-xs font-semibold text-[#d85b30] transition hover:bg-[#fff9f6] disabled:opacity-50"
-              >
-                {isDownloading ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    {t('order_detail.downloading')}
-                  </>
-                ) : (
-                  <>
-                    <Download className="h-3.5 w-3.5" />
-                    {t('order_detail.download_invoice')}
-                  </>
-                )}
-              </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1241,7 +1251,7 @@ export default function OrderDetailPage() {
 
       {reviewModalItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+          <div className="w-full max-w-md rounded-2xl bg-white p-4 sm:p-6 shadow-xl max-h-[90dvh] overflow-y-auto">
             <h2 className="text-lg font-bold text-[#4b2417]">
               {t('review.give_review')} — {reviewModalItem.productName}
             </h2>
@@ -1369,6 +1379,21 @@ export default function OrderDetailPage() {
           </div>
         </div>
       )}
+
+      <ConfirmationModal
+        isOpen={isCancelConfirmOpen}
+        title={i18n.language === 'en' ? 'Cancel Order' : 'Batalkan Pesanan'}
+        message={
+          i18n.language === 'en'
+            ? 'Are you sure you want to cancel this order? This action cannot be undone.'
+            : 'Apakah Anda yakin ingin membatalkan pesanan ini? Tindakan ini tidak dapat dibatalkan.'
+        }
+        confirmText={i18n.language === 'en' ? 'Yes, Cancel Order' : 'Ya, Batalkan'}
+        cancelText={i18n.language === 'en' ? 'Keep Order' : 'Kembali'}
+        isDestructive={true}
+        onConfirm={executeCancelOrder}
+        onCancel={() => setIsCancelConfirmOpen(false)}
+      />
     </div>
   )
 }

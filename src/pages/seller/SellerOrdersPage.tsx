@@ -15,19 +15,27 @@ import {
   CheckCircle,
   Clock,
   AlertCircle,
-  Download, ShoppingBag, ChevronLeft, ChevronRight,
+  Download, ShoppingBag,
   CreditCard, RotateCcw,
+  MoreVertical,
 } from 'lucide-react';
 import { MultiFilterPopover } from '@/components/ui/MultiFilterPopover';
+import { SellerSortDropdown } from '@/components/ui/SellerSortDropdown';
+import { HorizontalCardScroller } from '@/components/common/HorizontalCardScroller';
 import { PaginationControls } from '@/components/ui/PaginationControls';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { OrdersDueTodaySection } from '@/components/seller/OrdersDueTodaySection';
 import { useToast } from '@/components/ui/Toast';
 import { toast } from 'react-hot-toast';
+import { DecimalInput } from '@/components/ui/DecimalInput';
+import { CurrencyInput } from '@/components/ui/CurrencyInput';
 import {
   formatSellerOrderStatus,
   formatSellerDeliveryMethod,
   formatSellerPaymentPreference,
   formatSellerSource,
 } from '@/utils/labelSanitizer';
+import { formatDateToLocalYYYYMMDD, getJakartaDateParts } from '@/utils/date';
 
 import { formatRupiah, getActiveProducts, type SimpleProduct } from '@/services/productService';
 import { apiClient } from '@/api/client';
@@ -65,15 +73,15 @@ interface StatCardProps {
 
 function StatCard({ title, value, change, icon: Icon, color }: StatCardProps) {
   return (
-    <div className="rounded-xl bg-white p-5 shadow-sm">
+    <div className="rounded-xl bg-white p-3.5 sm:p-5 shadow-sm">
       <div className="flex items-start justify-between">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-full ${color}`}>
-          <Icon className="h-5 w-5" />
+        <div className={`flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full ${color}`}>
+          <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
         </div>
-        <span className="text-xs font-medium text-[#6f5448]">{change}</span>
+        <span className="text-[10px] sm:text-xs font-medium text-[#6f5448]">{change}</span>
       </div>
-      <p className="mt-2 text-3xl font-black text-[#4b2417]">{value}</p>
-      <p className="text-sm text-[#6f5448]">{title}</p>
+      <p className="mt-1.5 sm:mt-2 text-xl sm:text-3xl font-black text-[#4b2417] truncate" title={String(value)}>{value}</p>
+      <p className="text-xs sm:text-sm text-[#6f5448] truncate">{title}</p>
     </div>
   );
 }
@@ -93,18 +101,13 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
   const [availableStock, setAvailableStock] = useState<StockOut[]>([]);
 
   const { minDateStr, maxDateStr } = useMemo(() => {
-    const now = new Date();
-    const minD = new Date(now);
-    minD.setDate(minD.getDate() + 1);
-    const maxD = new Date(now);
-    maxD.setDate(maxD.getDate() + 30);
-    const toStr = (d: Date) => {
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
+    const parts = getJakartaDateParts();
+    const minD = new Date(parts.year, parts.month - 1, parts.day + 1);
+    const maxD = new Date(parts.year, parts.month - 1, parts.day + 30);
+    return {
+      minDateStr: formatDateToLocalYYYYMMDD(minD),
+      maxDateStr: formatDateToLocalYYYYMMDD(maxD),
     };
-    return { minDateStr: toStr(minD), maxDateStr: toStr(maxD) };
   }, []);
 
   const [formData, setFormData] = useState({
@@ -263,16 +266,16 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <form onSubmit={handleSubmit} className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-2xl bg-white shadow-xl overflow-hidden">
-        <div className="flex items-center justify-between border-b border-gray-200 p-6 shrink-0">
-          <h2 className="text-2xl font-black text-[#4b2417]">Add Custom Order</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-4">
+      <form onSubmit={handleSubmit} className="flex max-h-[90dvh] sm:max-h-[90vh] w-full max-w-4xl flex-col rounded-2xl bg-white shadow-xl overflow-hidden">
+        <div className="flex items-center justify-between border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-6 shrink-0">
+          <h2 className="text-xl sm:text-2xl font-black text-[#4b2417]">Add Custom Order</h2>
           <button type="button" onClick={onClose} className="rounded-full p-1 hover:bg-gray-100">
             <X className="h-6 w-6" />
           </button>
         </div>
 
-        <div className="overflow-y-auto p-6">
+        <div className="overflow-y-auto px-4 sm:px-6 py-4 sm:py-6">
           <section className="mb-8">
             <h3 className="mb-4 text-sm font-bold text-[#6f5448] uppercase tracking-wider">
               Customer Information
@@ -328,7 +331,7 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
               Custom order: select active catalog products and set custom decoration charges if needed.
             </p>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full min-w-[600px] text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 text-left text-xs font-semibold uppercase text-[#6f5448]">
                     <th className="pb-2 pr-4">Product Name <span className="text-red-500">*</span></th>
@@ -364,24 +367,21 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
                           {prod ? formatRupiah(basePrice) : '-'}
                         </td>
                         <td className="py-2 pr-4">
-                          <input
-                            type="number"
-                            min="1"
+                          <DecimalInput
+                            maxDecimals={0}
+                            min={1}
                             value={item.qty}
-                            onChange={(e) => handleItemChange(idx, 'qty', parseInt(e.target.value) || 1)}
+                            onChange={(val) => handleItemChange(idx, 'qty', val || 1)}
                             className="w-16 rounded border border-gray-200 px-2 py-1 text-sm outline-none focus:border-[#d85b30]"
                           />
                         </td>
                         <td className="py-2 pr-4">
-                          <input
-                            type="number"
-                            min="0"
-                            placeholder="0"
+                          <CurrencyInput
                             value={item.custom_decoration_charge || ''}
-                            onChange={(e) => {
-                              const val = parseInt(e.target.value) || 0;
+                            onChange={(val) => {
                               handleItemChange(idx, 'custom_decoration_charge', val);
                             }}
+                            placeholder="0"
                             className="w-24 rounded border border-gray-200 px-2 py-1 text-sm outline-none focus:border-[#d85b30]"
                           />
                         </td>
@@ -421,7 +421,7 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
             </p>
             {formData.accessories.length > 0 && (
               <div className="overflow-x-auto mb-2">
-                <table className="w-full text-sm">
+                <table className="w-full min-w-[500px] text-sm">
                   <thead>
                     <tr className="border-b border-gray-200 text-left text-xs font-semibold uppercase text-[#6f5448]">
                       <th className="pb-2 pr-4">Stock Item</th>
@@ -451,11 +451,11 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
                             </select>
                           </td>
                           <td className="py-2 pr-4">
-                            <input
-                              type="number"
-                              min="1"
+                            <DecimalInput
+                              maxDecimals={0}
+                              min={1}
                               value={acc.quantity}
-                              onChange={(e) => handleAccessoryChange(idx, 'quantity', parseInt(e.target.value) || 1)}
+                              onChange={(val) => handleAccessoryChange(idx, 'quantity', val || 1)}
                               className="w-20 rounded border border-gray-200 px-2 py-1 text-sm outline-none focus:border-[#d85b30]"
                             />
                           </td>
@@ -597,7 +597,7 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
           </section>
         </div>
 
-        <div className="flex justify-end gap-3 border-t border-gray-200 p-6 shrink-0">
+        <div className="flex justify-end gap-3 border-t border-gray-200 px-4 sm:px-6 py-3 sm:py-4 shrink-0">
           <button
             type="button"
             onClick={onClose}
@@ -670,18 +670,13 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
   const [processingRefund, setProcessingRefund] = useState(false);
 
   const { minDateStr, maxDateStr } = useMemo(() => {
-    const now = new Date();
-    const minD = new Date(now);
-    minD.setDate(minD.getDate() + 1);
-    const maxD = new Date(now);
-    maxD.setDate(maxD.getDate() + 30);
-    const toStr = (d: Date) => {
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
+    const parts = getJakartaDateParts();
+    const minD = new Date(parts.year, parts.month - 1, parts.day + 1);
+    const maxD = new Date(parts.year, parts.month - 1, parts.day + 30);
+    return {
+      minDateStr: formatDateToLocalYYYYMMDD(minD),
+      maxDateStr: formatDateToLocalYYYYMMDD(maxD),
     };
-    return { minDateStr: toStr(minD), maxDateStr: toStr(maxD) };
   }, []);
 
   const handleDownloadInvoice = async () => {
@@ -912,8 +907,8 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-4">
+      <div className="max-h-[90dvh] sm:max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-4 sm:p-6 shadow-xl">
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h2 className="text-2xl font-black text-[#4b2417]">{t('seller_orders.order_details')}</h2>
@@ -1071,30 +1066,32 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
 
             <div>
               <h3 className="font-bold text-[#4b2417] border-b pb-2 mb-2">{t('seller_orders.order_items')}</h3>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-gray-500">
-                    <th className="pb-2">{t('seller_orders.product')}</th>
-                    <th className="pb-2 text-right">{t('seller_orders.price')}</th>
-                    <th className="pb-2 text-center">{t('seller_orders.qty')}</th>
-                    <th className="pb-2 text-right">{t('seller_orders.total')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {order.items?.map(item => (
-                    <tr key={item.id} className="border-b border-gray-100">
-                      <td className="py-2">{item.productName}</td>
-                      <td className="py-2 text-right">{formatRupiah(item.price)}</td>
-                      <td className="py-2 text-center">{item.quantity}</td>
-                      <td className="py-2 text-right font-medium">{formatRupiah(item.total)}</td>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[400px] text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-gray-500">
+                      <th className="pb-2">{t('seller_orders.product')}</th>
+                      <th className="pb-2 text-right">{t('seller_orders.price')}</th>
+                      <th className="pb-2 text-center">{t('seller_orders.qty')}</th>
+                      <th className="pb-2 text-right">{t('seller_orders.total')}</th>
                     </tr>
-                  ))}
-                  <tr className="font-bold text-[#4b2417]">
-                    <td colSpan={3} className="py-3 text-right">{t('seller_orders.total_due')}</td>
-                    <td className="py-3 text-right">{formatRupiah(order.total)}</td>
-                  </tr>
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {order.items?.map(item => (
+                      <tr key={item.id} className="border-b border-gray-100">
+                        <td className="py-2">{item.productName}</td>
+                        <td className="py-2 text-right">{formatRupiah(item.price)}</td>
+                        <td className="py-2 text-center">{item.quantity}</td>
+                        <td className="py-2 text-right font-medium">{formatRupiah(item.total)}</td>
+                      </tr>
+                    ))}
+                    <tr className="font-bold text-[#4b2417]">
+                      <td colSpan={3} className="py-3 text-right">{t('seller_orders.total_due')}</td>
+                      <td className="py-3 text-right">{formatRupiah(order.total)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
 
             {/* Record Manual Payment Section */}
@@ -1143,14 +1140,11 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
                           <label className="block text-xs font-semibold text-gray-700 mb-1">
                             Payment Amount (Rp) <span className="text-red-500">*</span>
                           </label>
-                          <input
-                            type="number"
-                            min="1"
-                            step="any"
+                          <CurrencyInput
                             required
                             value={manualPaymentAmount}
-                            onChange={(e) => setManualPaymentAmount(e.target.value)}
-                            placeholder="e.g. 50000"
+                            onChange={(val, raw) => setManualPaymentAmount(raw ? String(val) : '')}
+                            placeholder="e.g. 50.000"
                             className="w-full rounded-lg border border-[#d0bfaf] px-3 py-1.5 text-xs outline-none focus:border-[#d85b30]"
                             disabled={submittingPayment}
                           />
@@ -1338,12 +1332,9 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
                   <label className="block text-xs font-semibold text-gray-700 mb-1">
                     Refund Amount (Rp) <span className="text-gray-400 font-normal">(Leave blank for full amount)</span>
                   </label>
-                  <input
-                    type="number"
-                    min="1"
-                    step="any"
+                  <CurrencyInput
                     value={refundAmount}
-                    onChange={(e) => setRefundAmount(e.target.value)}
+                    onChange={(val, raw) => setRefundAmount(raw ? String(val) : '')}
                     placeholder={`Full amount: ${order.amountPaid || order.total}`}
                     className="w-full rounded-lg border border-[#d0bfaf] px-3 py-1.5 text-xs outline-none focus:border-[#d85b30]"
                     disabled={processingRefund}
@@ -1378,6 +1369,293 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
 }
 
 // ============================================================
+// KOMPONEN ORDER MORE ACTIONS DROPDOWN (MOBILE & DESKTOP)
+// ============================================================
+
+interface OrderMoreActionsDropdownProps {
+  order: Order;
+  canManage: boolean;
+  canDelete: boolean;
+  isDownloading: boolean;
+  openUpward?: boolean;
+  onDownloadInvoice: () => void;
+  onDelete?: () => void;
+}
+
+function OrderMoreActionsDropdown({
+  order,
+  canManage,
+  canDelete,
+  isDownloading,
+  openUpward = false,
+  onDownloadInvoice,
+  onDelete,
+}: OrderMoreActionsDropdownProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen]);
+
+  return (
+    <div className="relative inline-block text-left" ref={ref}>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen((prev) => !prev);
+        }}
+        className={`rounded-lg p-1.5 transition-colors ${
+          isOpen ? 'bg-gray-100 text-gray-800' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+        }`}
+        aria-label={`More actions for order ${order.orderNumber}`}
+        aria-expanded={isOpen}
+      >
+        <MoreVertical className="h-4 w-4" />
+      </button>
+
+      {isOpen && (
+        <div
+          className={`absolute right-0 ${
+            openUpward ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
+          } w-48 rounded-xl bg-white p-1.5 shadow-xl border border-gray-100 ring-1 ring-black/5 z-50 text-left focus:outline-none`}
+        >
+          {canManage && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsOpen(false);
+                onDownloadInvoice();
+              }}
+              disabled={isDownloading}
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-orange-50 hover:text-[#d85b30] transition-colors disabled:opacity-50"
+            >
+              {isDownloading ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-[#d85b30] border-t-transparent shrink-0" />
+              ) : (
+                <Download className="h-4 w-4 text-gray-500 shrink-0" />
+              )}
+              <span>Download Invoice</span>
+            </button>
+          )}
+
+          {canDelete && (
+            <>
+              {canManage && <div className="my-1 border-t border-gray-100" />}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsOpen(false);
+                  onDelete?.();
+                }}
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
+              >
+                <Trash2 className="h-4 w-4 text-red-500 shrink-0" />
+                <span>Delete Order</span>
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// KOMPONEN QUICK STATUS UPDATE MODAL
+// ============================================================
+
+interface OrderQuickStatusModalProps {
+  order: Order | null;
+  isOpen: boolean;
+  onClose: () => void;
+  onStatusUpdated: (updatedOrder: Order) => void;
+  onOpenFullDetail: (orderId: string) => void;
+}
+
+function OrderQuickStatusModal({
+  order,
+  isOpen,
+  onClose,
+  onStatusUpdated,
+  onOpenFullDetail,
+}: OrderQuickStatusModalProps) {
+  const { t } = useTranslation();
+  const [selectedStatus, setSelectedStatus] = useState<OrderStatus>('pending');
+  const [updating, setUpdating] = useState(false);
+
+  useEffect(() => {
+    if (order) {
+      setSelectedStatus(order.status);
+    }
+  }, [order]);
+
+  if (!isOpen || !order) return null;
+
+  const isDownPaymentInsufficient = (order.amountPaid || 0) < (order.total * 0.5);
+  const statusBadge = formatSellerOrderStatus(order);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedStatus || selectedStatus === order.status) {
+      onClose();
+      return;
+    }
+
+    if (selectedStatus === 'in_process' && isDownPaymentInsufficient) {
+      toast.error('Cannot update status to In Process: minimum 50% down payment is required.');
+      return;
+    }
+
+    if (selectedStatus === 'refunded') {
+      toast('Please process refund in Order Details to record amount and reason.', { icon: 'ℹ️' });
+      onClose();
+      onOpenFullDetail(order.id);
+      return;
+    }
+
+    setUpdating(true);
+    try {
+      const updated = await updateOrderStatus(order.id, selectedStatus);
+      onStatusUpdated(updated);
+      toast.success(t('seller_orders.status_updated_success'));
+      onClose();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(
+        err?.response?.data?.detail ||
+        err?.response?.data?.message ||
+        err?.message ||
+        t('seller_orders.status_updated_error')
+      );
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-5 sm:p-6 shadow-xl space-y-4">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+          <div>
+            <h3 className="text-lg font-bold text-[#4b2417]">Update Order Status</h3>
+            <p className="text-xs text-gray-500">Order {order.orderNumber} • {order.customerName}</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Current status display */}
+        <div className="flex items-center justify-between rounded-xl bg-gray-50 p-3 text-xs">
+          <span className="text-gray-500 font-medium">Current Status:</span>
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-semibold ${statusBadge.className}`}>
+            {statusBadge.label}
+          </span>
+        </div>
+
+        {/* Status Selection Form */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+              Select New Status
+            </label>
+            <select
+              value={selectedStatus}
+              onChange={(e) => {
+                const val = e.target.value as OrderStatus;
+                if (val === 'in_process' && isDownPaymentInsufficient) {
+                  toast.error('Cannot select In Process: at least 50% down payment is required.');
+                  return;
+                }
+                setSelectedStatus(val);
+              }}
+              disabled={updating}
+              className="w-full rounded-xl border border-[#d0bfaf] bg-white px-3.5 py-2.5 text-sm font-medium text-gray-800 outline-none focus:border-[#d85b30] focus:ring-1 focus:ring-[#d85b30]"
+            >
+              <option value="pending">{t('seller_orders.status.pending')}</option>
+              <option value="in_process" disabled={isDownPaymentInsufficient}>
+                {t('seller_orders.status.in_process')}{isDownPaymentInsufficient ? ' (Min. 50% DP Required)' : ''}
+              </option>
+              <option value="ready">{t('seller_orders.status.ready')}</option>
+              <option value="delivered">{t('seller_orders.status.delivered')}</option>
+              <option value="picked_up">{t('seller_orders.status.picked_up')}</option>
+              <option value="completed">{t('seller_orders.status.completed')}</option>
+              <option value="cancelled">{t('seller_orders.status.cancelled')}</option>
+              <option value="refunded">{t('seller_orders.status.refunded')}</option>
+            </select>
+          </div>
+
+          {selectedStatus === 'in_process' && isDownPaymentInsufficient && (
+            <div className="flex items-start gap-2 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-800 border border-amber-200">
+              <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+              <span>Customer has not made the minimum 50% down payment required to set this order in process.</span>
+            </div>
+          )}
+
+          {selectedStatus === 'refunded' && (
+            <div className="flex items-start gap-2 rounded-lg bg-blue-50 p-2.5 text-xs text-blue-800 border border-blue-200">
+              <AlertCircle className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+              <span>Refunding will open the Order Details modal to enter refund amount and reason.</span>
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={updating}
+              className="flex-1 rounded-xl border border-gray-200 py-2.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={updating || selectedStatus === order.status || (selectedStatus === 'in_process' && isDownPaymentInsufficient)}
+              className="flex-1 rounded-xl bg-[#d85b30] py-2.5 text-xs font-semibold text-white hover:bg-[#c04e28] transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+            >
+              {updating ? (
+                <>
+                  <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <span>Save Status</span>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
 // KOMPONEN UTAMA
 // ============================================================
 
@@ -1393,9 +1671,13 @@ export default function SellerOrdersPage() {
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [stats, setStats] = useState<any>(null);
+  const statsRef = useRef(stats);
+  statsRef.current = stats;
+  const requestIdRef = useRef(0);
   
   const [loading, setLoading] = useState(true);
   const [errorState, setErrorState] = useState<string | null>(null);
+  const [dueTodayRefreshKey, setDueTodayRefreshKey] = useState(0);
 
   // Pagination & Filtering
   const [currentPage, setCurrentPage] = useState(1);
@@ -1403,12 +1685,15 @@ export default function SellerOrdersPage() {
   const [hasNextPage, setHasNextPage] = useState(true);
   const [filterValues, setFilterValues] = useState<Record<string, string>>({});
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('newest');
 
   // Modals
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedDetailOrderId, setSelectedDetailOrderId] = useState<string | null>(null);
   const [downloadingRowId, setDownloadingRowId] = useState<string | null>(null);
+  const [quickStatusOrder, setQuickStatusOrder] = useState<Order | null>(null);
+  const [showQuickStatusModal, setShowQuickStatusModal] = useState(false);
 
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -1437,11 +1722,12 @@ export default function SellerOrdersPage() {
   }, [searchQuery]);
 
   const loadData = useCallback(async (signal?: AbortSignal) => {
+    const currentRequestId = ++requestIdRef.current;
     setLoading(true);
     setErrorState(null);
     try {
       const offset = (currentPage - 1) * itemsPerPage;
-      let apiStatus: any = undefined;
+      let apiStatus: string | undefined = undefined;
       
       if (filterValues.status && filterValues.status !== 'All') {
         const map: Record<string, string> = {
@@ -1468,24 +1754,58 @@ export default function SellerOrdersPage() {
         apiStatus = map[filterValues.status] || undefined;
       }
 
-      const ordersData = await getOrders({ limit: itemsPerPage, offset, status: apiStatus, signal });
-      setOrders(ordersData);
-      setHasNextPage(ordersData.length === itemsPerPage);
+      const ordersData = await getOrders({
+        limit: itemsPerPage + 1,
+        offset,
+        status: apiStatus,
+        signal,
+      });
 
-      if (!stats) {
-        try {
-          const statsData = await getOrderStats();
-          setStats(statsData);
-        } catch (statsErr) {
-          setStats('error');
+      // Ignore stale responses or aborted requests
+      if (signal?.aborted || currentRequestId !== requestIdRef.current) {
+        return;
+      }
+
+      const hasNext = ordersData.length > itemsPerPage;
+      const pageOrders = ordersData.slice(0, itemsPerPage);
+
+      // Dedupe rows by order id before rendering
+      const seenIds = new Set<string>();
+      const dedupedOrders: Order[] = [];
+      for (const order of pageOrders) {
+        const idStr = String(order.id);
+        if (!seenIds.has(idStr)) {
+          seenIds.add(idStr);
+          dedupedOrders.push(order);
         }
       }
-    } catch (error: any) {
-      if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') return;
+
+      setOrders(dedupedOrders);
+      setHasNextPage(hasNext);
+
+      if (!statsRef.current) {
+        try {
+          const statsData = await getOrderStats();
+          if (!signal?.aborted && currentRequestId === requestIdRef.current) {
+            statsRef.current = statsData;
+            setStats(statsData);
+          }
+        } catch {
+          if (!signal?.aborted && currentRequestId === requestIdRef.current) {
+            setStats('error');
+          }
+        }
+      }
+    } catch (error: unknown) {
+      if (signal?.aborted || currentRequestId !== requestIdRef.current) return;
+      const err = error as { name?: string; code?: string } | undefined;
+      if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED') return;
       console.error('Failed to load orders:', error);
       setErrorState('Unable to load orders right now.');
     } finally {
-      setLoading(false);
+      if (!signal?.aborted && currentRequestId === requestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [currentPage, itemsPerPage, filterValues.status]);
 
@@ -1496,7 +1816,7 @@ export default function SellerOrdersPage() {
   }, [loadData]);
 
   const filteredOrders = useMemo(() => {
-    return orders.filter((order) => {
+    let result = orders.filter((order) => {
       // 1. Filter Source:
       // 'Web' hanya menampilkan order dengan created_via === "web"
       // 'Chatbot' hanya menampilkan order dengan created_via === "chatbot"
@@ -1527,15 +1847,7 @@ export default function SellerOrdersPage() {
         if (rawDateStr.startsWith(filterDate)) {
           matches = true;
         } else {
-          const d = new Date(rawDateStr);
-          if (!isNaN(d.getTime())) {
-            const yyyy = d.getFullYear();
-            const mm = String(d.getMonth() + 1).padStart(2, '0');
-            const dd = String(d.getDate()).padStart(2, '0');
-            if (`${yyyy}-${mm}-${dd}` === filterDate) {
-              matches = true;
-            }
-          }
+          matches = formatDateToLocalYYYYMMDD(rawDateStr) === filterDate;
         }
         if (!matches) {
           return false;
@@ -1555,7 +1867,42 @@ export default function SellerOrdersPage() {
 
       return true;
     });
-  }, [orders, filterValues.source, filterValues.fulfillment_date, debouncedSearch]);
+
+    switch (sortBy) {
+      case 'oldest':
+        result = [...result].sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+        break;
+      case 'total_desc':
+        result = [...result].sort((a, b) => (Number(b.total) || 0) - (Number(a.total) || 0));
+        break;
+      case 'total_asc':
+        result = [...result].sort((a, b) => (Number(a.total) || 0) - (Number(b.total) || 0));
+        break;
+      case 'customer_asc':
+        result = [...result].sort((a, b) => (a.customerName || '').localeCompare(b.customerName || ''));
+        break;
+      case 'customer_desc':
+        result = [...result].sort((a, b) => (b.customerName || '').localeCompare(a.customerName || ''));
+        break;
+      case 'newest':
+      default:
+        result = [...result].sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+        break;
+    }
+
+    // Dedupe rows by order id before rendering to reduce duplicates caused by non-deterministic backend ordering
+    const seenResultIds = new Set<string>();
+    const dedupedResult: Order[] = [];
+    for (const order of result) {
+      const idStr = String(order.id);
+      if (!seenResultIds.has(idStr)) {
+        seenResultIds.add(idStr);
+        dedupedResult.push(order);
+      }
+    }
+
+    return dedupedResult;
+  }, [orders, filterValues.source, filterValues.fulfillment_date, debouncedSearch, sortBy]);
 
   const handleAddOrder = async (orderData: any) => {
     try {
@@ -1563,6 +1910,7 @@ export default function SellerOrdersPage() {
       showToast({ message: 'Order successfully added!', type: 'success' });
       setCurrentPage(1);
       loadData();
+      setDueTodayRefreshKey(prev => prev + 1);
     } catch (error) {
       console.error('Failed to add order:', error);
       showToast({ message: 'Failed to add order.', type: 'error' });
@@ -1584,72 +1932,43 @@ export default function SellerOrdersPage() {
     return formatSellerOrderStatus(orderOrStatus);
   };
 
-  // Carousel behavior
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(true); // assuming true initially if multiple cards
-
-  const updateScrollButtons = () => {
-    if (scrollRef.current) {
-      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
-      setCanScrollLeft(scrollLeft > 0);
-      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 1);
-    }
-  };
-
-  useEffect(() => {
-    updateScrollButtons();
-    window.addEventListener('resize', updateScrollButtons);
-    return () => window.removeEventListener('resize', updateScrollButtons);
-  }, [stats]);
-
-  const scrollLeft = () => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollBy({ left: -250, behavior: 'smooth' });
-      setTimeout(updateScrollButtons, 300);
-    }
-  };
-
-  const scrollRight = () => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollBy({ left: 250, behavior: 'smooth' });
-      setTimeout(updateScrollButtons, 300);
-    }
-  };
 
   return (
-    <div className="p-8">
+    <div className="p-3 sm:p-6 md:p-8 space-y-6 md:space-y-8">
       {/* Page Header */}
-      <div className="mb-8 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-          <h1 className="text-3xl font-black text-[#4b2417]">Orders</h1>
-          <p className="mt-1 text-sm text-[#6f5448]">
-            Manage and track customer orders, payments, and fulfilment progress.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          {canAddOrder && (
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-2 rounded-xl bg-[#d85b30] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#c04e28]"
-            >
-              <Plus className="h-4 w-4" />
-              Add Custom Order
-            </button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Orders"
+        description="Manage and track customer orders, payments, and fulfilment progress."
+        className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center"
+        actions={
+          <div className="flex w-full sm:w-auto items-center gap-3">
+            {canAddOrder && (
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="flex w-full sm:w-auto justify-center items-center gap-2 rounded-xl bg-[#d85b30] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#c04e28]"
+              >
+                <Plus className="h-4 w-4" />
+                Add Custom Order
+              </button>
+            )}
+          </div>
+        }
+      />
+
+      {/* Orders Due Today Section - Urgent Di Atas KPI Summary Cards */}
+      <OrdersDueTodaySection
+        refreshKey={dueTodayRefreshKey}
+        onOrderClick={(orderId) => {
+          setSelectedDetailOrderId(orderId);
+          setShowDetailModal(true);
+        }}
+      />
 
       {/* KPI Summary Cards */}
-      <div className="relative mb-8 group">
-        <div 
-          ref={scrollRef}
-          onScroll={updateScrollButtons}
-          className="flex gap-4 overflow-x-auto no-scrollbar snap-x snap-mandatory"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-        >
+      <div className="mb-6 sm:mb-8">
+        <HorizontalCardScroller scrollContainerClassName="gap-3 sm:gap-4 pb-2 snap-mandatory">
           {/* Card 1 */}
-          <div className="snap-start min-w-[200px] flex-1 shrink-0">
+          <div className="snap-start min-w-[160px] sm:min-w-[200px] flex-1 shrink-0">
             <StatCard
               title="Total Orders (This Month)"
               value={stats === 'error' ? 'Error loading stats' : stats ? stats.totalOrdersThisMonth : 'Loading...'}
@@ -1659,7 +1978,7 @@ export default function SellerOrdersPage() {
             />
           </div>
           {/* Card 2 */}
-          <div className="snap-start min-w-[200px] flex-1 shrink-0">
+          <div className="snap-start min-w-[160px] sm:min-w-[200px] flex-1 shrink-0">
             <StatCard
               title="Completed"
               value={stats === 'error' ? 'Error loading stats' : stats ? stats.completed : 'Loading...'}
@@ -1669,7 +1988,7 @@ export default function SellerOrdersPage() {
             />
           </div>
           {/* Card 3 */}
-          <div className="snap-start min-w-[200px] flex-1 shrink-0">
+          <div className="snap-start min-w-[160px] sm:min-w-[200px] flex-1 shrink-0">
             <StatCard
               title="In Process"
               value={stats === 'error' ? 'Error loading stats' : stats ? stats.processed : 'Loading...'}
@@ -1679,7 +1998,7 @@ export default function SellerOrdersPage() {
             />
           </div>
           {/* Card 4 */}
-          <div className="snap-start min-w-[200px] flex-1 shrink-0">
+          <div className="snap-start min-w-[160px] sm:min-w-[200px] flex-1 shrink-0">
             <StatCard
               title="Waiting Confirmation"
               value={stats === 'error' ? 'Error loading stats' : stats ? stats.waitingConfirmation : 'Loading...'}
@@ -1688,37 +2007,17 @@ export default function SellerOrdersPage() {
               color="bg-red-100 text-red-600"
             />
           </div>
-        </div>
-
-        {/* Carousel Controls */}
-        {canScrollLeft && (
-          <button 
-            onClick={scrollLeft}
-            aria-label="Previous"
-            className="absolute left-0 top-1/2 -translate-y-1/2 -ml-3 hidden sm:flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md border border-gray-100 text-gray-600 hover:text-[#d85b30] z-10 opacity-0 group-hover:opacity-100 transition-opacity"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-        )}
-        {canScrollRight && (
-          <button 
-            onClick={scrollRight}
-            aria-label="Next"
-            className="absolute right-0 top-1/2 -translate-y-1/2 -mr-3 hidden sm:flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md border border-gray-100 text-gray-600 hover:text-[#d85b30] z-10 opacity-0 group-hover:opacity-100 transition-opacity"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
-        )}
+        </HorizontalCardScroller>
       </div>
 
       {/* Search and Filters */}
-      <div className="mb-6 flex flex-col sm:flex-row flex-wrap items-center gap-3 rounded-xl bg-white p-4 shadow-sm border border-gray-100">
-        <div className="relative w-full sm:flex-1 sm:min-w-[200px]">
+      <div className="mb-6 flex items-center gap-2 sm:gap-3 rounded-xl bg-white p-2.5 sm:p-4 shadow-sm border border-gray-100">
+        <div className="relative flex-1 min-w-[140px]">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b7166]" />
           <input
             type="text"
             placeholder="Search orders..."
-            className="w-full rounded-lg border border-[#d0bfaf] py-2 pl-9 pr-4 text-sm outline-none focus:border-[#d85b30]"
+            className="w-full rounded-lg border border-[#d0bfaf] py-2 pl-9 pr-3 text-xs sm:text-sm outline-none focus:border-[#d85b30]"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             disabled
@@ -1726,7 +2025,26 @@ export default function SellerOrdersPage() {
           />
         </div>
 
-        <div className="flex w-full sm:w-auto flex-wrap gap-2">
+        {/* Sort By Dropdown */}
+        <SellerSortDropdown
+          id="order-sort"
+          value={sortBy}
+          onChange={(val) => {
+            setSortBy(val);
+            setCurrentPage(1);
+          }}
+          options={[
+            { label: 'Newest', value: 'newest' },
+            { label: 'Oldest', value: 'oldest' },
+            { label: 'Total: High-Low', value: 'total_desc' },
+            { label: 'Total: Low-High', value: 'total_asc' },
+            { label: 'Customer: A-Z', value: 'customer_asc' },
+            { label: 'Customer: Z-A', value: 'customer_desc' },
+          ]}
+          ariaLabel="Sort orders"
+        />
+
+        <div className="shrink-0 flex items-center gap-2">
           <MultiFilterPopover
             fields={[
               {
@@ -1779,7 +2097,7 @@ export default function SellerOrdersPage() {
 
       {/* Orders Table */}
       <div className="rounded-xl bg-white shadow-sm border border-gray-100 overflow-hidden flex flex-col">
-        <div className="overflow-x-auto">
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full min-w-[1000px] text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase text-gray-500">
@@ -1800,7 +2118,10 @@ export default function SellerOrdersPage() {
                   <td colSpan={9} className="py-8 text-center">
                     <p className="text-[#6f5448] mb-4">{errorState}</p>
                     <button 
-                      onClick={() => loadData()}
+                      onClick={() => {
+                        loadData();
+                        setDueTodayRefreshKey(prev => prev + 1);
+                      }}
                       className="inline-flex items-center justify-center rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
                     >
                       Retry
@@ -1933,6 +2254,164 @@ export default function SellerOrdersPage() {
           </table>
         </div>
 
+        {/* Mobile Orders Card View */}
+        <div className="block md:hidden divide-y divide-gray-100 p-3 space-y-3">
+          {errorState ? (
+            <div className="py-8 text-center bg-white rounded-xl p-4">
+              <p className="text-[#6f5448] mb-4">{errorState}</p>
+              <button 
+                onClick={() => {
+                  loadData();
+                  setDueTodayRefreshKey(prev => prev + 1);
+                }}
+                className="inline-flex items-center justify-center rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+              >
+                Retry
+              </button>
+            </div>
+          ) : loading ? (
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="animate-pulse rounded-xl border border-gray-100 bg-white p-4 space-y-3">
+                <div className="flex justify-between items-center">
+                  <div className="h-4 w-20 bg-gray-200 rounded"></div>
+                  <div className="h-5 w-24 bg-gray-200 rounded-full"></div>
+                </div>
+                <div className="h-4 w-32 bg-gray-200 rounded"></div>
+                <div className="h-4 w-24 bg-gray-200 rounded"></div>
+              </div>
+            ))
+          ) : filteredOrders.length === 0 ? (
+            <div className="py-12 text-center bg-white rounded-xl p-4">
+              <p className="text-gray-500 mb-2">
+                {Object.keys(filterValues).length > 0 || debouncedSearch
+                  ? 'No orders match your current filters.'
+                  : 'No orders found.'}
+              </p>
+              {(Object.keys(filterValues).length > 0 || debouncedSearch) && (
+                <button 
+                  onClick={() => { setFilterValues({}); setSearchQuery(''); setCurrentPage(1); }}
+                  className="text-[#d85b30] hover:underline font-medium text-sm"
+                >
+                  Clear Filters
+                </button>
+              )}
+            </div>
+          ) : (
+            filteredOrders.map((order, index) => {
+              const statusBadge = getStatusBadge(order);
+              return (
+                <div key={order.id} className="pt-3 first:pt-0">
+                  <div className="rounded-xl border border-gray-200 bg-white p-3.5 shadow-sm space-y-3">
+                    {/* Top Row: Order ID + Source badge + Status badge & ⋮ Dropdown */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="font-bold text-gray-900 text-sm">{order.orderNumber}</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-gray-100 text-gray-700">
+                            {formatSellerSource(order.createdVia || (order as any).created_via)}
+                          </span>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${statusBadge.className}`}>
+                            {statusBadge.label}
+                          </span>
+                          {isOrderOverdue(order) && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-200">
+                              Overdue
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Top-right More Actions Dropdown */}
+                      <div className="shrink-0">
+                        <OrderMoreActionsDropdown
+                          order={order}
+                          canManage={canManageOrders}
+                          canDelete={canDelete}
+                          isDownloading={downloadingRowId === order.id}
+                          openUpward={index >= filteredOrders.length - 2 && filteredOrders.length > 2}
+                          onDownloadInvoice={() => handleQuickDownload(order.id)}
+                          onDelete={() => {
+                            toast.error('Order deletion is not supported');
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Middle Row: Customer Name, Phone Details, Delivery Method, Fulfillment Date, Total Price */}
+                    <div className="grid grid-cols-2 gap-3 border-t border-gray-50 pt-2.5 text-xs">
+                      {/* Left Column: Customer Name, Phone Details, Delivery Method */}
+                      <div className="min-w-0 space-y-1">
+                        <div>
+                          <span className="text-[11px] text-gray-500 block font-medium">Customer</span>
+                          <p className="font-semibold text-gray-900 text-sm truncate" title={order.customerName}>
+                            {order.customerName}
+                          </p>
+                          <p className="text-xs text-[#8b7166] truncate">
+                            {order.customerPhone}
+                          </p>
+                        </div>
+                        <div className="pt-1 flex items-center gap-1.5 text-gray-600">
+                          <Truck className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                          <span className="font-medium text-xs truncate">
+                            {formatSellerDeliveryMethod(order.method)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Right Column: Total Price and Fulfillment Date */}
+                      <div className="min-w-0 text-right space-y-1">
+                        <div>
+                          <span className="text-[11px] text-gray-500 block font-medium">Total Amount</span>
+                          <p className="font-bold text-base text-[#4b2417] tracking-tight">
+                            {formatRupiah(order.total)}
+                          </p>
+                        </div>
+                        <div className="pt-1">
+                          <span className="text-[11px] text-gray-500 block">Fulfillment Date</span>
+                          <p className="font-semibold text-xs text-gray-800">
+                            {order.rawFulfillmentDate
+                              ? new Date(order.rawFulfillmentDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                              : (order.fulfillmentDate || 'Not set')}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bottom Row: At most 2 primary action buttons */}
+                    <div className="flex items-center gap-2 pt-1 border-t border-gray-50">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedDetailOrderId(order.id);
+                          setShowDetailModal(true);
+                        }}
+                        className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                        <span>View Detail</span>
+                      </button>
+
+                      {canManageOrders && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setQuickStatusOrder(order);
+                            setShowQuickStatusModal(true);
+                          }}
+                          className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-[#f8eee5] py-2 text-xs font-semibold text-[#d85b30] hover:bg-[#f2dfce] transition-colors"
+                        >
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>Update Status</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
         {/* Pagination */}
         <div className="px-4">
           <PaginationControls
@@ -1940,7 +2419,10 @@ export default function SellerOrdersPage() {
             limit={itemsPerPage}
             hasNextPage={hasNextPage}
             onPageChange={setCurrentPage}
-            onLimitChange={setItemsPerPage}
+            onLimitChange={(newLimit) => {
+              setItemsPerPage(newLimit);
+              setCurrentPage(1);
+            }}
           />
         </div>
       </div>
@@ -1967,10 +2449,31 @@ export default function SellerOrdersPage() {
             }
           }}
           onStatusUpdated={(updatedOrder) => {
-            setOrders(orders.map(o => o.id === updatedOrder.id ? { ...o, status: updatedOrder.status } : o));
+            setOrders(prev => prev.map(o => o.id === updatedOrder.id ? { ...o, ...updatedOrder } : o));
+            setDueTodayRefreshKey(prev => prev + 1);
           }}
           canManageOrders={canManageOrders}
           loadData={loadData}
+        />
+      )}
+
+      {showQuickStatusModal && quickStatusOrder && (
+        <OrderQuickStatusModal
+          order={quickStatusOrder}
+          isOpen={showQuickStatusModal}
+          onClose={() => {
+            setShowQuickStatusModal(false);
+            setQuickStatusOrder(null);
+          }}
+          onStatusUpdated={(updatedOrder) => {
+            setOrders(prev => prev.map(o => o.id === updatedOrder.id ? { ...o, status: updatedOrder.status } : o));
+            loadData();
+            setDueTodayRefreshKey(prev => prev + 1);
+          }}
+          onOpenFullDetail={(orderId) => {
+            setSelectedDetailOrderId(orderId);
+            setShowDetailModal(true);
+          }}
         />
       )}
     </div>

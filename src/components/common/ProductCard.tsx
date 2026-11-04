@@ -65,7 +65,7 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
         </div>
       </Link>
 
-      <div className="p-4">
+      <div className="p-2.5 sm:p-4">
         <Link
           to={`/catalog/${product.slug}`}
           className="line-clamp-1 text-sm font-black text-[#3A1F16] transition hover:text-[#9B4A2F]"
@@ -88,30 +88,30 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
         </p>
 
         {/* Quantity Selector */}
-        <div className="mt-3 flex items-center gap-2">
+        <div className="mt-3 flex items-center gap-1 sm:gap-2">
           <button
             onClick={decrement}
             disabled={!isPurchasable || quantity <= minOrder}
-            className="flex h-7 w-7 items-center justify-center rounded border border-[#D0BFAF] text-[#3A1F16] hover:bg-[#E8DCCB] disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded border border-[#D0BFAF] text-[#3A1F16] hover:bg-[#E8DCCB] disabled:opacity-40 disabled:cursor-not-allowed"
             aria-label={t('product_detail.decrease_qty')}
             title={t('product_detail.decrease_qty')}
           >
             <Minus className="h-3 w-3" />
           </button>
-          <span className="w-6 text-center text-sm font-semibold text-[#3A1F16]">
+          <span className="w-5 sm:w-6 text-center text-xs sm:text-sm font-semibold text-[#3A1F16]">
             {quantity}
           </span>
           <button
             onClick={increment}
             disabled={!isPurchasable || quantity >= maxQty}
-            className="flex h-7 w-7 items-center justify-center rounded border border-[#D0BFAF] text-[#3A1F16] hover:bg-[#E8DCCB] disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded border border-[#D0BFAF] text-[#3A1F16] hover:bg-[#E8DCCB] disabled:opacity-40 disabled:cursor-not-allowed"
             aria-label={t('product_detail.increase_qty')}
             title={t('product_detail.increase_qty')}
           >
             <Plus className="h-3 w-3" />
           </button>
           {minOrder > 1 && (
-            <span className="ml-1 text-[10px] text-[#9C8478]">
+            <span className="hidden sm:inline ml-1 text-[10px] text-[#9C8478]">
               min {minOrder}
             </span>
           )}

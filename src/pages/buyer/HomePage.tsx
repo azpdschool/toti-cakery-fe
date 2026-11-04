@@ -1,20 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
-  CakeSlice,
   ChevronLeft,
   ChevronRight,
-  Heart,
-  Leaf,
-  ShieldCheck,
   ShoppingCart,
-  Smile,
   Sparkles,
   Star,
-  Truck,
+  MapPin,
   X,
 } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
 import { ROUTES } from '@/constants'
 import { useCart } from '@/context/CartContext'
 import { useTranslation } from 'react-i18next'
@@ -25,24 +19,21 @@ import {
   type SimpleProduct,
 } from '@/services/productService'
 import { getLatestReviews } from '@/services/reviewService'
+import {
+  getStoreCustomization,
+  DEFAULT_STORE_CUSTOMIZATION,
+  type StoreCustomizationData,
+} from '@/services/storeCustomizationService'
 
-interface Benefit {
-  title: string
-  description: string
-  icon: LucideIcon
-}
-
-interface Stat {
-  value: string
-  label: string
-  icon: LucideIcon
-}
+const DEFAULT_HERO_IMAGE = DEFAULT_STORE_CUSTOMIZATION.hero_image_url!
+const DEFAULT_MAPS_URL = DEFAULT_STORE_CUSTOMIZATION.maps_embed_url!
 
 export default function HomePage() {
   const [selectedTestimonialImage, setSelectedTestimonialImage] = useState<string | null>(null)
   const { addItem } = useCart()
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const location = useLocation()
+  const [customization, setCustomization] = useState<StoreCustomizationData | null>(null)
 
   useEffect(() => {
     if (location.hash === '#our-store') {
@@ -56,30 +47,6 @@ export default function HomePage() {
     }
   }, [location.hash])
 
-  const benefits: Benefit[] = [
-    {
-      title: t('home.benefit_1_title'),
-      description: t('home.benefit_1_desc'),
-      icon: Leaf,
-    },
-    {
-      title: t('home.benefit_2_title'),
-      description: t('home.benefit_2_desc'),
-      icon: ShieldCheck,
-    },
-    {
-      title: t('home.benefit_3_title'),
-      description: t('home.benefit_3_desc'),
-      icon: Truck,
-    },
-  ]
-
-  const stats: Stat[] = [
-    { value: t('home.stat_1_value'), label: t('home.stat_1_label'), icon: Smile },
-    { value: t('home.stat_2_value'), label: t('home.stat_2_label'), icon: CakeSlice },
-    { value: t('home.stat_3_value'), label: t('home.stat_3_label'), icon: Star },
-    { value: t('home.stat_4_value'), label: t('home.stat_4_label'), icon: Heart },
-  ]
   const [products, setProducts] = useState<SimpleProduct[]>([])
   const [reviews, setReviews] = useState<
     {
@@ -99,7 +66,7 @@ export default function HomePage() {
     async function loadData() {
       try {
         setLoading(true)
-        const [allProducts, allReviews] = await Promise.all([
+        const [allProducts, allReviews, storeData] = await Promise.all([
           getActiveProducts().catch((err) => {
             console.error('Failed to load active products:', err)
             return []
@@ -107,6 +74,10 @@ export default function HomePage() {
           getLatestReviews(6).catch((err) => {
             console.error('Failed to load latest reviews:', err)
             return []
+          }),
+          getStoreCustomization().catch((err) => {
+            console.error('Failed to load store customization:', err)
+            return null
           }),
         ])
         if (!isMounted) return
@@ -122,6 +93,9 @@ export default function HomePage() {
             images: item.images || [],
           }))
         )
+        if (storeData) {
+          setCustomization(storeData)
+        }
       } catch (err) {
         console.error('Error in HomePage loadData:', err)
       } finally {
@@ -223,45 +197,41 @@ export default function HomePage() {
     )
   }
 
+  const currentLang = i18n.language?.startsWith('en') ? 'en' : 'id'
+  const localeContent = customization?.content?.[currentLang]
+
+  const heroTitle = localeContent?.hero_title || `${t('home.hero_title_1')}\n${t('home.hero_title_2')}`
+  const heroSubtitle = localeContent?.hero_subtitle || t('home.hero_desc')
+  const heroImageUrl = customization?.hero_image_url || DEFAULT_HERO_IMAGE
+
+  const aboutTitle = localeContent?.about_title || t('home.about_title')
+  const aboutDescription =
+    localeContent?.about_description ||
+    `${t('home.about_desc_1')}${t('home.made_with_love')}${t('home.about_desc_2')}`
+  const mapsEmbedUrl = customization?.maps_embed_url || DEFAULT_MAPS_URL
+  const storeAddress = customization?.store_address
+
   return (
     <div className="bg-[#F6EFE6] pb-6">
       {/* HERO SECTION */}
       <section className="mx-auto max-w-7xl px-4 pt-5 lg:px-8">
         <div className="relative overflow-hidden rounded-xl bg-white shadow-md ring-1 ring-[#D0BFAF]/60">
           <div
-            className="absolute inset-0 hidden md:block"
+            className="absolute inset-0"
             style={{
-              backgroundImage:
-                "url('https://res.cloudinary.com/mrje22up/image/upload/v1790318553/SaveClip.App_618505350_17958279306045799_2574558123171612005_n.jpg')",
+              backgroundImage: `url('${heroImageUrl}')`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
             }}
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-white via-white/85 to-transparent" />
-          <div className="relative z-10 px-8 py-10 lg:px-12 lg:py-16 max-w-2xl">
-            <h1 className="max-w-xl text-4xl font-black leading-tight tracking-tight text-[#3A1F16] md:text-5xl lg:text-6xl">
-              {t('home.hero_title_1')}
-              <br />
-              {t('home.hero_title_2')}
+          <div className="absolute inset-0 bg-gradient-to-b from-white/90 via-white/80 to-white/65 md:bg-gradient-to-r md:from-white md:via-white/85 md:to-transparent" />
+          <div className="relative z-10 px-4 py-8 sm:px-8 sm:py-10 lg:px-12 lg:py-16 max-w-2xl">
+            <h1 className="max-w-xl text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-black leading-tight tracking-tight text-[#3A1F16] whitespace-pre-line">
+              {heroTitle}
             </h1>
-            <p className="mt-5 max-w-md text-base leading-7 text-[#6B4A3C]">
-              {t('home.hero_desc')}
+            <p className="mt-5 max-w-md text-base leading-7 text-[#6B4A3C] whitespace-pre-line">
+              {heroSubtitle}
             </p>
-            <div className="mt-8 grid max-w-xl gap-4 sm:grid-cols-3">
-              {benefits.map((benefit) => {
-                const Icon = benefit.icon
-                return (
-                  <div key={benefit.title} className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#F6EFE6] text-[#9B4A2F]">
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <p className="text-xs font-black leading-4 text-[#3A1F16]">
-                      {benefit.title}
-                    </p>
-                  </div>
-                )
-              })}
-            </div>
           </div>
         </div>
       </section>
@@ -270,9 +240,9 @@ export default function HomePage() {
       <section id="our-store" className="mx-auto max-w-7xl px-4 pt-8 lg:px-8">
         <div className="rounded-xl bg-white px-6 py-5 shadow-sm">
           <div className="grid gap-8 lg:grid-cols-[0.95fr_1.8fr] lg:items-center">
-            <div className="overflow-hidden rounded-xl h-52 lg:h-auto">
+            <div className="overflow-hidden rounded-xl h-52 sm:h-64 lg:h-full lg:min-h-[240px]">
               <iframe
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3989.157534596183!2d103.95726197941448!3d1.0427912962325454!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31d98da3b87ec2f7%3A0x280a84339839dd69!2sToti%20Cakery!5e0!3m2!1sen!2sid!4v1782278391706!5m2!1sen!2sid"
+                src={mapsEmbedUrl}
                 width="100%"
                 height="100%"
                 style={{ border: 0 }}
@@ -286,34 +256,20 @@ export default function HomePage() {
             </div>
             <div>
               <div className="max-w-3xl">
-                <h2 className="text-2xl font-black text-[#3A1F16]">
-                  {t('home.about_title')}
+                <h2 className="text-2xl font-black text-[#3A1F16] whitespace-pre-line">
+                  {aboutTitle}
                 </h2>
-                <p className="mt-3 text-sm leading-6 text-[#6B4A3C]">
-                  {t('home.about_desc_1')}
-                  {t('home.made_with_love')}
-                  {t('home.about_desc_2')}
+                <p className="mt-3 text-sm leading-6 text-[#6B4A3C] whitespace-pre-line">
+                  {aboutDescription}
                 </p>
-              </div>
-              <div className="mt-7 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-                {stats.map((stat) => {
-                  const Icon = stat.icon
-                  return (
-                    <div key={stat.label} className="flex items-center gap-3">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#F6EFE6] text-[#9B4A2F]">
-                        <Icon className="h-5 w-5" />
-                      </div>
-                      <div>
-                        <p className="text-xl font-black text-[#3A1F16]">
-                          {stat.value}
-                        </p>
-                        <p className="text-xs font-semibold text-[#6B4A3C]">
-                          {stat.label}
-                        </p>
-                      </div>
-                    </div>
-                  )
-                })}
+                {storeAddress && (
+                  <div className="mt-4 flex items-start gap-2.5 rounded-lg bg-[#F6EFE6]/70 p-3 text-xs sm:text-sm text-[#4b2417] border border-[#EAD8CA]">
+                    <MapPin className="h-5 w-5 shrink-0 text-[#9B4A2F] mt-0.5" />
+                    <span className="whitespace-pre-line font-medium leading-relaxed">
+                      {storeAddress}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -518,7 +474,7 @@ export default function HomePage() {
             <img src={selectedTestimonialImage} alt="Enlarged testimonial photo" className="max-w-full max-h-[85vh] rounded-lg object-contain" />
             <button
               onClick={() => setSelectedTestimonialImage(null)}
-              className="absolute -top-10 right-0 text-white hover:text-gray-300 focus:outline-none"
+              className="absolute top-4 right-4 sm:-top-10 sm:right-0 text-white hover:text-gray-300 focus:outline-none"
             >
               <X className="h-7 w-7" />
             </button>

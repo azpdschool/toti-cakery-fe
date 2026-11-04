@@ -515,7 +515,7 @@ export default function ProfilePage() {
       {/* Modal Ubah Nomor HP */}
       {isPhoneModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+          <div className="w-full max-w-md rounded-2xl bg-white p-4 sm:p-6 shadow-xl max-h-[90dvh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-[#ead8ca] pb-3">
               <h3 className="text-lg font-black text-[#4b2417]">
                 {t('profile.change_phone_modal_title')}

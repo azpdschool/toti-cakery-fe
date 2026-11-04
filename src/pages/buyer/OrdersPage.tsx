@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import type React from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import {
@@ -92,22 +92,46 @@ export default function OrdersPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [downloadingId, setDownloadingId] = useState<string | null>(null)
+  const activeControllerRef = useRef<AbortController | null>(null)
 
-  const loadOrders = async () => {
+  const loadOrders = useCallback(async (forceRefresh = false) => {
+    // Batalkan request yang masih berjalan jika ada pemanggilan baru
+    if (activeControllerRef.current) {
+      activeControllerRef.current.abort()
+    }
+
+    const controller = new AbortController()
+    activeControllerRef.current = controller
+
     setLoading(true)
     setError(null)
 
     try {
-      const data = await getBuyerOrders()
+      const data = await getBuyerOrders(forceRefresh)
+      if (controller.signal.aborted) return
+
       setOrders(data)
-    } catch (err) {
+      toast.dismiss('buyer-orders-load-error')
+    } catch (err: any) {
+      if (
+        controller.signal.aborted ||
+        err?.name === 'CanceledError' ||
+        err?.code === 'ERR_CANCELED'
+      ) {
+        return
+      }
       console.error('Gagal memuat pesanan:', err)
       setError(t('orders.failed_load', 'Gagal memuat pesanan'))
-      toast.error(t('orders.failed_load_retry', 'Gagal memuat pesanan. Silakan coba lagi.'))
+      toast.error(
+        t('orders.failed_load_retry', 'Gagal memuat pesanan. Silakan coba lagi.'),
+        { id: 'buyer-orders-load-error' },
+      )
     } finally {
-      setLoading(false)
+      if (!controller.signal.aborted) {
+        setLoading(false)
+      }
     }
-  }
+  }, [t])
 
   const handleDownloadInvoice = async (e: React.MouseEvent, orderId: string) => {
     e.stopPropagation()
@@ -129,7 +153,13 @@ export default function OrdersPage() {
     } else {
       setLoading(false)
     }
-  }, [isAuthenticated, user])
+
+    return () => {
+      if (activeControllerRef.current) {
+        activeControllerRef.current.abort()
+      }
+    }
+  }, [isAuthenticated, user?.id, user?.role, loadOrders])
 
   const filteredOrders = useMemo(() => {
     let result = orders
@@ -339,7 +369,7 @@ export default function OrdersPage() {
             <p className="text-lg font-black text-red-700">❌ {error}</p>
             <button
               type="button"
-              onClick={loadOrders}
+              onClick={() => loadOrders(true)}
               className="mt-4 flex items-center gap-2 rounded-xl bg-red-600 px-6 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 shadow"
             >
               <RefreshCw className="h-4 w-4" />
@@ -381,8 +411,8 @@ export default function OrdersPage() {
                   }
                 }}
               >
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#EAD8CA] bg-[#F6EFE6]/50 px-5 py-4">
-                  <div className="flex flex-wrap items-center gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 border-b border-[#EAD8CA] bg-[#F6EFE6]/50 px-3.5 py-3 sm:px-5 sm:py-4">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                     <span className="text-sm font-black text-[#3A1F16] tracking-wide">
                       {order.orderNumber}
                     </span>

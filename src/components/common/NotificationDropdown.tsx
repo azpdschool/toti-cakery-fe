@@ -43,7 +43,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
       />
 
       <div
-        className="absolute right-0 top-full mt-2 z-50 w-80 sm:w-96 rounded-2xl bg-white shadow-xl ring-1 ring-black/5 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+        className="fixed inset-x-3 top-20 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 z-50 sm:w-96 rounded-2xl bg-white shadow-xl ring-1 ring-black/5 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
         role="dialog"
         aria-label={t('notifications.title', 'Notifikasi')}
       >

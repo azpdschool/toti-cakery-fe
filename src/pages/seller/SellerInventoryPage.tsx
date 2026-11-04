@@ -9,14 +9,16 @@ import {
   Plus,
   X,
   DollarSign,
-  ChevronLeft,
-  ChevronRight,
   Edit,
   Trash2,
   TrendingDown,
   History,
-  SlidersHorizontal
+  SlidersHorizontal,
+  MoreVertical,
 } from 'lucide-react';
+import { SellerSortDropdown } from '@/components/ui/SellerSortDropdown';
+import { HorizontalCardScroller } from '@/components/common/HorizontalCardScroller';
+import { PageHeader } from '@/components/ui/PageHeader';
 import {
   getInventoryItems,
   getInventoryStats,
@@ -128,15 +130,92 @@ interface StatCardProps {
 
 function StatCard({ title, value, subtitle, icon: Icon, color }: StatCardProps) {
   return (
-    <div className="relative rounded-xl bg-white p-5 shadow-sm min-w-[240px] flex-shrink-0">
+    <div className="relative rounded-xl bg-white p-3.5 sm:p-5 shadow-sm min-w-[160px] sm:min-w-[240px] flex-shrink-0">
       <div className="flex items-start justify-between">
-        <div className={`flex h-10 w-10 items-center justify-center rounded-full ${color}`}>
-          <Icon className="h-5 w-5" />
+        <div className={`flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full ${color}`}>
+          <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
         </div>
-        <span className="text-xs font-medium text-[#6f5448]">{subtitle}</span>
+        <span className="text-[10px] sm:text-xs font-medium text-[#6f5448]">{subtitle}</span>
       </div>
-      <p className="mt-2 text-3xl font-black text-[#4b2417] truncate" title={String(value)}>{value}</p>
-      <p className="text-sm text-[#6f5448]">{title}</p>
+      <p className="mt-1.5 sm:mt-2 text-xl sm:text-3xl font-black text-[#4b2417] truncate" title={String(value)}>{value}</p>
+      <p className="text-xs sm:text-sm text-[#6f5448] truncate">{title}</p>
+    </div>
+  );
+}
+
+interface InventoryMoreActionsDropdownProps {
+  item: InventoryItem;
+  canManage: boolean;
+  onMovementHistory: () => void;
+  onDelete: () => void;
+}
+
+function InventoryMoreActionsDropdown({
+  item,
+  canManage,
+  onMovementHistory,
+  onDelete,
+}: InventoryMoreActionsDropdownProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setIsOpen(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [isOpen]);
+
+  return (
+    <div className="relative inline-block text-left" ref={ref}>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsOpen((prev) => !prev);
+        }}
+        className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 transition-colors"
+        aria-label={`More actions for ${item.name}`}
+      >
+        <MoreVertical className="h-4 w-4" />
+      </button>
+
+      {isOpen && (
+        <div className="absolute right-0 top-full mt-1 w-44 rounded-xl bg-white p-1.5 shadow-xl border border-gray-100 z-50 focus:outline-none">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsOpen(false);
+              onMovementHistory();
+            }}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <History className="h-4 w-4 text-gray-500 shrink-0" />
+            <span>Stock History</span>
+          </button>
+
+          {canManage && (
+            <>
+              <div className="my-1 border-t border-gray-100" />
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsOpen(false);
+                  onDelete();
+                }}
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
+              >
+                <Trash2 className="h-4 w-4 text-red-500 shrink-0" />
+                <span>Delete Item</span>
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -446,6 +525,7 @@ export default function SellerInventoryPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   
   const [filters, setFilters] = useState<Record<string, string>>({});
+  const [sortBy, setSortBy] = useState('name_asc');
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -505,10 +585,10 @@ export default function SellerInventoryPage() {
     };
   }, [loadInventory]);
 
-  // Reset page when filters or search change
+  // Reset page when filters, search, or sort change
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch, filters, itemsPerPage]);
+  }, [debouncedSearch, filters, itemsPerPage, sortBy]);
 
   const filteredItems = useMemo(() => {
     let result = items;
@@ -540,8 +620,36 @@ export default function SellerInventoryPage() {
       }
     }
 
+    switch (sortBy) {
+      case 'name_desc':
+        result = [...result].sort((a, b) => b.name.localeCompare(a.name));
+        break;
+      case 'stock_desc':
+        result = [...result].sort((a, b) => (Number(b.stock) || 0) - (Number(a.stock) || 0));
+        break;
+      case 'stock_asc':
+        result = [...result].sort((a, b) => (Number(a.stock) || 0) - (Number(b.stock) || 0));
+        break;
+      case 'price_desc':
+        result = [...result].sort((a, b) => (Number(b.pricePerUnit) || 0) - (Number(a.pricePerUnit) || 0));
+        break;
+      case 'price_asc':
+        result = [...result].sort((a, b) => (Number(a.pricePerUnit) || 0) - (Number(b.pricePerUnit) || 0));
+        break;
+      case 'newest':
+        result = [...result].sort((a, b) => (Number(b.id) || 0) - (Number(a.id) || 0));
+        break;
+      case 'oldest':
+        result = [...result].sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
+        break;
+      case 'name_asc':
+      default:
+        result = [...result].sort((a, b) => a.name.localeCompare(b.name));
+        break;
+    }
+
     return result;
-  }, [items, debouncedSearch, filters]);
+  }, [items, debouncedSearch, filters, sortBy]);
 
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedItems = filteredItems.slice(startIndex, startIndex + itemsPerPage);
@@ -605,59 +713,47 @@ export default function SellerInventoryPage() {
     return items.filter(item => item.stock <= item.minStock);
   }, [items]);
 
-  const kpiContainerRef = useRef<HTMLDivElement>(null);
-  const attentionContainerRef = useRef<HTMLDivElement>(null);
-
-  const scrollLeft = (ref: React.RefObject<HTMLDivElement>) => {
-    if (ref.current) {
-      ref.current.scrollBy({ left: -300, behavior: 'smooth' });
-    }
-  };
-
-  const scrollRight = (ref: React.RefObject<HTMLDivElement>) => {
-    if (ref.current) {
-      ref.current.scrollBy({ left: 300, behavior: 'smooth' });
-    }
-  };
-
   return (
     <div className="space-y-6 max-w-full">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-black text-[#4b2417]">Inventory</h1>
-          <p className="mt-1 text-sm text-[#6f5448]">
-            Manage ingredients, packaging, and other materials used by your products.
-          </p>
-        </div>
-        {canManageInventory && (
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => setShowSupplierModal(true)}
-              className="flex items-center justify-center gap-1 rounded-lg border border-[#d85b30] px-4 py-2 text-sm font-semibold text-[#d85b30] hover:bg-[#fff5f0] whitespace-nowrap"
-            >
-              Manage Supplier
-            </button>
+      <PageHeader
+        title="Inventory"
+        description="Manage ingredients, packaging, and other materials used by your products."
+        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
+        actions={
+          canManageInventory ? (
+            <div className="flex flex-col sm:flex-row w-full sm:w-auto items-stretch sm:items-center gap-2 shrink-0">
+              {/* Primary CTA: First on mobile */}
+              <button
+                type="button"
+                onClick={openAddModal}
+                className="order-1 sm:order-3 flex items-center justify-center gap-1.5 rounded-lg bg-[#d85b30] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#c04e28] whitespace-nowrap shadow-sm w-full sm:w-auto"
+              >
+                <Plus className="h-4 w-4" />
+                Add Inventory
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setShowPurchaseModal(true)}
-              className="flex items-center justify-center gap-1 rounded-lg border border-[#d85b30] px-4 py-2 text-sm font-semibold text-[#d85b30] hover:bg-[#fff5f0] whitespace-nowrap"
-            >
-              Purchases
-            </button>
+              {/* Secondary actions: 2-column grid on mobile, inline on desktop */}
+              <div className="order-2 sm:order-1 grid grid-cols-2 sm:flex sm:items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowSupplierModal(true)}
+                  className="flex items-center justify-center gap-1.5 rounded-lg bg-[#f0e0d0] px-3 py-2 text-xs sm:text-sm font-semibold text-[#d85b30] transition hover:bg-[#e6d0bb] whitespace-nowrap"
+                >
+                  Manage Suppliers
+                </button>
 
-            <button
-              type="button"
-              onClick={openAddModal}
-              className="flex items-center justify-center gap-1 rounded-lg bg-[#d85b30] px-4 py-2 text-sm font-semibold text-white hover:bg-[#c04e28] whitespace-nowrap"
-            >
-              <Plus className="h-4 w-4" />
-              Add Inventory
-            </button>
-          </div>
-        )}
-      </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPurchaseModal(true)}
+                  className="flex items-center justify-center gap-1.5 rounded-lg bg-blue-100 px-3 py-2 text-xs sm:text-sm font-semibold text-blue-800 transition hover:bg-blue-200 whitespace-nowrap"
+                >
+                  Manage Purchases
+                </button>
+              </div>
+            </div>
+          ) : undefined
+        }
+      />
 
       {error && (
         <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -679,135 +775,114 @@ export default function SellerInventoryPage() {
           {attentionItems.length === 0 ? (
             <p className="text-sm text-gray-500">No inventory items need attention.</p>
           ) : (
-            <div className="relative group">
-              <button 
-                onClick={() => scrollLeft(attentionContainerRef)}
-                className="absolute -left-2 top-1/2 -translate-y-1/2 z-10 bg-white shadow-md rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                aria-label="Scroll left"
-              >
-                <ChevronLeft className="w-5 h-5 text-gray-600" />
-              </button>
-              <div 
-                ref={attentionContainerRef}
-                className="flex gap-3 overflow-x-auto no-scrollbar scroll-smooth snap-x pb-2"
-                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-              >
-                {attentionItems.map(item => {
-                  const status = getStatus(item);
-                  return (
-                    <div key={item.id} className={`flex-shrink-0 snap-start border rounded-lg px-4 py-3 min-w-[200px] ${item.stock === 0 ? 'border-red-200 bg-red-50' : 'border-yellow-200 bg-yellow-50'}`}>
-                      <p className="font-semibold text-gray-900 truncate">{item.name}</p>
-                      <div className="flex justify-between items-center mt-1">
-                        <span className="text-xs font-medium text-gray-700">{item.stock} {item.unit}</span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${status.className}`}>
-                          {status.label}
-                        </span>
-                      </div>
+            <HorizontalCardScroller scrollContainerClassName="gap-3 pb-2">
+              {attentionItems.map(item => {
+                const status = getStatus(item);
+                return (
+                  <div key={item.id} className={`flex-shrink-0 snap-start border rounded-lg px-4 py-3 min-w-[200px] ${item.stock === 0 ? 'border-red-200 bg-red-50' : 'border-yellow-200 bg-yellow-50'}`}>
+                    <p className="font-semibold text-gray-900 truncate">{item.name}</p>
+                    <div className="flex justify-between items-center mt-1">
+                      <span className="text-xs font-medium text-gray-700">{item.stock} {item.unit}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${status.className}`}>
+                        {status.label}
+                      </span>
                     </div>
-                  );
-                })}
-              </div>
-              <button 
-                onClick={() => scrollRight(attentionContainerRef)}
-                className="absolute -right-2 top-1/2 -translate-y-1/2 z-10 bg-white shadow-md rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                aria-label="Scroll right"
-              >
-                <ChevronRight className="w-5 h-5 text-gray-600" />
-              </button>
-            </div>
+                  </div>
+                );
+              })}
+            </HorizontalCardScroller>
           )}
         </div>
       )}
 
       {/* KPI Cards */}
-      <div className="relative group">
-        <button 
-          onClick={() => scrollLeft(kpiContainerRef)}
-          className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 bg-white shadow-md rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block"
-          aria-label="Scroll KPI left"
-        >
-          <ChevronLeft className="w-5 h-5 text-gray-600" />
-        </button>
-        
-        <div 
-          ref={kpiContainerRef}
-          className="flex gap-4 overflow-x-auto no-scrollbar scroll-smooth snap-x pb-4"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-        >
-          {loading ? (
-            Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="animate-pulse bg-gray-100 rounded-xl min-w-[240px] h-32 flex-shrink-0" />
-            ))
-          ) : (
-            <>
-              <StatCard
-                title="Total Items"
-                value={stats?.totalItems || 0}
-                subtitle="All Inventory"
-                icon={Package}
-                color="bg-blue-50 text-blue-700"
-              />
-              <StatCard
-                title="Inventory Safe"
-                value={stats?.safeStock || 0}
-                subtitle="Adequate Stock"
-                icon={CheckCircle}
-                color="bg-green-50 text-green-700"
-              />
-              <StatCard
-                title="Inventory Low"
-                value={stats?.lowStock || 0}
-                subtitle="Below Threshold"
-                icon={AlertTriangle}
-                color="bg-yellow-50 text-yellow-700"
-              />
-              <StatCard
-                title="Inventory Out of Stock"
-                value={stats?.emptyStock || 0}
-                subtitle="Needs Reorder"
-                icon={XCircle}
-                color="bg-red-50 text-red-700"
-              />
-              <StatCard
-                title="Estimated Total Value"
-                value={formatRupiah(stats?.totalValue || 0)}
-                subtitle="Overall Worth"
-                icon={DollarSign}
-                color="bg-emerald-50 text-emerald-700"
-              />
-              <StatCard
-                title="Inventory Value"
-                value={formatRupiah(stats?.totalValue || 0)}
-                subtitle="Capital Tied"
-                icon={TrendingDown}
-                color="bg-indigo-50 text-indigo-700"
-              />
-            </>
-          )}
-        </div>
-        
-        <button 
-          onClick={() => scrollRight(kpiContainerRef)}
-          className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 bg-white shadow-md rounded-full p-2 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:block"
-          aria-label="Scroll KPI right"
-        >
-          <ChevronRight className="w-5 h-5 text-gray-600" />
-        </button>
-      </div>
+      <HorizontalCardScroller scrollContainerClassName="gap-3 sm:gap-4 pb-3 sm:pb-4 snap-mandatory">
+        {loading ? (
+          Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="animate-pulse bg-gray-100 rounded-xl min-w-[160px] sm:min-w-[240px] h-24 sm:h-32 flex-shrink-0" />
+          ))
+        ) : (
+          <>
+            <StatCard
+              title="Total Items"
+              value={stats?.totalItems || 0}
+              subtitle="All Inventory"
+              icon={Package}
+              color="bg-blue-50 text-blue-700"
+            />
+            <StatCard
+              title="Inventory Safe"
+              value={stats?.safeStock || 0}
+              subtitle="Adequate Stock"
+              icon={CheckCircle}
+              color="bg-green-50 text-green-700"
+            />
+            <StatCard
+              title="Inventory Low"
+              value={stats?.lowStock || 0}
+              subtitle="Below Threshold"
+              icon={AlertTriangle}
+              color="bg-yellow-50 text-yellow-700"
+            />
+            <StatCard
+              title="Inventory Out of Stock"
+              value={stats?.emptyStock || 0}
+              subtitle="Needs Reorder"
+              icon={XCircle}
+              color="bg-red-50 text-red-700"
+            />
+            <StatCard
+              title="Estimated Total Value"
+              value={formatRupiah(stats?.totalValue || 0)}
+              subtitle="Overall Worth"
+              icon={DollarSign}
+              color="bg-emerald-50 text-emerald-700"
+            />
+            <StatCard
+              title="Inventory Value"
+              value={formatRupiah(stats?.totalValue || 0)}
+              subtitle="Capital Tied"
+              icon={TrendingDown}
+              color="bg-indigo-50 text-indigo-700"
+            />
+          </>
+        )}
+      </HorizontalCardScroller>
 
-      <div className="flex flex-col sm:flex-row flex-wrap items-center gap-3 rounded-xl bg-white p-4 shadow-sm">
-        <div className="relative w-full sm:flex-1 sm:min-w-[200px]">
+      <div className="flex items-center gap-2 sm:gap-3 rounded-xl bg-white p-2.5 sm:p-4 shadow-sm">
+        <div className="relative flex-1 min-w-[140px]">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b7166]" />
           <input
             type="text"
             placeholder="Search inventory..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-[#d0bfaf] py-2 pl-9 pr-4 text-sm outline-none focus:border-[#d85b30]"
+            className="w-full rounded-lg border border-[#d0bfaf] py-2 pl-9 pr-3 text-xs sm:text-sm outline-none focus:border-[#d85b30]"
           />
         </div>
 
-        <div className="flex w-full sm:w-auto flex-wrap gap-2">
+        {/* Sort By Dropdown */}
+        <SellerSortDropdown
+          id="inventory-sort"
+          value={sortBy}
+          onChange={(val) => {
+            setSortBy(val);
+            setCurrentPage(1);
+          }}
+          options={[
+            { label: 'Name: A-Z', value: 'name_asc' },
+            { label: 'Name: Z-A', value: 'name_desc' },
+            { label: 'Stock: High-Low', value: 'stock_desc' },
+            { label: 'Stock: Low-High', value: 'stock_asc' },
+            { label: 'Cost: High-Low', value: 'price_desc' },
+            { label: 'Cost: Low-High', value: 'price_asc' },
+            { label: 'Newest', value: 'newest' },
+            { label: 'Oldest', value: 'oldest' },
+          ]}
+          ariaLabel="Sort inventory"
+        />
+
+        <div className="shrink-0 flex items-center gap-2">
           <MultiFilterPopover
             fields={FILTER_FIELDS}
             values={filters}
@@ -817,8 +892,8 @@ export default function SellerInventoryPage() {
         </div>
       </div>
 
-      <div className="rounded-xl bg-white shadow-sm border border-gray-100">
-        <div className="overflow-x-auto">
+      <div className="rounded-xl bg-white shadow-sm border border-gray-100 overflow-hidden">
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full min-w-[900px] text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-semibold uppercase text-gray-500">
@@ -925,6 +1000,100 @@ export default function SellerInventoryPage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile Inventory Card View (< md) */}
+        <div className="block md:hidden divide-y divide-gray-100 p-3 space-y-3">
+          {loading ? (
+            <div className="py-12 flex justify-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-gray-700" />
+            </div>
+          ) : paginatedItems.length === 0 ? (
+            <div className="py-12 text-center text-sm text-gray-500">
+              {searchQuery || Object.keys(filters).length > 0 
+                ? "No inventory items match your current filters." 
+                : "No inventory items found."}
+            </div>
+          ) : (
+            paginatedItems.map((item) => {
+              const status = getStatus(item);
+              return (
+                <div key={item.id} className="pt-3 first:pt-0">
+                  <div className="rounded-xl border border-gray-200 bg-white p-3.5 shadow-sm space-y-3">
+                    {/* Top Row: Title, Category Badge, Status Badge & ⋮ Menu */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-bold text-gray-900 text-sm truncate" title={item.name}>
+                          {item.name}
+                        </h4>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                          <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-gray-100 text-gray-700">
+                            {categoryLabel(item.category)}
+                          </span>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${status.className}`}>
+                            {status.label}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Top-right More Actions Dropdown */}
+                      <div className="shrink-0">
+                        <InventoryMoreActionsDropdown
+                          item={item}
+                          canManage={canManageInventory}
+                          onMovementHistory={() => {
+                            setEditingItem(item);
+                            setShowMovementModal(true);
+                          }}
+                          onDelete={() => setDeleteConfirm(item)}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Middle Row: Stock Count & Average Cost */}
+                    <div className="grid grid-cols-2 gap-2 border-t border-gray-50 pt-2 text-xs">
+                      <div>
+                        <p className="text-gray-500">Available Stock</p>
+                        <p className="font-bold text-gray-900 text-sm mt-0.5">
+                          {item.stock} <span className="font-medium text-xs text-gray-600">{item.unit}</span>
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-gray-500">Average Cost</p>
+                        <p className="font-semibold text-gray-800 text-sm mt-0.5">
+                          {formatRupiah(item.pricePerUnit)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Bottom Row: At most 2 primary action buttons */}
+                    <div className="flex items-center gap-2 pt-1 border-t border-gray-50">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingItem(item);
+                          setShowAdjustmentModal(true);
+                        }}
+                        className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-[#f8eee5] py-2 text-xs font-semibold text-[#d85b30] hover:bg-[#f2dfce] transition-colors"
+                      >
+                        <SlidersHorizontal className="w-3.5 h-3.5" />
+                        <span>Adjust Stock</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => openEditModal(item)}
+                        className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                        <span>Edit</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
         {!loading && filteredItems.length > 0 && (
           <PaginationControls

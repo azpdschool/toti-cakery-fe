@@ -60,6 +60,18 @@ export interface ExpenseCategory {
   color?: string;
 }
 
+import { formatDateToLocalYYYYMMDD } from '../utils/date';
+
+export interface ExpenseDashboardSummary {
+  total_expenses: number;
+  count: number;
+  period: {
+    start_date: string | null;
+    end_date: string | null;
+  };
+  categories: ExpenseCategory[];
+}
+
 export interface AnalyticsSummary {
   totalCustomers: number;
   conversionRate: number;
@@ -87,7 +99,12 @@ export async function getFinanceStats(startDate?: string, endDate?: string): Pro
     nonRefundableDpIncome: Number(data.non_refundable_dp_income || 0),
     otherIncome: Number(data.other_income || 0),
     productProfitability: data.full_product_profitability || data.product_profitability || [],
-    supplierSpending: data.supplier_spending || [],
+    supplierSpending: (data.supplier_spending || []).map((s: any) => ({
+      supplier_id: Number(s.supplier_id),
+      nama_supplier: String(s.nama_supplier || ''),
+      total_spending: Number(s.total_spending || 0),
+      purchase_count: Number(s.purchase_count || 0),
+    })),
   };
 }
 
@@ -120,20 +137,18 @@ async function fetchFilteredOrders(startDate?: string, endDate?: string): Promis
     let orders: any[] = response.data || [];
 
     if (startDate) {
-      const s = new Date(startDate);
-      s.setHours(0, 0, 0, 0);
+      const startStr = formatDateToLocalYYYYMMDD(startDate);
       orders = orders.filter((o: any) => {
-        const d = new Date(o.created_at || o.date);
-        return !isNaN(d.getTime()) && d >= s;
+        const orderDateStr = formatDateToLocalYYYYMMDD(o.created_at || o.date);
+        return orderDateStr >= startStr;
       });
     }
 
     if (endDate) {
-      const e = new Date(endDate);
-      e.setHours(23, 59, 59, 999);
+      const endStr = formatDateToLocalYYYYMMDD(endDate);
       orders = orders.filter((o: any) => {
-        const d = new Date(o.created_at || o.date);
-        return !isNaN(d.getTime()) && d <= e;
+        const orderDateStr = formatDateToLocalYYYYMMDD(o.created_at || o.date);
+        return orderDateStr <= endStr;
       });
     }
 
@@ -170,24 +185,37 @@ export async function getPaymentSummary(startDate?: string, endDate?: string): P
 
 const COLORS = ['#d85b30', '#e0a04e', '#6f5448', '#8b7166', '#a38475', '#c89f8d'];
 
-export async function getExpenseCategories(startDate?: string, endDate?: string): Promise<ExpenseCategory[]> {
+export async function getExpenseSummaryDashboard(startDate?: string, endDate?: string): Promise<ExpenseDashboardSummary> {
   const data = await getExpensesSummary(startDate, endDate);
-  
-  if (!data.by_category || Object.keys(data.by_category).length === 0) {
-    return [];
-  }
+  const total = Number(data.total_expenses || 0);
+  const count = Number(data.count || 0);
 
-  const total = Number(data.total_expenses);
-  
-  return Object.entries(data.by_category).map(([catKategori, catTotal], index) => {
-    const amount = Number(catTotal);
-    return {
-      category: catKategori,
-      amount: amount,
-      percentage: total > 0 ? Number(((amount / total) * 100).toFixed(1)) : 0,
-      color: COLORS[index % COLORS.length],
-    };
-  });
+  const categories: ExpenseCategory[] = (!data.by_category || Object.keys(data.by_category).length === 0)
+    ? []
+    : Object.entries(data.by_category).map(([catKategori, catTotal], index) => {
+        const amount = Number(catTotal);
+        return {
+          category: catKategori,
+          amount: amount,
+          percentage: total > 0 ? Number(((amount / total) * 100).toFixed(1)) : 0,
+          color: COLORS[index % COLORS.length],
+        };
+      });
+
+  return {
+    total_expenses: total,
+    count,
+    period: {
+      start_date: data.period?.start_date || startDate || null,
+      end_date: data.period?.end_date || endDate || null,
+    },
+    categories,
+  };
+}
+
+export async function getExpenseCategories(startDate?: string, endDate?: string): Promise<ExpenseCategory[]> {
+  const summary = await getExpenseSummaryDashboard(startDate, endDate);
+  return summary.categories;
 }
 
 export async function getExpenseList(params?: {

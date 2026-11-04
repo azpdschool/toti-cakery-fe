@@ -39,21 +39,15 @@ export const WhatsAppProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     fetchNumber(false);
 
-    const handleFocus = () => {
-      fetchNumber(true);
-    };
-
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        fetchNumber(true);
+        fetchNumber(false);
       }
     };
 
-    window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);

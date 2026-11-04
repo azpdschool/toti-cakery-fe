@@ -9,7 +9,9 @@ import { isSellerRole } from '@/lib/roles'
 
 export function SellerLayout() {
   const { isAuthenticated, user } = useAuth()
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth >= 1024 : true
+  )
 
   if (!isAuthenticated || !isSellerRole(user?.role)) {
     return <Navigate to={ROUTES.AUTH_SELLER} replace />
@@ -17,7 +19,10 @@ export function SellerLayout() {
 
   return (
     <div className="flex min-h-screen bg-gray-100">
-      <SellerSidebar isOpen={isSidebarOpen} />
+      <SellerSidebar
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+      />
 
       {/* Mobile Backdrop */}
       {isSidebarOpen && (
@@ -28,13 +33,13 @@ export function SellerLayout() {
         />
       )}
 
-      <div className={`flex flex-1 flex-col min-w-0 transition-all duration-300 ease-in-out${isSidebarOpen ? ' ml-64 lg:ml-0' : ''}`}>
+      <div className="flex flex-1 flex-col min-w-0 transition-all duration-300 ease-in-out">
         <SellerHeader
           isSidebarOpen={isSidebarOpen}
           toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         />
 
-        <main className="flex-1 p-6 overflow-x-hidden">
+        <main className="flex-1 p-3 sm:p-4 md:p-6 overflow-x-hidden">
           <Outlet />
         </main>
       </div>

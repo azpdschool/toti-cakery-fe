@@ -130,7 +130,7 @@ export function sellerRoleFromLevel(roleLevel: number): SellerRole {
 }
 
 export function sellerRoleLabel(role: SellerRole): string {
-  if (role === 'owner') return 'Owner / Superadmin'
+  if (role === 'owner') return 'Owner'
   if (role === 'admin') return 'Admin'
   return 'Staff'
 }
@@ -301,6 +301,7 @@ export async function resetBuyerPassword(
   return response.data
 }
 export async function logoutApi(): Promise<void> {
+  invalidateBuyerProfileCache()
   await apiClient.post('/auth/logout')
 }
 
@@ -315,16 +316,19 @@ export async function resetBuyerPasswordEmail(payload: { email: string, otp: str
 }
 
 export async function changeBuyerPassword(payload: { current_password: string, new_password: string }): Promise<MessageResponse> {
+  invalidateBuyerProfileCache()
   const response = await apiClient.post<MessageResponse>('/buyers/me/change-password', payload)
   return response.data
 }
 
 export async function changeBuyerPhone(payload: { current_password: string, phone: string }): Promise<{phone: string}> {
+  invalidateBuyerProfileCache()
   const response = await apiClient.patch<{phone: string}>('/buyers/me/phone', payload)
   return response.data
 }
 
 export async function uploadBuyerAvatar(file: File): Promise<BuyerProfileResponse> {
+  invalidateBuyerProfileCache()
   const formData = new FormData()
   formData.append('file', file)
 
@@ -337,8 +341,44 @@ export async function uploadBuyerAvatar(file: File): Promise<BuyerProfileRespons
   return response.data
 }
 
-export async function getBuyerProfile(): Promise<BuyerProfileResponse> {
-  const response = await apiClient.get<BuyerProfileResponse>('/buyers/me')
-  return response.data
+const BUYER_PROFILE_CACHE_TTL = 15_000; // 15 seconds short-TTL
+
+interface BuyerProfileCacheEntry {
+  data: BuyerProfileResponse;
+  timestamp: number;
 }
+
+let buyerProfileCache: BuyerProfileCacheEntry | null = null;
+let activeBuyerProfileRequest: Promise<BuyerProfileResponse> | null = null;
+
+export function invalidateBuyerProfileCache(): void {
+  buyerProfileCache = null;
+  activeBuyerProfileRequest = null;
+}
+
+export async function getBuyerProfile(forceRefresh = false): Promise<BuyerProfileResponse> {
+  const now = Date.now();
+  if (!forceRefresh && buyerProfileCache && (now - buyerProfileCache.timestamp < BUYER_PROFILE_CACHE_TTL)) {
+    return buyerProfileCache.data;
+  }
+
+  if (!forceRefresh && activeBuyerProfileRequest) {
+    return activeBuyerProfileRequest;
+  }
+
+  const promise = apiClient
+    .get<BuyerProfileResponse>('/buyers/me')
+    .then((response) => {
+      const data = response.data;
+      buyerProfileCache = { data, timestamp: Date.now() };
+      return data;
+    })
+    .finally(() => {
+      activeBuyerProfileRequest = null;
+    });
+
+  activeBuyerProfileRequest = promise;
+  return promise;
+}
+
 

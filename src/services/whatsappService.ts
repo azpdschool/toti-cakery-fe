@@ -22,25 +22,51 @@ export async function getWhatsAppQr(): Promise<Blob> {
 
 export async function resetWhatsAppNumber(): Promise<void> {
   await apiClient.post('/admin/whatsapp/ganti-nomor');
-  clearPublicContactCache();
+  invalidatePublicContactCache();
 }
 
-export function clearPublicContactCache(): void {
+const CONTACT_TTL_MS = 60_000;
+
+interface CachedContact {
+  data: { whatsapp: string };
+  timestamp: number;
+}
+
+let cachedContact: CachedContact | null = null;
+let publicContactPromise: Promise<{ whatsapp: string }> | null = null;
+
+export function invalidatePublicContactCache(): void {
+  cachedContact = null;
   publicContactPromise = null;
 }
 
-let publicContactPromise: Promise<{ whatsapp: string }> | null = null;
+export const clearPublicContactCache = invalidatePublicContactCache;
 
 export async function getPublicContact(forceRefresh: boolean = false): Promise<{ whatsapp: string }> {
+  const now = Date.now();
+  if (!forceRefresh && cachedContact && now - cachedContact.timestamp < CONTACT_TTL_MS) {
+    return cachedContact.data;
+  }
+
   if (forceRefresh) {
+    cachedContact = null;
     publicContactPromise = null;
   }
+
   if (!publicContactPromise) {
-    publicContactPromise = apiClient.get('/public/kontak-toko')
-      .then(res => res.data)
-      .catch(err => {
+    publicContactPromise = apiClient
+      .get<{ whatsapp: string }>('/public/kontak-toko')
+      .then((res) => {
+        cachedContact = { data: res.data, timestamp: Date.now() };
+        return res.data;
+      })
+      .catch((err) => {
+        cachedContact = null;
         publicContactPromise = null; // Clear cache on error so it can be retried
         throw err;
+      })
+      .finally(() => {
+        publicContactPromise = null;
       });
   }
   return publicContactPromise;

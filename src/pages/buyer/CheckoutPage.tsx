@@ -49,17 +49,49 @@ export default function CheckoutPage() {
     };
   };
 
+  const CHECKOUT_DRAFT_KEY = 'toti_checkout_draft';
   const { tomorrowStr, maxStr } = getJakartaDates();
 
-  const [formData, setFormData] = useState({
-    deliveryMethod: 'pickup' as DeliveryMethod,
-    recipientName: user?.name || '',
-    recipientPhone: user?.phone || '',
-    address: '',
-    notes: '',
-    paymentMethod: 'lunas' as PaymentMethod,
-    fulfillmentDate: tomorrowStr,
+  const [formData, setFormData] = useState(() => {
+    const saved = typeof window !== 'undefined' ? sessionStorage.getItem(CHECKOUT_DRAFT_KEY) : null;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return {
+          deliveryMethod: (parsed.deliveryMethod || 'pickup') as DeliveryMethod,
+          recipientName: parsed.recipientName ?? (user?.name || ''),
+          recipientPhone: parsed.recipientPhone ?? (user?.phone || ''),
+          address: parsed.address || '',
+          notes: parsed.notes || '',
+          paymentMethod: (parsed.paymentMethod || 'lunas') as PaymentMethod,
+          fulfillmentDate: (parsed.fulfillmentDate && parsed.fulfillmentDate >= tomorrowStr && parsed.fulfillmentDate <= maxStr)
+            ? parsed.fulfillmentDate
+            : tomorrowStr,
+        };
+      } catch (e) {
+        console.error('Failed to parse checkout draft', e);
+      }
+    }
+    return {
+      deliveryMethod: 'pickup' as DeliveryMethod,
+      recipientName: user?.name || '',
+      recipientPhone: user?.phone || '',
+      address: '',
+      notes: '',
+      paymentMethod: 'lunas' as PaymentMethod,
+      fulfillmentDate: tomorrowStr,
+    };
   });
+
+  useEffect(() => {
+    if (step === 'form') {
+      try {
+        sessionStorage.setItem(CHECKOUT_DRAFT_KEY, JSON.stringify(formData));
+      } catch (e) {
+        console.error('Failed to save checkout draft', e);
+      }
+    }
+  }, [formData, step]);
 
   const deliveryFee = 0;
   const serviceFee = 0;
@@ -219,6 +251,7 @@ export default function CheckoutPage() {
         paymentMethod: order.paymentMethodPreference as PaymentMethod
       });
       clearCart();
+      sessionStorage.removeItem(CHECKOUT_DRAFT_KEY);
       setStep('payment');
     } catch (err: any) {
       if (err.response?.status === 400) {
@@ -365,7 +398,7 @@ export default function CheckoutPage() {
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, deliveryMethod: 'pickup' })}
-                className={`flex flex-col items-start gap-1 rounded-xl border-2 p-4 text-left transition ${
+                className={`flex flex-col items-start gap-1 rounded-xl border-2 p-3 sm:p-4 text-left transition ${
                   formData.deliveryMethod === 'pickup' ? 'border-[#d85b30] bg-[#d85b30]/5 text-[#d85b30]' : 'border-gray-200 text-[#6f5448] hover:border-gray-300'
                 }`}
               >
@@ -376,7 +409,7 @@ export default function CheckoutPage() {
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, deliveryMethod: 'delivery_toko' })}
-                className={`flex flex-col items-start gap-1 rounded-xl border-2 p-4 text-left transition ${
+                className={`flex flex-col items-start gap-1 rounded-xl border-2 p-3 sm:p-4 text-left transition ${
                   formData.deliveryMethod === 'delivery_toko' ? 'border-[#d85b30] bg-[#d85b30]/5 text-[#d85b30]' : 'border-gray-200 text-[#6f5448] hover:border-gray-300'
                 }`}
               >
@@ -387,7 +420,7 @@ export default function CheckoutPage() {
               <button
                 type="button"
                 onClick={() => setFormData({ ...formData, deliveryMethod: 'delivery_third_party' })}
-                className={`flex flex-col items-start gap-1 rounded-xl border-2 p-4 text-left transition ${
+                className={`flex flex-col items-start gap-1 rounded-xl border-2 p-3 sm:p-4 text-left transition ${
                   formData.deliveryMethod === 'delivery_third_party' ? 'border-[#d85b30] bg-[#d85b30]/5 text-[#d85b30]' : 'border-gray-200 text-[#6f5448] hover:border-gray-300'
                 }`}
               >
@@ -407,7 +440,7 @@ export default function CheckoutPage() {
                 min={tomorrowStr}
                 max={maxStr}
                 onChange={(e) => setFormData({ ...formData, fulfillmentDate: e.target.value })}
-                className="w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-sm outline-none focus:border-[#d85b30] transition"
+                className="w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-base md:text-sm outline-none focus:border-[#d85b30] transition"
                 required
               />
             </div>
@@ -423,7 +456,7 @@ export default function CheckoutPage() {
                     type="text"
                     value={formData.recipientName}
                     onChange={(e) => setFormData({ ...formData, recipientName: e.target.value })}
-                    className="w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-sm outline-none focus:border-[#d85b30] transition"
+                    className="w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-base md:text-sm outline-none focus:border-[#d85b30] transition"
                   />
                 </div>
                 <div>
@@ -432,7 +465,7 @@ export default function CheckoutPage() {
                     type="tel"
                     value={formData.recipientPhone}
                     onChange={(e) => setFormData({ ...formData, recipientPhone: e.target.value })}
-                    className="w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-sm outline-none focus:border-[#d85b30] transition"
+                    className="w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-base md:text-sm outline-none focus:border-[#d85b30] transition"
                   />
                 </div>
                 <div>
@@ -441,7 +474,7 @@ export default function CheckoutPage() {
                     rows={2}
                     value={formData.address}
                     onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    className="w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-sm outline-none focus:border-[#d85b30] transition"
+                    className="w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-base md:text-sm outline-none focus:border-[#d85b30] transition"
                   />
                 </div>
               </div>
@@ -454,7 +487,7 @@ export default function CheckoutPage() {
               rows={2}
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              className="w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-sm outline-none focus:border-[#d85b30] transition"
+              className="w-full rounded-xl border border-[#d0bfaf] px-4 py-3 text-base md:text-sm outline-none focus:border-[#d85b30] transition"
               placeholder={t('checkout.notes_placeholder')}
             />
           </div>

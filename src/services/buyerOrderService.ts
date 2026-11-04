@@ -517,29 +517,70 @@ function unwrapOrderList(data: unknown): ApiOrder[] {
   return []
 }
 
-export async function getBuyerOrders(): Promise<BuyerOrder[]> {
-  try {
-    const response = await apiClient.get(BUYER_ORDERS_ENDPOINT)
-    const rawOrders = unwrapOrderList(response.data)
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
 
-    return rawOrders.map(mapApiOrder)
-  } catch (error: any) {
-    /**
-     * Kalau buyer belum pernah order, beberapa BE mengembalikan 404.
-     * Coba fallback ke /buyer sebelum menganggap list kosong.
-     */
-    if (error?.response?.status === 404) {
-      try {
-        const fallbackRes = await apiClient.get('/buyer')
-        const rawOrders = unwrapOrderList(fallbackRes.data)
-        return rawOrders.map(mapApiOrder)
-      } catch {
-        return []
-      }
-    }
+const BUYER_ORDERS_CACHE_TTL = 10_000; // 10 seconds
 
-    throw error
+let buyerOrdersCache: CacheEntry<BuyerOrder[]> | null = null;
+let buyerOrdersInFlight: Promise<BuyerOrder[]> | null = null;
+
+export function invalidateBuyerOrdersCache(): void {
+  buyerOrdersCache = null;
+  buyerOrdersInFlight = null;
+}
+
+export async function getBuyerOrders(forceRefresh = false): Promise<BuyerOrder[]> {
+  if (forceRefresh) {
+    invalidateBuyerOrdersCache();
   }
+
+  const now = Date.now();
+  if (!forceRefresh && buyerOrdersCache && now - buyerOrdersCache.timestamp < BUYER_ORDERS_CACHE_TTL) {
+    return buyerOrdersCache.data;
+  }
+
+  if (!forceRefresh && buyerOrdersInFlight) {
+    return buyerOrdersInFlight;
+  }
+
+  const fetchOrders = async (): Promise<BuyerOrder[]> => {
+    try {
+      const response = await apiClient.get(BUYER_ORDERS_ENDPOINT);
+      const rawOrders = unwrapOrderList(response.data);
+      const mapped = rawOrders.map(mapApiOrder);
+      buyerOrdersCache = { data: mapped, timestamp: Date.now() };
+      return mapped;
+    } catch (error: any) {
+      /**
+       * Kalau buyer belum pernah order, beberapa BE mengembalikan 404.
+       * Coba fallback ke /buyer sebelum menganggap list kosong.
+       */
+      if (error?.response?.status === 404) {
+        try {
+          const fallbackRes = await apiClient.get('/buyer');
+          const rawOrders = unwrapOrderList(fallbackRes.data);
+          const mapped = rawOrders.map(mapApiOrder);
+          buyerOrdersCache = { data: mapped, timestamp: Date.now() };
+          return mapped;
+        } catch {
+          buyerOrdersCache = { data: [], timestamp: Date.now() };
+          return [];
+        }
+      }
+
+      throw error;
+    }
+  };
+
+  const promise = fetchOrders().finally(() => {
+    buyerOrdersInFlight = null;
+  });
+
+  buyerOrdersInFlight = promise;
+  return promise;
 }
 
 export async function getBuyerOrderById(id: string): Promise<BuyerOrder | null> {
@@ -619,6 +660,7 @@ export async function createOrder(payload: CreateOrderPayload): Promise<BuyerOrd
   };
 
   const responseData = await createBuyerOrderAPI(buyerPayload);
+  invalidateBuyerOrdersCache();
   return mapApiOrder(responseData);
 }
 
@@ -644,6 +686,7 @@ export async function getOrderPaymentStatus(orderId: string) {
 }
 
 export async function cancelBuyerOrder(orderId: string | number): Promise<{ status?: string; message?: string }> {
+  invalidateBuyerOrdersCache();
   return await cancelBuyerOrderAPI(orderId);
 }
 

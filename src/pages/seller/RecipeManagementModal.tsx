@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { Plus, Trash2, Loader2, AlertCircle } from 'lucide-react';
 import { SellerModal } from '@/components/ui/SellerModal';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
+import { DecimalInput } from '@/components/ui/DecimalInput';
 import { getProductRecipes, addRecipeIngredient, deleteRecipeIngredient, type RecipeOut } from '@/api/recipe';
 import { getInventoryOptions, type InventoryOption } from '@/services/sellerInventoryService';
+import QuickAddStockModal from './QuickAddStockModal';
 
 interface RecipeManagementModalProps {
   productId: number;
@@ -20,6 +22,7 @@ export default function RecipeManagementModal({ productId, productName, onClose 
   const [selectedStockId, setSelectedStockId] = useState<number | ''>('');
   const [quantity, setQuantity] = useState<string>('');
   const [saving, setSaving] = useState(false);
+  const [showQuickAddModal, setShowQuickAddModal] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -44,7 +47,7 @@ export default function RecipeManagementModal({ productId, productName, onClose 
 
   const handleAdd = async () => {
     if (!selectedStockId || !quantity) return;
-    const qtyNum = Number(quantity);
+    const qtyNum = Number(quantity.replace(',', '.'));
     if (isNaN(qtyNum) || qtyNum <= 0) {
       setError('Ingredient quantity must be greater than 0');
       return;
@@ -94,7 +97,17 @@ export default function RecipeManagementModal({ productId, productName, onClose 
       )}
 
       <div className="mb-6 rounded-lg border bg-gray-50 p-4">
-        <h3 className="mb-3 text-sm font-semibold text-gray-700">Add Ingredient</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-gray-700">Add Ingredient</h3>
+          <button
+            type="button"
+            onClick={() => setShowQuickAddModal(true)}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#d85b30] hover:text-[#b84a24] transition"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>+ Register New Inventory Item</span>
+          </button>
+        </div>
         <div className="flex items-end gap-3 flex-wrap sm:flex-nowrap">
           <div className="flex-1 w-full sm:w-auto">
             <label className="mb-1 block text-xs text-gray-500">Select Ingredient (from Inventory)</label>
@@ -104,26 +117,28 @@ export default function RecipeManagementModal({ productId, productName, onClose 
               className="w-full rounded border px-3 py-2 text-sm outline-none bg-white"
             >
               <option value="">-- Select Ingredient --</option>
-              {ingredients.map(ing => (
-                <option key={ing.id} value={ing.id}>{ing.name} ({ing.unit})</option>
-              ))}
+              {ingredients.map(ing => {
+                const isAlreadyInRecipe = recipes.some(r => r.stock_item_id === Number(ing.id));
+                return (
+                  <option key={ing.id} value={ing.id} disabled={isAlreadyInRecipe}>
+                    {ing.name} ({ing.unit}){isAlreadyInRecipe ? ' — Already in recipe' : ''}
+                  </option>
+                );
+              })}
             </select>
           </div>
           <div className="w-full sm:w-32">
             <label className="mb-1 block text-xs text-gray-500">Quantity</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0.01"
+            <DecimalInput
               value={quantity}
-              onChange={e => setQuantity(e.target.value)}
+              onChange={(_num, raw) => setQuantity(raw)}
               className="w-full rounded border px-3 py-2 text-sm outline-none"
-              placeholder="0.00"
+              placeholder="0"
             />
           </div>
           <button
             onClick={handleAdd}
-            disabled={saving || !selectedStockId || !quantity || Number(quantity) <= 0}
+            disabled={saving || !selectedStockId || !quantity || Number(quantity.replace(',', '.')) <= 0}
             className="flex w-full sm:w-auto justify-center items-center gap-2 rounded bg-[#d85b30] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 hover:bg-[#b84a24] transition-colors h-[38px]"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
@@ -186,6 +201,15 @@ export default function RecipeManagementModal({ productId, productName, onClose 
         isDestructive={true}
         onConfirm={confirmDeleteRecipe}
         onCancel={() => setRecipeToDeleteId(null)}
+      />
+
+      <QuickAddStockModal
+        isOpen={showQuickAddModal}
+        onClose={() => setShowQuickAddModal(false)}
+        onSuccess={async (newItem) => {
+          await loadData();
+          setSelectedStockId(newItem.id);
+        }}
       />
     </SellerModal>
   );

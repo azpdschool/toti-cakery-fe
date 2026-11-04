@@ -15,6 +15,9 @@ import { getStockItems, type StockOut } from '@/api/stock';
 import type { SupplierOut } from '@/api/supplier';
 import { formatRupiah } from '@/services/productService';
 import { friendlyError, purchaseStatusLabel } from '@/utils/inventoryLabels';
+import { DecimalInput } from '@/components/ui/DecimalInput';
+import { CurrencyInput } from '@/components/ui/CurrencyInput';
+import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 
 interface Props {
   isOpen: boolean;
@@ -34,6 +37,8 @@ export default function PurchaseManagementModal({ isOpen, onClose, onSuccess }: 
   const [cancellingId, setCancellingId] = useState<number | null>(null);
   const [editingPurchaseId, setEditingPurchaseId] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [receiveConfirmId, setReceiveConfirmId] = useState<number | null>(null);
+  const [deviationConfirmMessage, setDeviationConfirmMessage] = useState<string | null>(null);
 
   // Expanded purchase details
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -109,10 +114,12 @@ export default function PurchaseManagementModal({ isOpen, onClose, onSuccess }: 
     }
   };
 
-  const handleReceive = async (id: number, e: React.MouseEvent) => {
+  const handleReceive = (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm("Stock will be added to your inventory. This can't be undone.")) return;
-    
+    setReceiveConfirmId(id);
+  };
+
+  const executeReceive = async (id: number) => {
     setReceivingId(id);
     try {
       await updatePurchase(id, { is_received: true });
@@ -123,59 +130,12 @@ export default function PurchaseManagementModal({ isOpen, onClose, onSuccess }: 
       toast.error(friendlyError(err));
     } finally {
       setReceivingId(null);
+      setReceiveConfirmId(null);
     }
   };
 
-  const handleFormSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!supplierId) {
-      toast.error('Please select a supplier');
-      return;
-    }
+  const executePurchaseSubmit = async (hasConfirmedDeviations = false) => {
     const validItems = items.filter(i => i.stock_item_id && i.jumlah && i.harga_total);
-    
-    if (validItems.length === 0) {
-      toast.error('Please add at least one valid item');
-      return;
-    }
-
-    // 4. Peringatan Deviasi Harga (Cost Deviation Warning):
-    // Hitung biaya per unit dari input (harga_total / jumlah).
-    // Jika biaya per unit tersebut berbeda >= 10x dari average cost saat ini di master stock,
-    // tampilkan popup konfirmasi/peringatan kepada seller.
-    let hasConfirmedDeviations = false;
-    const deviationNotices: string[] = [];
-
-    for (const it of validItems) {
-      const stock = stockItems.find(s => s.id === Number(it.stock_item_id));
-      const currentAvg = Number(stock?.harga_per_satuan || 0);
-      const qty = Number(it.jumlah.toString().replace(',', '.'));
-      const total = Number(it.harga_total.toString().replace(',', '.'));
-
-      if (qty > 0 && currentAvg > 0) {
-        const unitCost = total / qty;
-        const ratio = Math.max(unitCost, currentAvg) / Math.min(unitCost, currentAvg);
-        if (ratio >= 10) {
-          deviationNotices.push(
-            `• ${stock?.nama_item || 'Item'}: Unit cost is ${formatRupiah(unitCost)}/${stock?.satuan || 'unit'}, ` +
-            `differing by >= 10x from current average cost (${formatRupiah(currentAvg)}/${stock?.satuan || 'unit'}).`
-          );
-        }
-      }
-    }
-
-    if (deviationNotices.length > 0) {
-      const confirmMsg =
-        `Cost Deviation Warning (>= 10x):\n\n` +
-        deviationNotices.join('\n') +
-        `\n\nAre you sure you want to proceed with this purchase?`;
-
-      if (!window.confirm(confirmMsg)) {
-        return;
-      }
-      hasConfirmedDeviations = true;
-    }
-
     const payloadItems = validItems.map(i => {
       const stock = stockItems.find(s => s.id === Number(i.stock_item_id));
       const currentAvg = Number(stock?.harga_per_satuan || 0);
@@ -230,6 +190,56 @@ export default function PurchaseManagementModal({ isOpen, onClose, onSuccess }: 
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!supplierId) {
+      toast.error('Please select a supplier');
+      return;
+    }
+    const validItems = items.filter(i => i.stock_item_id && i.jumlah && i.harga_total);
+    
+    if (validItems.length === 0) {
+      toast.error('Please add at least one valid item');
+      return;
+    }
+
+    // 4. Peringatan Deviasi Harga (Cost Deviation Warning):
+    // Hitung biaya per unit dari input (harga_total / jumlah).
+    // Jika biaya per unit tersebut berbeda >= 10x dari average cost saat ini di master stock,
+    // tampilkan popup konfirmasi/peringatan kepada seller.
+    const deviationNotices: string[] = [];
+
+    for (const it of validItems) {
+      const stock = stockItems.find(s => s.id === Number(it.stock_item_id));
+      const currentAvg = Number(stock?.harga_per_satuan || 0);
+      const qty = Number(it.jumlah.toString().replace(',', '.'));
+      const total = Number(it.harga_total.toString().replace(',', '.'));
+
+      if (qty > 0 && currentAvg > 0) {
+        const unitCost = total / qty;
+        const ratio = Math.max(unitCost, currentAvg) / Math.min(unitCost, currentAvg);
+        if (ratio >= 10) {
+          deviationNotices.push(
+            `• ${stock?.nama_item || 'Item'}: Unit cost is ${formatRupiah(unitCost)}/${stock?.satuan || 'unit'}, ` +
+            `differing by >= 10x from current average cost (${formatRupiah(currentAvg)}/${stock?.satuan || 'unit'}).`
+          );
+        }
+      }
+    }
+
+    if (deviationNotices.length > 0) {
+      const confirmMsg =
+        `Cost Deviation Warning (>= 10x):\n\n` +
+        deviationNotices.join('\n') +
+        `\n\nAre you sure you want to proceed with this purchase?`;
+
+      setDeviationConfirmMessage(confirmMsg);
+      return;
+    }
+
+    await executePurchaseSubmit(false);
   };
 
   const handleStartCreate = () => {
@@ -306,9 +316,9 @@ export default function PurchaseManagementModal({ isOpen, onClose, onSuccess }: 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="flex w-full max-w-4xl max-h-[90vh] flex-col rounded-2xl bg-white shadow-xl overflow-hidden">
-        <div className="flex items-center justify-between border-b border-gray-200 p-6 shrink-0">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-4">
+      <div className="flex w-full max-w-4xl max-h-[90dvh] sm:max-h-[90vh] flex-col rounded-2xl bg-white shadow-xl overflow-hidden">
+        <div className="flex items-center justify-between border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-6 shrink-0">
           <h2 className="text-xl font-bold text-[#4b2417]">
             {view === 'list' ? 'Purchases / Restock' : view === 'edit' ? `Edit Purchase #${editingPurchaseId}` : 'New Purchase'}
           </h2>
@@ -317,11 +327,11 @@ export default function PurchaseManagementModal({ isOpen, onClose, onSuccess }: 
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-6">
           {view === 'list' ? (
             <>
               <div className="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                <div className="flex items-center gap-1.5 p-1 bg-gray-100 rounded-lg text-xs font-medium">
+                <div className="flex items-center overflow-x-auto no-scrollbar gap-1.5 p-1 bg-gray-100 rounded-lg text-xs font-medium max-w-full">
                   {(['all', 'pending', 'received', 'cancelled'] as const).map((tab) => (
                     <button
                       key={tab}
@@ -452,7 +462,7 @@ export default function PurchaseManagementModal({ isOpen, onClose, onSuccess }: 
             </>
           ) : (
             <form onSubmit={handleFormSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold">Supplier <span className="text-red-500">*</span></label>
                   <select required value={supplierId} onChange={e => setSupplierId(e.target.value)} className="w-full mt-1 p-2 border rounded-lg text-sm">
@@ -476,76 +486,74 @@ export default function PurchaseManagementModal({ isOpen, onClose, onSuccess }: 
                   <button type="button" onClick={() => setItems([...items, { stock_item_id: '', jumlah: '', harga_total: '' }])} className="text-sm text-[#d85b30] font-semibold flex items-center"><Plus className="w-4 h-4"/> Add Item</button>
                 </div>
                 
-                <div className="flex gap-2 mb-1 px-1">
-                  <div className="flex-1 text-xs font-semibold text-gray-500">Ingredient / Stock Item</div>
-                  <div className="w-28 text-xs font-semibold text-gray-500">Quantity</div>
-                  <div className="w-36 text-xs font-semibold text-gray-500">Total Price (Rp)</div>
-                  {items.length > 1 && <div className="w-9"></div>}
-                </div>
-                
-                {items.map((item, idx) => {
-                  const selectedStock = stockItems.find(s => String(s.id) === String(item.stock_item_id));
-                  return (
-                    <div key={idx} className="flex gap-2 mb-2 items-start">
-                      <div className="flex-1">
-                        <select required value={item.stock_item_id} onChange={e => {
-                          const newItems = [...items];
-                          newItems[idx].stock_item_id = e.target.value;
-                          setItems(newItems);
-                        }} className="w-full p-2 border rounded-lg text-sm">
-                          <option value="">Select Item</option>
-                          {stockItems.map(inv => (
-                            <option key={inv.id} value={inv.id}>
-                              {inv.nama_item} ({inv.satuan}) - Avg Cost: {formatRupiah(Number(inv.harga_per_satuan))}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="w-28">
-                        <div className="relative">
-                          <input
-                            required
-                            type="number"
-                            step="any"
-                            min="0.0001"
-                            placeholder="Qty"
-                            value={item.jumlah}
-                            onChange={e => {
+                <div className="overflow-x-auto pb-2">
+                  <div className="min-w-[500px]">
+                    <div className="flex gap-2 mb-1 px-1">
+                      <div className="flex-1 text-xs font-semibold text-gray-500">Ingredient / Stock Item</div>
+                      <div className="w-28 text-xs font-semibold text-gray-500">Quantity</div>
+                      <div className="w-36 text-xs font-semibold text-gray-500">Total Price (Rp)</div>
+                      {items.length > 1 && <div className="w-9"></div>}
+                    </div>
+                    
+                    {items.map((item, idx) => {
+                      const selectedStock = stockItems.find(s => String(s.id) === String(item.stock_item_id));
+                      return (
+                        <div key={idx} className="flex gap-2 mb-2 items-start">
+                          <div className="flex-1">
+                            <select required value={item.stock_item_id} onChange={e => {
                               const newItems = [...items];
-                              newItems[idx].jumlah = e.target.value;
+                              newItems[idx].stock_item_id = e.target.value;
                               setItems(newItems);
-                            }}
-                            className="w-full p-2 border rounded-lg text-sm pr-10"
-                          />
-                          {selectedStock && (
-                            <span className="absolute right-2 top-2 text-xs text-gray-400 pointer-events-none">
-                              {selectedStock.satuan}
-                            </span>
+                            }} className="w-full p-2 border rounded-lg text-sm">
+                              <option value="">Select Item</option>
+                              {stockItems.map(inv => (
+                                <option key={inv.id} value={inv.id}>
+                                  {inv.nama_item} ({inv.satuan}) - Avg Cost: {formatRupiah(Number(inv.harga_per_satuan))}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="w-28">
+                            <div className="relative">
+                              <DecimalInput
+                                required
+                                placeholder="Qty"
+                                value={item.jumlah}
+                                onChange={(_val, raw) => {
+                                  const newItems = [...items];
+                                  newItems[idx].jumlah = raw;
+                                  setItems(newItems);
+                                }}
+                                className="w-full p-2 border rounded-lg text-sm pr-10"
+                              />
+                              {selectedStock && (
+                                <span className="absolute right-2 top-2 text-xs text-gray-400 pointer-events-none">
+                                  {selectedStock.satuan}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="w-36">
+                            <CurrencyInput
+                              required
+                              placeholder="Total Price"
+                              value={item.harga_total}
+                              onChange={(val, raw) => {
+                                const newItems = [...items];
+                                newItems[idx].harga_total = raw ? String(val) : '';
+                                setItems(newItems);
+                              }}
+                              className="w-full p-2 border rounded-lg text-sm"
+                            />
+                          </div>
+                          {items.length > 1 && (
+                            <button type="button" onClick={() => setItems(items.filter((_, i) => i !== idx))} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><X className="w-5 h-5"/></button>
                           )}
                         </div>
-                      </div>
-                      <div className="w-36">
-                        <input
-                          required
-                          type="number"
-                          step="any"
-                          min="1"
-                          placeholder="Total Price"
-                          value={item.harga_total}
-                          onChange={e => {
-                            const newItems = [...items];
-                            newItems[idx].harga_total = e.target.value;
-                            setItems(newItems);
-                          }}
-                          className="w-full p-2 border rounded-lg text-sm"
-                        />
-                      </div>
-                      {items.length > 1 && (
-                        <button type="button" onClick={() => setItems(items.filter((_, i) => i !== idx))} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><X className="w-5 h-5"/></button>
-                      )}
-                    </div>
-                  );
-                })}
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
 
               <div className="flex justify-end gap-3 mt-6 pt-6 border-t">
@@ -558,6 +566,35 @@ export default function PurchaseManagementModal({ isOpen, onClose, onSuccess }: 
           )}
         </div>
       </div>
+
+      <ConfirmationModal
+        isOpen={receiveConfirmId !== null}
+        title="Receive Purchase"
+        message="Stock will be added to your inventory. This action cannot be undone."
+        confirmText="Receive & Add Stock"
+        cancelText="Cancel"
+        isDestructive={false}
+        onConfirm={() => {
+          if (receiveConfirmId !== null) {
+            executeReceive(receiveConfirmId);
+          }
+        }}
+        onCancel={() => setReceiveConfirmId(null)}
+      />
+
+      <ConfirmationModal
+        isOpen={deviationConfirmMessage !== null}
+        title="Cost Deviation Warning"
+        message={deviationConfirmMessage || ''}
+        confirmText="Proceed Anyway"
+        cancelText="Cancel"
+        isDestructive={true}
+        onConfirm={async () => {
+          setDeviationConfirmMessage(null);
+          await executePurchaseSubmit(true);
+        }}
+        onCancel={() => setDeviationConfirmMessage(null)}
+      />
     </div>
   );
 }

@@ -9,6 +9,7 @@ interface SellerModalProps {
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
   footer?: ReactNode;
   children: ReactNode;
+  closeOnBackdropClick?: boolean;
 }
 
 const sizeClasses = {
@@ -27,7 +28,8 @@ export function SellerModal({
   title,
   size = 'md',
   footer,
-  children
+  children,
+  closeOnBackdropClick = false,
 }: SellerModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -50,19 +52,19 @@ export function SellerModal({
   if (!isOpen) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4 sm:p-6">
+    <div className="fixed inset-0 z-[9998] flex items-center justify-center p-2 sm:p-6">
       <div 
         className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
+        onClick={closeOnBackdropClick ? onClose : undefined}
       />
       
       <div 
         ref={modalRef}
         role="dialog"
         aria-modal="true"
-        className={`relative flex flex-col w-full ${sizeClasses[size]} bg-white rounded-2xl shadow-xl max-h-[90vh] sm:max-h-[85vh] animate-in fade-in zoom-in-95 duration-200`}
+        className={`relative flex flex-col w-full ${sizeClasses[size]} bg-white rounded-2xl shadow-xl max-h-[90dvh] sm:max-h-[85dvh] animate-in fade-in zoom-in-95 duration-200`}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#ead8ca] shrink-0">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-[#ead8ca] shrink-0">
           <h2 className="text-xl font-bold text-[#4b2417]">{title}</h2>
           <button
             onClick={onClose}
@@ -73,12 +75,12 @@ export function SellerModal({
           </button>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           {children}
         </div>
 
         {footer && (
-          <div className="px-6 py-4 border-t border-[#ead8ca] shrink-0">
+          <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-[#ead8ca] shrink-0">
             {footer}
           </div>
         )}

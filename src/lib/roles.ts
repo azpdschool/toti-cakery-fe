@@ -22,7 +22,7 @@ export function isAdminOrOwner(role?: string): boolean {
 }
 
 export function roleLabel(role?: UserRole): string {
-  if (role === 'owner') return 'Owner / Superadmin'
+  if (role === 'owner') return 'Owner'
   if (role === 'admin') return 'Admin'
   if (role === 'staff') return 'Staff'
   if (role === 'buyer') return 'Buyer'

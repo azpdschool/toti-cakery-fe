@@ -72,17 +72,20 @@ export default function CartPage() {
     const onFocus = () => {
       validateCart();
     };
-    
-    window.addEventListener('focus', onFocus);
-    window.addEventListener('visibilitychange', () => {
+
+    const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         validateCart();
       }
-    });
+    };
+    
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibilityChange);
 
     return () => {
       mountedRef.current = false;
       window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [validateCart]);
 
@@ -203,7 +206,7 @@ export default function CartPage() {
           {/* CATEGORY GROUPED ITEMS */}
           <div className="flex-1 space-y-6">
             {Object.entries(groupedItems).map(([categoryName, groupItems]) => (
-              <div key={categoryName} className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-[#EAD8CA]">
+              <div key={categoryName} className="rounded-2xl bg-white p-3.5 sm:p-5 shadow-sm ring-1 ring-[#EAD8CA]">
                 {/* Category Header */}
                 <div className="mb-4 flex items-center justify-between border-b border-[#EAD8CA] pb-3">
                   <h2 className="text-base font-black uppercase tracking-wide text-[#3A1F16]">
@@ -229,7 +232,7 @@ export default function CartPage() {
                     return (
                       <div
                         key={`${item.productId}-${item.variantId}`}
-                        className={`flex flex-col gap-4 rounded-xl bg-white p-4 ring-1 ring-[#EAD8CA]/60 transition sm:flex-row sm:items-center sm:justify-between ${isUnavailable ? 'opacity-75 bg-gray-50' : 'hover:shadow-sm'}`}
+                        className={`flex flex-col gap-4 rounded-xl bg-white p-3 sm:p-4 ring-1 ring-[#EAD8CA]/60 transition sm:flex-row sm:items-center sm:justify-between ${isUnavailable ? 'opacity-75 bg-gray-50' : 'hover:shadow-sm'}`}
                       >
                         <div className="flex items-start sm:items-center gap-4">
                           <div className="relative aspect-square w-20 sm:w-24 shrink-0 overflow-hidden rounded-xl bg-[#EFE4D6]">
@@ -265,7 +268,7 @@ export default function CartPage() {
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between sm:flex-col sm:items-end gap-3 sm:gap-4 border-t sm:border-none border-[#EAD8CA] pt-4 sm:pt-0">
+                        <div className="flex flex-wrap items-center justify-between sm:flex-col sm:items-end gap-2 sm:gap-4 border-t sm:border-none border-[#EAD8CA] pt-3 sm:pt-0">
                           <div className="flex items-center gap-2">
                             <button
                               type="button"
@@ -335,7 +338,7 @@ export default function CartPage() {
           
           {/* SUMMARY SIDEBAR */}
           <div className="w-full lg:w-80 shrink-0">
-             <div className="sticky top-24 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-[#EAD8CA]">
+             <div className="static lg:sticky lg:top-24 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-[#EAD8CA]">
                 <h2 className="text-lg font-black text-[#3A1F16] mb-5">{t('cart.summary')}</h2>
                 
                 <div className="space-y-4 border-b border-[#EAD8CA] pb-5 text-sm">

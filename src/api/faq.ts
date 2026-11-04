@@ -24,18 +24,46 @@ export interface FaqUpdatePayload {
   is_active?: boolean
 }
 
+const FAQ_CACHE_TTL = 15_000; // 15 seconds
+
+interface FaqCacheEntry {
+  data: FaqOut[];
+  timestamp: number;
+}
+
+const faqsCache = new Map<string, FaqCacheEntry>();
 const activeFaqsRequests = new Map<string, Promise<FaqOut[]>>();
+
+export function invalidateFaqsCache(): void {
+  faqsCache.clear();
+  activeFaqsRequests.clear();
+}
 
 export async function getAllFaqs(
   onlyActive: boolean = false,
+  forceRefresh: boolean = false
 ): Promise<FaqOut[]> {
   const key = String(onlyActive);
-  if (activeFaqsRequests.has(key)) return activeFaqsRequests.get(key)!;
+  const now = Date.now();
+
+  if (!forceRefresh) {
+    const cached = faqsCache.get(key);
+    if (cached && now - cached.timestamp < FAQ_CACHE_TTL) {
+      return cached.data;
+    }
+    if (activeFaqsRequests.has(key)) {
+      return activeFaqsRequests.get(key)!;
+    }
+  }
 
   const promise = apiClient.get<FaqOut[]>('/faq', {
     params: { only_active: onlyActive },
   })
-    .then(response => response.data)
+    .then(response => {
+      const data = response.data;
+      faqsCache.set(key, { data, timestamp: Date.now() });
+      return data;
+    })
     .finally(() => {
       activeFaqsRequests.delete(key);
     });
@@ -50,6 +78,7 @@ export async function getFaqById(id: number): Promise<FaqOut> {
 }
 
 export async function createFaq(payload: FaqCreatePayload): Promise<FaqOut> {
+  invalidateFaqsCache();
   const response = await apiClient.post<FaqOut>('/faq', payload)
   return response.data
 }
@@ -58,10 +87,12 @@ export async function editFaq(
   id: number,
   payload: FaqUpdatePayload,
 ): Promise<FaqOut> {
+  invalidateFaqsCache();
   const response = await apiClient.put<FaqOut>(`/faq/${id}`, payload)
   return response.data
 }
 
 export async function removeFaq(id: number): Promise<void> {
+  invalidateFaqsCache();
   await apiClient.delete(`/faq/${id}`)
 }

@@ -58,6 +58,8 @@ export async function cancelExpense(id: number, reason: string): Promise<Expense
   return response.data;
 }
 
+import { formatDateToLocalYYYYMMDD } from '../utils/date';
+
 const activeExpensesRequests = new Map<string, Promise<ExpenseDetailResponse[]>>();
 
 export async function getExpenses(params?: {
@@ -68,11 +70,11 @@ export async function getExpenses(params?: {
   end_date?: string;
 }): Promise<ExpenseDetailResponse[]> {
   const queryParams = params ? { ...params } : undefined;
-  if (queryParams?.start_date && !queryParams.start_date.includes('T')) {
-    queryParams.start_date = `${queryParams.start_date}T00:00:00`;
+  if (queryParams?.start_date) {
+    queryParams.start_date = formatDateToLocalYYYYMMDD(queryParams.start_date) || queryParams.start_date;
   }
-  if (queryParams?.end_date && !queryParams.end_date.includes('T')) {
-    queryParams.end_date = `${queryParams.end_date}T23:59:59`;
+  if (queryParams?.end_date) {
+    queryParams.end_date = formatDateToLocalYYYYMMDD(queryParams.end_date) || queryParams.end_date;
   }
 
   const key = JSON.stringify(queryParams || {});
@@ -89,14 +91,8 @@ export async function getExpenses(params?: {
 const activeSummaryRequests = new Map<string, Promise<ExpensesSummary>>();
 
 export async function getExpensesSummary(startDate?: string, endDate?: string): Promise<ExpensesSummary> {
-  let formattedStart = startDate;
-  let formattedEnd = endDate;
-  if (formattedStart && !formattedStart.includes('T')) {
-    formattedStart = `${formattedStart}T00:00:00`;
-  }
-  if (formattedEnd && !formattedEnd.includes('T')) {
-    formattedEnd = `${formattedEnd}T23:59:59`;
-  }
+  const formattedStart = startDate ? formatDateToLocalYYYYMMDD(startDate) || startDate.split('T')[0] : undefined;
+  const formattedEnd = endDate ? formatDateToLocalYYYYMMDD(endDate) || endDate.split('T')[0] : undefined;
 
   const key = JSON.stringify({ startDate: formattedStart, endDate: formattedEnd });
   if (activeSummaryRequests.has(key)) return activeSummaryRequests.get(key)!;

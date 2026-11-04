@@ -44,13 +44,14 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
       const now = new Date();
       const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000);
       const isEn = i18n.language === 'en';
+      if (diffSec < 15) return isEn ? 'Just now' : 'Baru saja';
       if (diffSec < 60) return isEn ? `${Math.max(1, diffSec)}s ago` : `${Math.max(1, diffSec)} detik lalu`;
       const diffMin = Math.floor(diffSec / 60);
-      if (diffMin < 60) return isEn ? `${diffMin}m ago` : `${diffMin} menit lalu`;
+      if (diffMin < 60) return isEn ? (diffMin === 1 ? '1 minute ago' : `${diffMin} minutes ago`) : `${diffMin} menit lalu`;
       const diffHr = Math.floor(diffMin / 60);
-      if (diffHr < 24) return isEn ? `${diffHr}h ago` : `${diffHr} jam lalu`;
+      if (diffHr < 24) return isEn ? (diffHr === 1 ? '1 hour ago' : `${diffHr} hours ago`) : `${diffHr} jam lalu`;
       const diffDays = Math.floor(diffHr / 24);
-      return isEn ? `${diffDays}d ago` : `${diffDays} hari lalu`;
+      return isEn ? (diffDays === 1 ? '1 day ago' : `${diffDays} days ago`) : `${diffDays} hari lalu`;
     } catch {
       return '';
     }
