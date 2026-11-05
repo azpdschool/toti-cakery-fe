@@ -74,7 +74,7 @@
     "phone_required": "Phone number is required",
     "check_status": "Check Verification Status",
     "resend_otp": "Resend OTP",
-    "reset_success": "Password has been successfully reset",
+    "reset_success": "Password reset successfully. Please log in.",
     "error_password_match": "Passwords do not match",
     "error_password_length": "Password must be at least 8 characters",
     "password_min_length": "Minimum 8 characters",
@@ -99,7 +99,13 @@
     "otp_wrong_with_remaining": "Incorrect OTP code. Remaining attempts: {{count}}.",
     "network_error": "Network error. Please check your internet connection.",
     "server_error": "Server error. Please try again later.",
-    "invalid_email": "Invalid email address."
+    "invalid_email": "Invalid email address.",
+    "buyer_forgot_step1_email_subtitle": "Enter your registered email to receive an OTP code.",
+    "otp_sent_to": "Code sent to",
+    "change_email": "Change email",
+    "resend_in": "Resend in",
+    "sending": "Sending...",
+    "back_to_otp": "Back to OTP Input"
   },
   "common": {
     "save": "Save",

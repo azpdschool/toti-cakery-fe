@@ -74,7 +74,7 @@
     "phone_required": "Nomor HP wajib diisi",
     "check_status": "Cek Status Verifikasi",
     "resend_otp": "Kirim ulang OTP",
-    "reset_success": "Password berhasil direset",
+    "reset_success": "Password berhasil diubah. Silakan login.",
     "error_password_match": "Konfirmasi password tidak cocok",
     "error_password_length": "Password minimal 8 karakter",
     "password_min_length": "Minimal 8 karakter",
@@ -99,7 +99,13 @@
     "otp_wrong_with_remaining": "Kode OTP salah. Sisa percobaan: {{count}}.",
     "network_error": "Terjadi kesalahan jaringan. Silakan periksa koneksi internet Anda.",
     "server_error": "Terjadi kesalahan pada server. Silakan coba lagi nanti.",
-    "invalid_email": "Format email tidak valid."
+    "invalid_email": "Format email tidak valid.",
+    "buyer_forgot_step1_email_subtitle": "Masukkan email Anda untuk menerima kode OTP verifikasi.",
+    "otp_sent_to": "Kode dikirim ke",
+    "change_email": "Ganti email",
+    "resend_in": "Kirim ulang dalam",
+    "sending": "Mengirim...",
+    "back_to_otp": "Kembali ke Input OTP"
   },
   "common": {
     "save": "Simpan",

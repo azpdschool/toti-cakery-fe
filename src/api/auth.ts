@@ -310,6 +310,11 @@ export async function requestBuyerForgotPassword(email: string): Promise<Message
   return response.data
 }
 
+export async function verifyBuyerResetOtp(payload: { email: string, otp: string }): Promise<MessageResponse> {
+  const response = await apiClient.post<MessageResponse>('/auth/buyer/verify-reset-otp', payload)
+  return response.data
+}
+
 export async function resetBuyerPasswordEmail(payload: { email: string, otp: string, new_password: string }): Promise<MessageResponse> {
   const response = await apiClient.post<MessageResponse>('/auth/buyer/reset-password/email', payload)
   return response.data
