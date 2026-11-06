@@ -338,11 +338,18 @@ export default function HomePage() {
                     >
                       {product.name}
                     </Link>
-                    <div className="mt-1 flex items-center gap-1 text-xs">
-                      <Star className="h-3.5 w-3.5 fill-[#E0A04E] text-[#E0A04E]" />
-                      <span className="font-semibold text-[#9B4A2F]">
-                        {product.rating.toFixed(1)} ({product.soldCount})
-                      </span>
+                    <div className="mt-1 flex items-center gap-1.5 text-xs text-[#6B4A3C]">
+                      <div className="flex items-center gap-1">
+                        <Star className="h-3.5 w-3.5 fill-[#E0A04E] text-[#E0A04E]" />
+                        <span className="font-semibold text-[#9B4A2F]">
+                          {product.rating > 0 ? product.rating.toFixed(1) : '0.0'}
+                        </span>
+                        {product.reviewCount !== undefined && product.reviewCount > 0 && (
+                          <span className="text-[#8B7166]">({product.reviewCount})</span>
+                        )}
+                      </div>
+                      <span className="text-gray-300">·</span>
+                      <span>{product.soldCount ?? 0} {t('common.sold', 'terjual')}</span>
                     </div>
                     <p className="mt-3 text-sm font-black text-[#3A1F16]">
                       {formatRupiah(product.price)}

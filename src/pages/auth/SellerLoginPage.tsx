@@ -112,7 +112,7 @@ export default function SellerLoginPage() {
                 htmlFor="username"
                 className="block text-sm font-semibold text-[#4b2417]"
               >
-                {t('auth.username_label')}
+                {t('auth.username_label')} <span className="text-red-500 ml-0.5">*</span>
               </label>
 
               <div className="relative mt-1.5">
@@ -127,7 +127,8 @@ export default function SellerLoginPage() {
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder={t('auth.username_placeholder')}
                   autoComplete="username"
-                  className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-4 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
+                  disabled={isLoading}
+                  className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-4 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40 disabled:opacity-60"
                 />
               </div>
 
@@ -141,7 +142,7 @@ export default function SellerLoginPage() {
                 htmlFor="password"
                 className="block text-sm font-semibold text-[#4b2417]"
               >
-                {t('auth.password_label')}
+                {t('auth.password_label')} <span className="text-red-500 ml-0.5">*</span>
               </label>
 
               <div className="relative mt-1.5">
@@ -156,7 +157,8 @@ export default function SellerLoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={t('auth.password_placeholder')}
                   autoComplete="current-password"
-                  className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-12 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
+                  disabled={isLoading}
+                  className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-12 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40 disabled:opacity-60"
                 />
 
                 <button

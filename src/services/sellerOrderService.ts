@@ -14,6 +14,7 @@ export type OrderStatus =
   | 'selesai'
   | 'dibatalkan'
   | 'pending'
+  | 'waiting_confirmation'
   | 'in_process'
   | 'ready'
   | 'delivered'
@@ -38,6 +39,9 @@ export interface Order {
   customerName: string;
   customerPhone: string;
   address?: string;
+  recipientName?: string;
+  recipientPhone?: string;
+  deliveryAddress?: string;
   total: number;
   date: string;
   time: string;
@@ -64,6 +68,8 @@ export interface Order {
   paymentExpiresAt?: string | null;
   fulfillment_overdue_notified_at?: string | null;
   fulfillmentOverdueNotifiedAt?: string | null;
+  payment_proof?: string | null;
+  paymentProof?: string | null;
 }
 
 export interface Invoice {
@@ -93,12 +99,42 @@ export interface Invoice {
 import { apiClient } from '@/api/client';
 
 export function mapOrderResponse(o: any): Order {
+  const rawNotes = o.notes || o.catatan || '';
+  let parsedRecipientName = o.recipient_name ?? o.nama_penerima ?? null;
+  let parsedRecipientPhone = o.recipient_phone ?? o.telepon_penerima ?? null;
+  let parsedAddress = o.address ?? o.alamat ?? null;
+  let cleanedNotes = rawNotes;
+
+  if (rawNotes && rawNotes.includes('[DELIVERY INFO]')) {
+    const match = rawNotes.match(
+      /\[DELIVERY INFO\]\s*(?:\[METODE:\s*([a-zA-Z0-9_-]+)\])?\s*Penerima:\s*([^(]+?)\s*(?:\(([^)]*)\))?,\s*Alamat:\s*([^\n\r]+)/i
+    );
+    if (match) {
+      if (!parsedRecipientName || parsedRecipientName === '-') {
+        parsedRecipientName = match[2]?.trim() || null;
+      }
+      if (!parsedRecipientPhone || parsedRecipientPhone === '-') {
+        parsedRecipientPhone = match[3]?.trim() || null;
+      }
+      if (!parsedAddress || parsedAddress === '-') {
+        parsedAddress = match[4]?.trim() || null;
+      }
+    }
+    cleanedNotes = rawNotes
+      .replace(/\[DELIVERY INFO\][^\n\r]*(\r?\n)?/gi, '')
+      .replace(/\[METODE:\s*[a-zA-Z0-9_-]+\]/gi, '')
+      .trim();
+  }
+
   return {
     id: o.id.toString(),
     orderNumber: `#${o.id}`,
     customerName: o.customer?.nama || 'Unknown Customer',
     customerPhone: o.customer?.nomor_wa || '-',
     address: o.customer?.alamat || '',
+    recipientName: parsedRecipientName || undefined,
+    recipientPhone: parsedRecipientPhone || undefined,
+    deliveryAddress: parsedAddress || undefined,
     total: parseFloat(o.total_harga_pesanan) || 0,
     date: new Date(o.created_at).toLocaleDateString('en-US', {
       month: 'short', day: 'numeric', year: 'numeric'
@@ -120,12 +156,16 @@ export function mapOrderResponse(o: any): Order {
     }) : undefined,
     items: o.order_items?.map((item: any) => ({
       id: item.id.toString(),
-      productName: item.custom_product_name || (item.product ? item.product.nama : `Product #${item.product_id}`),
+      productName:
+        item.product_name ||
+        item.custom_product_name ||
+        item.nama_produk ||
+        (item.product ? item.product.nama || item.product.nama_produk : `Product #${item.product_id}`),
       quantity: item.jumlah,
       price: parseFloat(item.subtotal) / (item.jumlah || 1),
       total: parseFloat(item.subtotal)
     })) || [],
-    notes: o.notes || '',
+    notes: cleanedNotes || '',
     customDesignFee: 0,
     invoiceId: o.invoice?.nomor_invoice || '',
     createdVia: o.created_via,
@@ -144,13 +184,15 @@ export function mapOrderResponse(o: any): Order {
     paymentExpiresAt: o.payment_expires_at || null,
     fulfillment_overdue_notified_at: o.fulfillment_overdue_notified_at || null,
     fulfillmentOverdueNotifiedAt: o.fulfillment_overdue_notified_at || null,
+    payment_proof: o.payment_proof || o.bukti_pembayaran || o.paymentProof || null,
+    paymentProof: o.payment_proof || o.bukti_pembayaran || o.paymentProof || null,
   } as any;
 }
 
 const activeOrdersRequests = new Map<string, Promise<Order[]>>();
 
 export async function getOrders(params?: { limit?: number; offset?: number; status?: string; signal?: AbortSignal; [key: string]: any }): Promise<Order[]> {
-  const { signal, ...queryParams } = params || {};
+  const { signal: _signal, ...queryParams } = params || {};
   const key = JSON.stringify(queryParams);
   if (activeOrdersRequests.has(key)) return activeOrdersRequests.get(key)!;
 
@@ -213,7 +255,7 @@ export async function refundOrder(
 
 
 
-export async function getOrderStats(_ordersData?: any[]): Promise<{
+export async function getOrderStats(): Promise<{
   totalOrdersThisMonth: number | string;
   ordersChange: string;
   completed: number | string;
@@ -231,7 +273,7 @@ export async function getOrderStats(_ordersData?: any[]): Promise<{
     const completedCount = (data.completed || 0) + (data.delivered || 0) + (data.picked_up || 0);
 
     return {
-      totalOrdersThisMonth: data.total || 0,
+      totalOrdersThisMonth: data.total_orders ?? data.total ?? 0,
       ordersChange: 'Real-time',
       completed: completedCount,
       completedChange: 'Completed/Delivered/Picked up',

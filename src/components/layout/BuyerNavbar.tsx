@@ -178,6 +178,7 @@ export function BuyerNavbar() {
               type="button"
               onClick={() => setIsLanguageOpen((value) => !value)}
               className="flex h-10 items-center justify-center gap-1.5 px-1 text-xs font-semibold text-[#3A1F16] transition-colors hover:text-[#9B4A2F]"
+              aria-label={t('nav.language_aria', 'Ganti bahasa')}
             >
               <span>{currentLanguage.flag}</span>
               <span>{currentLanguage.label}</span>
@@ -242,7 +243,7 @@ export function BuyerNavbar() {
             type="button"
             onClick={() => setIsMobileMenuOpen(true)}
             className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-[#3A1F16] shadow-sm md:hidden hover:bg-[#FDF9F5] focus:outline-none focus:ring-2 focus:ring-[#9B4A2F]/20"
-            aria-label="Buka menu navigasi"
+            aria-label={t('nav.open_menu', 'Buka menu navigasi')}
           >
             <Menu className="h-5 w-5" />
           </button>
@@ -264,7 +265,7 @@ export function BuyerNavbar() {
             className="fixed inset-y-0 right-0 z-[10000] w-[85%] max-w-[340px] bg-[#FAF5EF] shadow-2xl flex flex-col h-full border-l border-[#D0BFAF]"
             role="dialog"
             aria-modal="true"
-            aria-label="Menu Mobile"
+            aria-label={t('nav.mobile_menu', 'Menu Navigasi')}
           >
             {/* Drawer Header: Logo + Close 'X' */}
             <div className="flex items-center justify-between border-b border-[#EAD8CA] px-5 py-4 bg-white shrink-0">
@@ -284,7 +285,7 @@ export function BuyerNavbar() {
                 type="button"
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="p-1.5 rounded-full text-[#3A1F16] hover:bg-black/5 transition"
-                aria-label="Tutup menu"
+                aria-label={t('common.close', 'Tutup menu')}
               >
                 <X className="h-5 w-5" />
               </button>

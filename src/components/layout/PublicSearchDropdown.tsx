@@ -324,7 +324,7 @@ export function PublicSearchDropdown({
                   {t('search.rate_limited', 'Terlalu banyak permintaan. Silakan tunggu beberapa saat.')}
                 </p>
                 <p className="mt-1 text-amber-700">
-                  Batas pencarian tercapai (maks. 30/menit). Mohon istirahat sejenak sebelum mencari lagi.
+                  {t('search.rate_limit_exceeded', 'Batas pencarian tercapai (maks. 30/menit). Mohon istirahat sejenak sebelum mencari lagi.')}
                 </p>
               </div>
             </div>
@@ -440,6 +440,9 @@ export function PublicSearchDropdown({
                     {results?.faqs.map((faq) => {
                       const itemIndex = navItems.findIndex((item) => item.type === 'faq' && item.data.id === faq.id)
                       const isHighlighted = highlightedIndex === itemIndex
+                      const isEn = i18n.language?.startsWith('en')
+                      const question = isEn && faq.pertanyaan_en ? faq.pertanyaan_en : faq.pertanyaan
+                      const answer = isEn && faq.jawaban_en ? faq.jawaban_en : faq.jawaban
                       return (
                         <button
                           key={faq.id}
@@ -455,10 +458,10 @@ export function PublicSearchDropdown({
                         >
                           <div className="min-w-0 flex-1">
                             <p className="text-xs font-semibold text-[#3A1F16]">
-                              {faq.pertanyaan}
+                              {question}
                             </p>
                             <p className="mt-0.5 line-clamp-1 text-[11px] text-[#6B4A3C]">
-                              {faq.jawaban}
+                              {answer}
                             </p>
                           </div>
                           <ChevronRight className="mt-1 h-3.5 w-3.5 shrink-0 text-[#9C8478] opacity-60" />

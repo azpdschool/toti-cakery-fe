@@ -201,7 +201,7 @@ export default function SellerForgotPasswordPage() {
                   htmlFor="email"
                   className="block text-sm font-semibold text-[#4b2417]"
                 >
-                  Username / Email
+                  Username / Email <span className="text-red-500 ml-0.5">*</span>
                 </label>
 
                 <div className="relative mt-1.5">
@@ -215,7 +215,8 @@ export default function SellerForgotPasswordPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="e.g., owner / admin / staff"
-                    className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-4 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
+                    disabled={isLoading}
+                    className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-4 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40 disabled:opacity-60"
                   />
                 </div>
               </div>
@@ -258,7 +259,7 @@ export default function SellerForgotPasswordPage() {
                   htmlFor="otp"
                   className="block text-sm font-semibold text-[#4b2417]"
                 >
-                  OTP Code
+                  OTP Code <span className="text-red-500 ml-0.5">*</span>
                 </label>
 
                 <input
@@ -271,7 +272,8 @@ export default function SellerForgotPasswordPage() {
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                   placeholder="Enter OTP code"
                   autoFocus
-                  className="mt-1.5 w-full rounded-xl border border-[#d0bfaf] bg-white/70 px-4 py-3 text-center text-xl font-bold text-[#4b2417] outline-none transition placeholder:text-sm placeholder:font-normal placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
+                  disabled={isLoading}
+                  className="mt-1.5 w-full rounded-xl border border-[#d0bfaf] bg-white/70 px-4 py-3 text-center text-xl font-bold text-[#4b2417] outline-none transition placeholder:text-sm placeholder:font-normal placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40 disabled:opacity-60"
                 />
 
               </div>
@@ -328,7 +330,7 @@ export default function SellerForgotPasswordPage() {
                   htmlFor="new-password"
                   className="block text-sm font-semibold text-[#4b2417]"
                 >
-                  New Password
+                  New Password <span className="text-red-500 ml-0.5">*</span>
                 </label>
 
                 <div className="relative mt-1.5">
@@ -342,7 +344,8 @@ export default function SellerForgotPasswordPage() {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Minimum 8 characters"
-                    className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-12 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
+                    disabled={isLoading}
+                    className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-12 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40 disabled:opacity-60"
                   />
 
                   <button
@@ -364,7 +367,7 @@ export default function SellerForgotPasswordPage() {
                   htmlFor="confirm-password"
                   className="block text-sm font-semibold text-[#4b2417]"
                 >
-                  Confirm Password
+                  Confirm Password <span className="text-red-500 ml-0.5">*</span>
                 </label>
 
                 <div className="relative mt-1.5">
@@ -378,7 +381,8 @@ export default function SellerForgotPasswordPage() {
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Repeat new password"
-                    className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-12 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
+                    disabled={isLoading}
+                    className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-12 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40 disabled:opacity-60"
                   />
                 </div>
               </div>

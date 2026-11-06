@@ -46,8 +46,8 @@ export const NotificationBell: React.FC = () => {
   };
 
   const ariaLabel = unreadCount > 0
-    ? t('notifications.aria_label_count', { count: unreadCount, defaultValue: `Notifikasi, ${unreadCount} belum dibaca` })
-    : t('notifications.aria_label', 'Notifikasi');
+    ? t('notifications.aria_label_count', { count: unreadCount, defaultValue: `Notifications, ${unreadCount} unread` })
+    : t('notifications.aria_label', 'Notifications');
 
   return (
     <div className="relative inline-block">
@@ -56,7 +56,7 @@ export const NotificationBell: React.FC = () => {
         onClick={() => setIsOpen((prev) => !prev)}
         className="relative flex h-9 w-9 items-center justify-center rounded-full text-[#6B4A3C] transition hover:bg-[#FDF9F5] hover:text-[#9B4A2F] focus:outline-none focus:ring-2 focus:ring-[#9B4A2F]/20"
         aria-label={ariaLabel}
-        title={t('notifications.title', 'Notifikasi')}
+        title={t('notifications.title', 'Notifications')}
       >
         <Bell className="h-5 w-5" />
         {unreadCount > 0 && (

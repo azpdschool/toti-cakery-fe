@@ -280,6 +280,10 @@ export default function CheckoutPage() {
         confirmedOrderData?.amountDue || payableAmount
       );
       
+      try {
+        localStorage.setItem(`toti_payment_method_${orderId}`, midtransMethod);
+      } catch {}
+
       const resultStatus = String(result.status ?? '').toLowerCase();
       const hasInstruction = !!(result.qris_url || result.va_number || result.midtrans_response?.redirect_url);
 
@@ -393,7 +397,9 @@ export default function CheckoutPage() {
       <form onSubmit={handleSubmit} noValidate className="flex flex-col md:flex-row gap-6">
         <div className="flex-1 space-y-6">
           <div className="rounded-2xl bg-white p-6 shadow-sm border border-[#ead8ca]">
-            <h2 className="text-lg font-bold text-[#4b2417] mb-4">{t('checkout.shipping_method')}</h2>
+            <h2 className="text-lg font-bold text-[#4b2417] mb-4">
+              {t('checkout.shipping_method')} <span className="text-red-500 ml-0.5" aria-hidden="true">*</span>
+            </h2>
             <div className="grid gap-3 sm:grid-cols-3">
               <button
                 type="button"
@@ -432,7 +438,8 @@ export default function CheckoutPage() {
 
             <div className="mt-6">
               <label className="block text-sm font-semibold text-[#4b2417] mb-1">
-                {t('checkout.fulfillment_date', 'Date Needed / Fulfillment Date')} <span className="text-red-500">*</span>
+                {t('checkout.fulfillment_date', 'Tanggal Pengiriman / Pengambilan')}{' '}
+                <span className="text-red-500 ml-0.5" aria-hidden="true">*</span>
               </label>
               <input
                 type="date"
@@ -448,10 +455,16 @@ export default function CheckoutPage() {
 
           {formData.deliveryMethod !== 'pickup' && (
             <div className="rounded-2xl bg-white p-6 shadow-sm border border-[#ead8ca]">
-              <h2 className="text-lg font-bold text-[#4b2417] mb-4">{t('checkout.recipient_data')}</h2>
+              <h2 className="text-lg font-bold text-[#4b2417] mb-4">
+                {t('checkout.recipient_data')}{' '}
+                <span className="text-red-500 ml-0.5" aria-hidden="true">*</span>
+              </h2>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-semibold text-[#4b2417] mb-1">{t('checkout.recipient_name')}</label>
+                  <label className="block text-sm font-semibold text-[#4b2417] mb-1">
+                    {t('checkout.recipient_name')}{' '}
+                    <span className="text-red-500 ml-0.5" aria-hidden="true">*</span>
+                  </label>
                   <input
                     type="text"
                     value={formData.recipientName}
@@ -460,7 +473,10 @@ export default function CheckoutPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-[#4b2417] mb-1">{t('checkout.phone_number')}</label>
+                  <label className="block text-sm font-semibold text-[#4b2417] mb-1">
+                    {t('checkout.phone_number')}{' '}
+                    <span className="text-red-500 ml-0.5" aria-hidden="true">*</span>
+                  </label>
                   <input
                     type="tel"
                     value={formData.recipientPhone}
@@ -469,7 +485,10 @@ export default function CheckoutPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-[#4b2417] mb-1">{t('checkout.full_address')}</label>
+                  <label className="block text-sm font-semibold text-[#4b2417] mb-1">
+                    {t('checkout.full_address')}{' '}
+                    <span className="text-red-500 ml-0.5" aria-hidden="true">*</span>
+                  </label>
                   <textarea
                     rows={2}
                     value={formData.address}
@@ -482,7 +501,12 @@ export default function CheckoutPage() {
           )}
 
           <div className="rounded-2xl bg-white p-6 shadow-sm border border-[#ead8ca]">
-            <h2 className="text-lg font-bold text-[#4b2417] mb-4">{t('checkout.notes')}</h2>
+            <h2 className="text-lg font-bold text-[#4b2417] mb-4">
+              {t('checkout.notes')}{' '}
+              <span className="text-xs font-normal text-stone-400 ml-1">
+                ({t('common.optional', 'Opsional')})
+              </span>
+            </h2>
             <textarea
               rows={2}
               value={formData.notes}
@@ -493,7 +517,10 @@ export default function CheckoutPage() {
           </div>
 
           <div className="rounded-2xl bg-white p-6 shadow-sm border border-[#ead8ca]">
-            <h2 className="text-lg font-bold text-[#4b2417] mb-4">{t('checkout.payment_preference')}</h2>
+            <h2 className="text-lg font-bold text-[#4b2417] mb-4">
+              {t('checkout.payment_preference')}{' '}
+              <span className="text-red-500 ml-0.5" aria-hidden="true">*</span>
+            </h2>
             <div className="grid gap-3 sm:grid-cols-2">
               <button
                 type="button"

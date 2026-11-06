@@ -112,6 +112,8 @@ function FaqModal({ isOpen, onClose, onSave, initialData }: FaqModalProps) {
   const [formData, setFormData] = useState({
     question: '',
     answer: '',
+    question_en: '',
+    answer_en: '',
     status: 'active' as FaqStatus,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -122,12 +124,16 @@ function FaqModal({ isOpen, onClose, onSave, initialData }: FaqModalProps) {
         setFormData({
           question: initialData.question,
           answer: initialData.answer,
+          question_en: initialData.question_en || '',
+          answer_en: initialData.answer_en || '',
           status: initialData.status,
         });
       } else {
         setFormData({
           question: '',
           answer: '',
+          question_en: '',
+          answer_en: '',
           status: 'active',
         });
       }
@@ -149,7 +155,7 @@ function FaqModal({ isOpen, onClose, onSave, initialData }: FaqModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <form onSubmit={handleSubmit} className="flex max-h-[90vh] w-full max-w-md flex-col rounded-2xl bg-white shadow-xl overflow-hidden">
+      <form onSubmit={handleSubmit} className="flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-xl overflow-hidden">
         <div className="flex items-center justify-between border-b border-gray-200 p-6 shrink-0">
           <h2 className="text-xl font-black text-[#4b2417]">
             {initialData ? 'Edit FAQ' : 'Add FAQ'}
@@ -160,35 +166,73 @@ function FaqModal({ isOpen, onClose, onSave, initialData }: FaqModalProps) {
         </div>
 
         <div className="overflow-y-auto p-6 space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-semibold text-[#6f5448]">
-              Question <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              required
-              value={formData.question}
-              onChange={(e) => setFormData({ ...formData, question: e.target.value })}
-              className="w-full rounded-lg border border-[#d0bfaf] px-3 py-2 outline-none focus:border-[#d85b30]"
-              placeholder="Enter customer question"
-            />
+          {/* Indonesian (Default Required) */}
+          <div className="rounded-xl border border-amber-200/60 bg-amber-50/30 p-3.5 space-y-3">
+            <div className="flex items-center gap-2 font-bold text-xs text-[#4b2417] uppercase tracking-wider">
+              <span>🇮🇩</span> Indonesian Content
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-[#6f5448]">
+                Question (Indonesian) <span className="text-red-500 ml-0.5">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.question}
+                onChange={(e) => setFormData({ ...formData, question: e.target.value })}
+                className="w-full rounded-lg border border-[#d0bfaf] bg-white px-3 py-2 text-sm outline-none focus:border-[#d85b30]"
+                placeholder="Contoh: Berapa lama estimasi pengiriman kue?"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-[#6f5448]">
+                Answer (Indonesian) <span className="text-red-500 ml-0.5">*</span>
+              </label>
+              <textarea
+                required
+                rows={3}
+                value={formData.answer}
+                onChange={(e) => setFormData({ ...formData, answer: e.target.value })}
+                className="w-full rounded-lg border border-[#d0bfaf] bg-white px-3 py-2 text-sm outline-none focus:border-[#d85b30]"
+                placeholder="Jawaban lengkap dalam Bahasa Indonesia..."
+              />
+            </div>
           </div>
-          <div>
-            <label className="mb-1 block text-sm font-semibold text-[#6f5448]">
-              Answer <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              required
-              rows={4}
-              value={formData.answer}
-              onChange={(e) => setFormData({ ...formData, answer: e.target.value })}
-              className="w-full rounded-lg border border-[#d0bfaf] px-3 py-2 outline-none focus:border-[#d85b30]"
-              placeholder="Enter answer"
-            />
+
+          {/* English (Optional) */}
+          <div className="rounded-xl border border-blue-200/60 bg-blue-50/30 p-3.5 space-y-3">
+            <div className="flex items-center gap-2 font-bold text-xs text-[#4b2417] uppercase tracking-wider">
+              <span>🇬🇧</span> English Translation
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-[#6f5448]">
+                Question (English) <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span>
+              </label>
+              <input
+                type="text"
+                value={formData.question_en}
+                onChange={(e) => setFormData({ ...formData, question_en: e.target.value })}
+                className="w-full rounded-lg border border-[#d0bfaf] bg-white px-3 py-2 text-sm outline-none focus:border-[#d85b30]"
+                placeholder="e.g. How long is cake delivery estimation?"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-[#6f5448]">
+                Answer (English) <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span>
+              </label>
+              <textarea
+                rows={3}
+                value={formData.answer_en}
+                onChange={(e) => setFormData({ ...formData, answer_en: e.target.value })}
+                className="w-full rounded-lg border border-[#d0bfaf] bg-white px-3 py-2 text-sm outline-none focus:border-[#d85b30]"
+                placeholder="Complete answer in English (leave blank to fall back to Indonesian)..."
+              />
+            </div>
           </div>
+
           <div>
             <label className="mb-1 block text-sm font-semibold text-[#6f5448]">
-              Status <span className="text-red-500">*</span>
+              Status <span className="text-red-500 ml-0.5">*</span>
             </label>
             <div className="flex gap-4">
               <label className="flex items-center gap-2">
@@ -659,10 +703,26 @@ export default function SellerFaqPage() {
                       {startIndex + idx + 1}
                     </td>
                     <td className="py-4 pr-4 align-top max-w-md">
-                      <p className="font-bold text-[#4b2417] mb-1">{faq.question}</p>
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <p className="font-bold text-[#4b2417]">{faq.question}</p>
+                        {faq.question_en?.trim() ? (
+                          <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700 border border-blue-200">
+                            ID & EN
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-medium text-stone-600 border border-stone-200">
+                            ID Only
+                          </span>
+                        )}
+                      </div>
                       <p className="text-sm text-[#6f5448] line-clamp-3 leading-relaxed">
                         {faq.answer}
                       </p>
+                      {faq.question_en?.trim() && (
+                        <p className="text-xs text-stone-400 mt-1 italic line-clamp-1">
+                          EN: {faq.question_en}
+                        </p>
+                      )}
                     </td>
                     <td className="py-4 pr-4 text-[#6f5448] align-top">
                       <p className="font-medium text-[#4b2417]">{faq.updatedBy.name}</p>
@@ -757,6 +817,15 @@ export default function SellerFaqPage() {
                       >
                         {faq.status === 'active' ? 'Active' : 'Inactive'}
                       </span>
+                      {faq.question_en?.trim() ? (
+                        <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700 border border-blue-200">
+                          ID & EN
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-medium text-stone-600 border border-stone-200">
+                          ID Only
+                        </span>
+                      )}
                     </div>
                     <h4 className="font-bold text-[#4b2417] text-sm leading-snug">
                       {faq.question}

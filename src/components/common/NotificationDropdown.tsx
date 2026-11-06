@@ -45,13 +45,13 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
       <div
         className="fixed inset-x-3 top-20 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 z-50 sm:w-96 rounded-2xl bg-white shadow-xl ring-1 ring-black/5 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
         role="dialog"
-        aria-label={t('notifications.title', 'Notifikasi')}
+        aria-label={t('notifications.title', 'Notifications')}
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#EAD8CA] px-4 py-3 bg-[#FAF5EF]">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-bold text-[#3A1F16]">
-              {t('notifications.title', 'Notifikasi')}
+              {t('notifications.title', 'Notifications')}
             </h3>
             {unreadCount > 0 && (
               <span className="rounded-full bg-[#9B4A2F] px-2 py-0.5 text-[10px] font-bold text-white">
@@ -64,10 +64,10 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
             <button
               onClick={onMarkAllAsRead}
               className="flex items-center gap-1 text-xs font-semibold text-[#9B4A2F] hover:text-[#7E3A24] transition"
-              title={t('notifications.mark_all_read', 'Tandai Semua Dibaca')}
+              title={t('notifications.mark_all_read', 'Mark All as Read')}
             >
               <CheckCheck className="h-3.5 w-3.5" />
-              <span>{t('notifications.mark_all_read', 'Tandai Semua Dibaca')}</span>
+              <span>{t('notifications.mark_all_read', 'Mark All as Read')}</span>
             </button>
           )}
         </div>
@@ -77,7 +77,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
           {loading && notifications.length === 0 ? (
             <div className="py-8 text-center text-xs text-[#6B4A3C]">
               <RefreshCw className="mx-auto h-5 w-5 animate-spin text-[#9B4A2F] mb-2" />
-              {t('notifications.loading', 'Memuat notifikasi...')}
+              {t('notifications.loading', 'Loading notifications...')}
             </div>
           ) : error ? (
             <div className="p-4 text-center text-xs text-red-600">
@@ -86,13 +86,13 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
                 onClick={onRefresh}
                 className="mt-2 rounded-md bg-[#9B4A2F] px-3 py-1 text-xs text-white font-semibold hover:bg-[#7E3A24]"
               >
-                {t('notifications.retry', 'Coba Lagi')}
+                {t('notifications.retry', 'Retry')}
               </button>
             </div>
           ) : notifications.length === 0 ? (
             <div className="py-10 text-center text-xs text-[#9C8478]">
               <BellOff className="mx-auto h-8 w-8 text-[#D0BFAF] mb-2" />
-              <p className="font-semibold">{t('notifications.empty', 'Belum ada notifikasi')}</p>
+              <p className="font-semibold">{t('notifications.empty', 'No notifications yet')}</p>
             </div>
           ) : (
             notifications.map((n) => {

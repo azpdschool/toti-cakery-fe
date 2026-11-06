@@ -44,6 +44,8 @@ import { toast } from 'react-hot-toast';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import { PaginationControls } from '@/components/ui/PaginationControls';
 import { MultiFilterPopover, type FilterField } from '@/components/ui/MultiFilterPopover';
+import { DecimalInput } from '@/components/ui/DecimalInput';
+import { CurrencyInput } from '@/components/ui/CurrencyInput';
 
 // ============================================================
 // CONSTANTS
@@ -70,8 +72,8 @@ const FILTER_FIELDS: FilterField[] = [
     label: 'Category',
     type: 'select',
     options: [
-      { value: 'Bahan', label: 'Bahan Baku' },
-      { value: 'Kemasan', label: 'Kemasan' },
+      { value: 'Bahan', label: 'Raw Material' },
+      { value: 'Kemasan', label: 'Packaging' },
     ]
   },
   {
@@ -126,18 +128,32 @@ interface StatCardProps {
   subtitle: string;
   icon: React.ElementType;
   color: string;
+  minWidthClassName?: string;
 }
 
-function StatCard({ title, value, subtitle, icon: Icon, color }: StatCardProps) {
+function StatCard({ title, value, subtitle, icon: Icon, color, minWidthClassName }: StatCardProps) {
+  const valueStr = String(value);
+  const isLongValue = valueStr.length > 10;
   return (
-    <div className="relative rounded-xl bg-white p-3.5 sm:p-5 shadow-sm min-w-[160px] sm:min-w-[240px] flex-shrink-0">
-      <div className="flex items-start justify-between">
-        <div className={`flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full ${color}`}>
+    <div
+      className={`relative rounded-xl bg-white p-3.5 sm:p-5 shadow-sm ${
+        minWidthClassName || (isLongValue ? 'min-w-[190px] sm:min-w-[270px]' : 'min-w-[160px] sm:min-w-[240px]')
+      } flex-shrink-0`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className={`flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full ${color}`}>
           <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
         </div>
-        <span className="text-[10px] sm:text-xs font-medium text-[#6f5448]">{subtitle}</span>
+        <span className="text-[10px] sm:text-xs font-medium text-[#6f5448] text-right truncate">{subtitle}</span>
       </div>
-      <p className="mt-1.5 sm:mt-2 text-xl sm:text-3xl font-black text-[#4b2417] truncate" title={String(value)}>{value}</p>
+      <p
+        className={`mt-1.5 sm:mt-2 font-black text-[#4b2417] truncate ${
+          isLongValue ? 'text-lg sm:text-2xl' : 'text-xl sm:text-3xl'
+        }`}
+        title={valueStr}
+      >
+        {value}
+      </p>
       <p className="text-xs sm:text-sm text-[#6f5448] truncate">{title}</p>
     </div>
   );
@@ -424,11 +440,11 @@ function StockModal({
                 <label className="block text-sm font-semibold text-[#4b2417]">
                   Available Inventory <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  placeholder="e.g. 20"
+                <DecimalInput
+                  min={0}
+                  placeholder="0"
                   value={stockInput}
-                  onChange={(e) => setStockInput(e.target.value)}
+                  onChange={(_val, raw) => setStockInput(raw)}
                   className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
                   required
                 />
@@ -438,11 +454,11 @@ function StockModal({
                 <label className="block text-sm font-semibold text-[#4b2417]" title="Average buying price. Updates when a purchase is received.">
                   Average Cost <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  placeholder="e.g. 20000"
+                <CurrencyInput
+                  min={0}
+                  placeholder="0"
                   value={priceInput}
-                  onChange={(e) => setPriceInput(e.target.value)}
+                  onChange={(val, raw) => setPriceInput(raw ? String(val) : '')}
                   className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
                   required
                 />
@@ -453,14 +469,14 @@ function StockModal({
           {mode === 'edit' && (
             <div>
               <label className="block text-sm font-semibold text-[#4b2417]">
-                Average Cost per Unit (IDR)
+                Average Cost per Unit (IDR) <span className="text-xs font-normal text-stone-400 ml-1">(Read-only)</span>
               </label>
               <input
                 type="text"
-                value={priceInput}
+                value={formatRupiah(Number(priceInput) || 0)}
                 disabled
                 readOnly
-                className="mt-1 w-full rounded-lg border border-[#d0bfaf] bg-gray-100 px-4 py-2 text-sm text-gray-600 cursor-not-allowed outline-none"
+                className="mt-1 w-full rounded-lg border border-[#d0bfaf] bg-gray-100 px-4 py-2 text-sm text-gray-600 cursor-not-allowed outline-none font-medium"
               />
               <p className="mt-1 text-xs text-gray-500">
                 Average cost is automatically calculated from purchases and stock movements. To change costs, use Purchases or Stock Adjustments.
@@ -472,10 +488,11 @@ function StockModal({
             <label className="block text-sm font-semibold text-[#4b2417]">
               Minimum Stock Alert <span className="text-red-500">*</span>
             </label>
-            <input
-              type="text"
+            <DecimalInput
+              min={0}
+              placeholder="0"
               value={minStockInput}
-              onChange={(e) => setMinStockInput(e.target.value)}
+              onChange={(_val, raw) => setMinStockInput(raw)}
               className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
               required
             />

@@ -132,6 +132,13 @@ function makeSlug(product: Pick<ProductOut, 'id' | 'nama_produk'>): string {
   return `${product.id}-${slugify(product.nama_produk)}`;
 }
 
+function normalizeCategoryName(raw?: string | null): string {
+  if (!raw) return '';
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+}
+
 function makeDefaultVariant(product: ProductOut): ProductVariant {
   const price = parseNumber(product.harga_jual);
   const minOrder = product.minimum_order && product.minimum_order > 0
@@ -191,7 +198,7 @@ export function mapProductOutToProduct(product: ProductOut): Product {
 
     slug: product.slug || makeSlug(product),
     name: product.nama_produk,
-    category: product.category?.name || product.kategori || '',
+    category: normalizeCategoryName(product.category?.name || product.kategori),
     categoryId: product.category_id ?? product.category?.id ?? null,
     description: descId ?? '',
     descriptionId: descId,
@@ -237,7 +244,7 @@ export function mapProductOutToProduct(product: ProductOut): Product {
 
     rasa: null,
     ukuranAtauIsi: null,
-    parentCategory: product.parent_category ?? product.category?.name ?? product.kategori ?? null,
+    parentCategory: normalizeCategoryName(product.parent_category ?? product.category?.name ?? product.kategori) || null,
     minimumOrder: product.minimum_order ?? 1,
 
     optionGroups: [],

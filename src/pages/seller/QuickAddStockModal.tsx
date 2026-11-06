@@ -22,7 +22,7 @@ const UNIT_OPTIONS: { value: StockUnitApi; label: string }[] = [
   { value: 'kg', label: 'kilogram (kg)' },
   { value: 'ml', label: 'milliliter (ml)' },
   { value: 'liter', label: 'liter (l)' },
-  { value: 'pcs', label: 'pieces (pcs - e.g. butir, box)' },
+  { value: 'pcs', label: 'pieces (pcs - e.g. pcs, box)' },
 ];
 
 const CATEGORY_OPTIONS: { value: StockCategoryApi; label: string }[] = [
@@ -165,11 +165,11 @@ export default function QuickAddStockModal({
 
             <div>
               <label className="block text-xs font-semibold text-[#4b2417] mb-1">
-                Item Name <span className="text-red-500">*</span>
+                Item Name <span className="text-red-500 ml-0.5">*</span>
               </label>
               <input
                 type="text"
-                placeholder="e.g. Tepung Terigu Protein Tinggi"
+                placeholder="e.g. High Protein Flour"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="w-full rounded-xl border border-[#d0bfaf] bg-white px-3.5 py-2 text-sm text-[#4b2417] outline-none transition focus:border-[#d85b30] focus:ring-2 focus:ring-[#d85b30]/20"
@@ -181,7 +181,7 @@ export default function QuickAddStockModal({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-[#4b2417] mb-1">
-                  Category <span className="text-red-500">*</span>
+                  Category <span className="text-red-500 ml-0.5">*</span>
                 </label>
                 <select
                   value={category}
@@ -199,7 +199,7 @@ export default function QuickAddStockModal({
 
               <div>
                 <label className="block text-xs font-semibold text-[#4b2417] mb-1">
-                  Unit <span className="text-red-500">*</span>
+                  Unit <span className="text-red-500 ml-0.5">*</span>
                 </label>
                 <select
                   value={unit}
@@ -219,9 +219,10 @@ export default function QuickAddStockModal({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-[#4b2417] mb-1">
-                  Initial Stock
+                  Initial Stock <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span>
                 </label>
                 <DecimalInput
+                  min={0}
                   value={stock}
                   onChange={(_val, raw) => setStock(raw)}
                   placeholder="0"
@@ -232,9 +233,10 @@ export default function QuickAddStockModal({
 
               <div>
                 <label className="block text-xs font-semibold text-[#4b2417] mb-1">
-                  Min. Threshold
+                  Min. Threshold <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span>
                 </label>
                 <DecimalInput
+                  min={0}
                   value={minStock}
                   onChange={(_val, raw) => setMinStock(raw)}
                   placeholder="0"
@@ -245,9 +247,10 @@ export default function QuickAddStockModal({
 
               <div>
                 <label className="block text-xs font-semibold text-[#4b2417] mb-1">
-                  Unit Cost (Rp)
+                  Unit Cost (Rp) <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span>
                 </label>
                 <CurrencyInput
+                  min={0}
                   value={pricePerUnit}
                   onChange={(val, raw) => setPricePerUnit(raw ? String(val) : '')}
                   placeholder="0"

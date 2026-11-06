@@ -10,7 +10,15 @@
     "orders": "My Orders",
     "profile": "Profile",
     "login_register": "Log In / Register",
-    "search": "Search for your favorite desserts..."
+    "search": "Search for your favorite desserts...",
+    "login": "Log In",
+    "open_menu": "Open navigation menu",
+    "mobile_menu": "Navigation Menu",
+    "mobile_nav": "Mobile Navigation",
+    "search_aria": "Search products",
+    "cart_aria": "Shopping cart",
+    "wishlist_aria": "Wishlist",
+    "language_aria": "Change language"
   },
   "auth": {
     "login": "Login",
@@ -105,7 +113,14 @@
     "change_email": "Change email",
     "resend_in": "Resend in",
     "sending": "Sending...",
-    "back_to_otp": "Back to OTP Input"
+    "back_to_otp": "Back to OTP Input",
+    "register_success": "Registration successful! Redirecting...",
+    "invalid_phone": "Phone number must be between 10 and 15 digits.",
+    "resend_wa_link": "Resend WhatsApp Link",
+    "email_label": "Email / Username",
+    "whatsapp_number": "WhatsApp Number",
+    "full_name": "Full Name",
+    "current_password": "Current Password"
   },
   "common": {
     "save": "Save",
@@ -124,7 +139,10 @@
     "page": "Page",
     "yes": "Yes",
     "no": "No",
-    "retry": "Try Again"
+    "retry": "Try Again",
+    "language": "Language",
+    "optional": "Optional",
+    "sold": "sold"
   },
   "whatsapp": {
     "chat": "Chat via WhatsApp",
@@ -278,7 +296,11 @@
     "success_delete": "Product successfully deleted!",
     "error_delete": "Failed to delete product.",
     "empty_list": "No products found.",
-    "loading": "Loading product data..."
+    "loading": "Loading product data...",
+    "prev_image": "Previous Image",
+    "next_image": "Next Image",
+    "form_incomplete": "Please complete all required product form fields first.",
+    "view_details": "View Details"
   },
   "catalog": {
     "badge": "Our Products",
@@ -515,6 +537,10 @@
     "error": "Failed to load notifications.",
     "retry": "Try Again",
     "mark_all_read": "Mark All as Read",
+    "clear_all": "Clear all",
+    "clearing": "Clearing...",
+    "bell_label": "Notifications",
+    "bell_label_unread": "Notifications, {{count}} unread",
     "order_created_title": "New Order",
     "order_created_msg": "Order {{orderNumber}} has been placed.",
     "order_status_updated_title": "Order Status Updated",
@@ -556,7 +582,10 @@
     "method_delivery_third_party": "Third Party",
     "invoice_download_started": "Downloading invoice...",
     "download_invoice": "Download Invoice",
-    "invoice_download_failed": "Failed to download invoice."
+    "invoice_download_failed": "Failed to download invoice.",
+    "status_cancelled_settlement_expired": "Settlement Expired",
+    "status_waiting_payment": "Waiting for Payment",
+    "status_waiting_confirmation": "Waiting for Seller Confirmation"
   },
   "order_detail": {
     "failed_load": "Failed to load order details",
@@ -603,11 +632,13 @@
     "ready_delivery": "Ready for Delivery",
     "in_delivery": "In Delivery",
     "estimated_completion": "Estimated completion",
-    "product_review": "Product Review"
+    "product_review": "Product Review",
+    "upload_file_hint": "JPG, PNG, WEBP (Max 5 MB per file)",
+    "payment_not_selected": "Not selected"
   },
   "home": {
     "packaged_well": "Orders are packed neatly to the destination.",
-    "made_with_love": "are made with love and attention to detail,",
+    "made_with_love": "is made with love and attention to detail, ",
     "add_to_cart": "Add to Cart",
     "hero_title_1": "Delicious Cakes,",
     "hero_title_2": "Memorable Moments",
@@ -676,7 +707,8 @@
     "add_photos": "Add Photos",
     "remove_photo": "Remove Photo",
     "invalid_format": "Invalid image format (JPG, PNG, WEBP allowed)",
-    "file_too_large": "Image must be 5 MB or smaller"
+    "file_too_large": "Image must be 5 MB or smaller",
+    "rating_label": "Rating"
   },
   "checkout": {
     "title": "Checkout",
@@ -766,7 +798,8 @@
     "failed_create_order": "Failed to create order.",
     "failed_get_instruction": "Failed to get payment instructions.",
     "failed_process_payment": "Failed to process payment.",
-    "fulfillment_date_range_error": "Fulfillment Date must be between tomorrow and 30 days from now."
+    "fulfillment_date_range_error": "Fulfillment Date must be between tomorrow and 30 days from now.",
+    "fulfillment_date": "Delivery / Pickup Date"
   },
   "faq": {
     "title": "Frequently Asked Questions",
@@ -889,6 +922,7 @@
     "rate_limited": "Too many requests. Please wait a moment.",
     "view_all_catalog": "View all products for \"{{query}}\"",
     "open_whatsapp": "Chat via WhatsApp",
-    "loading": "Searching..."
+    "loading": "Searching...",
+    "rate_limit_exceeded": "Search limit reached (max 30/min). Please try again later."
   }
 }

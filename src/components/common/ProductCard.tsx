@@ -11,7 +11,7 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, onAddToCart }: ProductCardProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const lowestPrice = getLowestPrice(product.variants)
   const variant = product.variants[0]
   const minOrder = variant?.minOrder || 1
@@ -77,18 +77,24 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
           {product.category}
         </p>
 
-        {stockText && (
-          <p className="mt-0.5 text-xs font-semibold text-green-700">
-            {stockText}
-          </p>
-        )}
+        <div className="min-h-[1.25rem] mt-0.5">
+          {stockText ? (
+            <p className="text-xs font-semibold text-green-700">
+              {stockText}
+            </p>
+          ) : !isPurchasable ? (
+            <p className="text-xs font-semibold text-red-600">
+              {badgeText || (i18n.language === 'en' ? 'Out of stock' : 'Stok habis')}
+            </p>
+          ) : null}
+        </div>
 
         <p className="mt-2 text-base font-black text-[#3A1F16]">
           {formatRupiah(lowestPrice)}
         </p>
 
         {/* Quantity Selector */}
-        <div className="mt-3 flex items-center gap-1 sm:gap-2">
+        <div className={`mt-3 flex items-center gap-1 sm:gap-2 ${!isPurchasable ? 'opacity-40 pointer-events-none' : ''}`}>
           <button
             onClick={decrement}
             disabled={!isPurchasable || quantity <= minOrder}

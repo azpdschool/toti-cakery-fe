@@ -5,6 +5,8 @@ export interface FaqOut {
   id: number
   pertanyaan: string
   jawaban: string
+  pertanyaan_en?: string | null
+  jawaban_en?: string | null
   created_by: number
   is_active: boolean
   created_at: string
@@ -15,12 +17,16 @@ export interface FaqOut {
 export interface FaqCreatePayload {
   pertanyaan: string
   jawaban: string
+  pertanyaan_en?: string | null
+  jawaban_en?: string | null
   is_active?: boolean
 }
 
 export interface FaqUpdatePayload {
   pertanyaan?: string
   jawaban?: string
+  pertanyaan_en?: string | null
+  jawaban_en?: string | null
   is_active?: boolean
 }
 

@@ -1,6 +1,9 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { getBuyerWishlist, addToWishlist, removeFromWishlist } from '@/services/wishlistService';
+import { invalidateWishlistCache } from '@/api/wishlist';
 import { toast } from 'react-hot-toast';
+
+export { invalidateWishlistCache };
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/hooks/useAuth';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';

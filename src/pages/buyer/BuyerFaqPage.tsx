@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { getAllFaqs, type FaqOut } from '@/api/faq';
 
 export default function BuyerFaqPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [searchParams] = useSearchParams();
   const targetIdParam = searchParams.get('id');
 
@@ -107,43 +107,48 @@ export default function BuyerFaqPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {faqs.map((faq) => (
-              <div
-                key={faq.id}
-                id={`faq-${faq.id}`}
-                className="overflow-hidden rounded-2xl bg-white shadow-sm transition-all hover:shadow-md"
-              >
-                <button
-                  onClick={() => toggleFaq(faq.id)}
-                  className="flex w-full items-center justify-between p-6 text-left"
-                  aria-expanded={openId === faq.id}
-                >
-                  <span className="text-lg font-bold text-[#4b2417]">
-                    {faq.pertanyaan}
-                  </span>
-                  <ChevronDown
-                    className={`h-5 w-5 text-[#d85b30] transition-transform duration-300 ${
-                      openId === faq.id ? 'rotate-180' : ''
-                    }`}
-                  />
-                </button>
+            {faqs.map((faq) => {
+              const isEn = i18n.language?.startsWith('en');
+              const question = isEn && faq.pertanyaan_en ? faq.pertanyaan_en : faq.pertanyaan;
+              const answer = isEn && faq.jawaban_en ? faq.jawaban_en : faq.jawaban;
+              return (
                 <div
-                  className={`grid transition-all duration-300 ease-in-out ${
-                    openId === faq.id
-                      ? 'grid-rows-[1fr] opacity-100'
-                      : 'grid-rows-[0fr] opacity-0'
-                  }`}
+                  key={faq.id}
+                  id={`faq-${faq.id}`}
+                  className="overflow-hidden rounded-2xl bg-white shadow-sm transition-all hover:shadow-md"
                 >
-                  <div className="overflow-hidden">
-                    <div className="p-6 pt-0">
-                      <p className="text-[#6f5448] leading-relaxed whitespace-pre-wrap">
-                        {faq.jawaban}
-                      </p>
+                  <button
+                    onClick={() => toggleFaq(faq.id)}
+                    className="flex w-full items-center justify-between p-6 text-left"
+                    aria-expanded={openId === faq.id}
+                  >
+                    <span className="text-lg font-bold text-[#4b2417]">
+                      {question}
+                    </span>
+                    <ChevronDown
+                      className={`h-5 w-5 text-[#d85b30] transition-transform duration-300 ${
+                        openId === faq.id ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
+                  <div
+                    className={`grid transition-all duration-300 ease-in-out ${
+                      openId === faq.id
+                        ? 'grid-rows-[1fr] opacity-100'
+                        : 'grid-rows-[0fr] opacity-0'
+                    }`}
+                  >
+                    <div className="overflow-hidden">
+                      <div className="p-6 pt-0">
+                        <p className="text-[#6f5448] leading-relaxed whitespace-pre-wrap">
+                          {answer}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

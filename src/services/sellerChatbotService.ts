@@ -14,6 +14,8 @@ export interface Faq {
   id: string
   question: string
   answer: string
+  question_en?: string | null
+  answer_en?: string | null
   status: FaqStatus
   order: number
   updatedBy: {
@@ -59,6 +61,8 @@ function mapFaqOutToFaq(item: FaqOut, index: number): Faq {
     id: String(item.id),
     question: item.pertanyaan,
     answer: item.jawaban,
+    question_en: item.pertanyaan_en ?? null,
+    answer_en: item.jawaban_en ?? null,
 
     status: item.is_active ? 'active' : 'inactive',
 
@@ -128,6 +132,8 @@ export async function addFaq(
   const created = await createFaq({
     pertanyaan: data.question,
     jawaban: data.answer,
+    pertanyaan_en: data.question_en?.trim() || null,
+    jawaban_en: data.answer_en?.trim() || null,
     is_active: data.status === 'active',
   })
 
@@ -140,11 +146,19 @@ export async function updateFaq(
     Omit<Faq, 'id' | 'createdAt' | 'updatedAt' | 'updatedBy' | 'order'>
   >,
 ): Promise<Faq> {
-  const updated = await editFaq(Number(id), {
+  const payload: any = {
     pertanyaan: data.question,
     jawaban: data.answer,
     is_active: data.status ? data.status === 'active' : undefined,
-  })
+  }
+  if (data.question_en !== undefined) {
+    payload.pertanyaan_en = data.question_en?.trim() || null
+  }
+  if (data.answer_en !== undefined) {
+    payload.jawaban_en = data.answer_en?.trim() || null
+  }
+
+  const updated = await editFaq(Number(id), payload)
 
   return mapFaqOutToFaq(updated, 0)
 }

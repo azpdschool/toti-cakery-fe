@@ -1,7 +1,7 @@
 import { createBuyerOrderAPI, BuyerOrderCreate, cancelBuyerOrderAPI } from '@/api/order';
 import { processPaymentAPI, PaymentChargeRequest, PaymentChargeResponse, getPaymentStatusAPI } from '@/api/payment';
-// src/services/buyerOrderService.ts
 import { apiClient } from '@/api/client'
+import i18n from '@/lib/i18n'
 
 export type OrderStatus =
   | 'pending'
@@ -235,6 +235,15 @@ function toNumber(value: ApiMaybeDecimal): number {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
+function getCurrentLocale(): string {
+  try {
+    const lang = localStorage.getItem('totilng') || localStorage.getItem('i18nextLng') || i18n.language || 'id'
+    return lang.toLowerCase().startsWith('en') ? 'en-US' : 'id-ID'
+  } catch {
+    return 'id-ID'
+  }
+}
+
 function toDateTimeParts(value?: string | null): { date: string; time: string } {
   if (!value) {
     return {
@@ -252,13 +261,15 @@ function toDateTimeParts(value?: string | null): { date: string; time: string } 
     }
   }
 
+  const locale = getCurrentLocale()
+
   return {
-    date: date.toLocaleDateString('id-ID', {
+    date: date.toLocaleDateString(locale, {
       day: 'numeric',
       month: 'long',
       year: 'numeric',
     }),
-    time: date.toLocaleTimeString('id-ID', {
+    time: date.toLocaleTimeString(locale, {
       hour: '2-digit',
       minute: '2-digit',
     }),
@@ -348,20 +359,52 @@ function normalizePaymentStatus(status?: string): PaymentStatus {
   return 'unpaid'
 }
 
-function normalizeDeliveryMethod(method?: string): DeliveryMethod {
-  const value = String(method || '').toLowerCase()
+function normalizeDeliveryMethod(
+  method?: string,
+  rawNotes?: string | null,
+  orderId?: string | number
+): DeliveryMethod {
+  const value = String(method || '').toLowerCase().trim()
 
-  if (value === 'delivery_toko' || value === 'delivery toko') {
-    return 'delivery_toko'
+  if (orderId) {
+    try {
+      const stored = localStorage.getItem(`toti_order_delivery_method_${orderId}`)
+      if (stored === 'delivery_third_party' || stored === 'delivery_toko') {
+        return stored as DeliveryMethod
+      }
+    } catch {
+      // ignore localStorage errors
+    }
   }
+
+  const notesStr = String(rawNotes || '')
+  const hasDeliveryNotes =
+    notesStr.includes('[DELIVERY INFO]') ||
+    notesStr.toLowerCase().includes('penerima:') ||
+    notesStr.toLowerCase().includes('alamat:')
+  const isThirdPartyFromNotes =
+    notesStr.includes('delivery_third_party') ||
+    notesStr.toLowerCase().includes('kurir instan') ||
+    notesStr.toLowerCase().includes('third_party')
 
   if (
     value === 'delivery_third_party' ||
     value === 'third_party' ||
     value === 'gojek' ||
-    value === 'grab'
+    value === 'grab' ||
+    (hasDeliveryNotes && isThirdPartyFromNotes)
   ) {
     return 'delivery_third_party'
+  }
+
+  if (
+    value === 'delivery_toko' ||
+    value === 'delivery toko' ||
+    value === 'delivery' ||
+    value === 'store_delivery' ||
+    hasDeliveryNotes
+  ) {
+    return 'delivery_toko'
   }
 
   return 'pickup'
@@ -419,6 +462,65 @@ function mapApiOrder(order: ApiOrder): BuyerOrder {
     toNumber(order.total ?? order.total_amount ?? order.grand_total) ||
     subtotal + serviceFee
 
+  const rawNotes = order.notes ?? order.catatan ?? null
+  let cleanedNotes = rawNotes
+  let parsedRecipientName =
+    order.recipient_name ??
+    order.recipientName ??
+    order.nama_penerima ??
+    null
+  let parsedRecipientPhone =
+    order.recipient_phone ??
+    order.recipientPhone ??
+    order.telepon_penerima ??
+    null
+  let parsedAddress = order.address ?? order.alamat ?? null
+
+  if (rawNotes && rawNotes.includes('[DELIVERY INFO]')) {
+    const match = rawNotes.match(
+      /\[DELIVERY INFO\]\s*(?:\[METODE:\s*([a-zA-Z0-9_-]+)\])?\s*Penerima:\s*([^(]+?)\s*(?:\(([^)]*)\))?,\s*Alamat:\s*([^\n\r]+)/i
+    )
+    if (match) {
+      if (!parsedRecipientName || parsedRecipientName === '-') {
+        parsedRecipientName = match[2]?.trim() || null
+      }
+      if (!parsedRecipientPhone || parsedRecipientPhone === '-') {
+        parsedRecipientPhone = match[3]?.trim() || null
+      }
+      if (!parsedAddress || parsedAddress === '-') {
+        parsedAddress = match[4]?.trim() || null
+      }
+    }
+    cleanedNotes = rawNotes
+      .replace(/\[DELIVERY INFO\][^\n\r]*(\r?\n)?/gi, '')
+      .trim()
+    if (!cleanedNotes) cleanedNotes = null
+  }
+
+  const orderId = order.id ? String(order.id) : undefined
+  const deliveryMethod = normalizeDeliveryMethod(
+    order.delivery_method ??
+      order.deliveryMethod ??
+      order.metode_pengiriman,
+    rawNotes,
+    orderId
+  )
+
+  let resolvedPaymentChannel =
+    order.payment_method ??
+    order.paymentMethod ??
+    order.metode_pembayaran ??
+    (order as any).pembayaran?.metode ??
+    null
+
+  if ((!resolvedPaymentChannel || resolvedPaymentChannel === '-') && orderId) {
+    try {
+      resolvedPaymentChannel = localStorage.getItem(`toti_payment_method_${orderId}`) || '-'
+    } catch {
+      resolvedPaymentChannel = '-'
+    }
+  }
+
   return {
     id: String(order.id ?? ''),
     orderNumber:
@@ -432,34 +534,18 @@ function mapApiOrder(order: ApiOrder): BuyerOrder {
     time,
     status: normalizeStatus(order.status ?? order.order_status),
 
-    deliveryMethod: normalizeDeliveryMethod(
-      order.delivery_method ??
-        order.deliveryMethod ??
-        order.metode_pengiriman,
-    ),
-    address: order.address ?? order.alamat ?? null,
-    customerName: order.customer_name ?? order.customer?.nama ?? order.recipient_name ?? null,
-    recipientName:
-      order.recipient_name ??
-      order.recipientName ??
-      order.nama_penerima ??
-      null,
-    recipientPhone:
-      order.recipient_phone ??
-      order.recipientPhone ??
-      order.telepon_penerima ??
-      null,
+    deliveryMethod,
+    address: parsedAddress,
+    customerName: order.customer_name ?? order.customer?.nama ?? parsedRecipientName ?? null,
+    recipientName: parsedRecipientName,
+    recipientPhone: parsedRecipientPhone,
     createdAt,
 
     paymentMethodPreference:
       order.payment_method_preference ??
       order.paymentMethodPreference ??
       'lunas',
-    paymentChannel:
-      order.payment_method ??
-      order.paymentMethod ??
-      order.metode_pembayaran ??
-      '-',
+    paymentChannel: resolvedPaymentChannel || '-',
     paymentStatus: normalizePaymentStatus(
       order.invoice?.status ??
       order.invoice_status ??
@@ -496,7 +582,7 @@ function mapApiOrder(order: ApiOrder): BuyerOrder {
       sisa_tagihan: (order.invoice as any).sisa_tagihan,
     } : null,
 
-    notes: order.notes ?? order.catatan ?? null,
+    notes: cleanedNotes,
     estimatedDate: order.estimated_date ?? order.estimatedDate ?? null,
     completedDate: order.completed_date ?? order.completedDate ?? null,
   }
@@ -642,7 +728,11 @@ export interface CreateOrderPayload {
 export async function createOrder(payload: CreateOrderPayload): Promise<BuyerOrder> {
   let finalNotes = payload.notes || '';
   if (payload.deliveryMethod !== 'pickup') {
-    const deliveryInfo = `[DELIVERY INFO] Penerima: ${payload.recipientName} (${payload.recipientPhone}), Alamat: ${payload.address}`;
+    const deliveryTag =
+      payload.deliveryMethod === 'delivery_third_party'
+        ? '[METODE: delivery_third_party] '
+        : '[METODE: delivery_toko] ';
+    const deliveryInfo = `[DELIVERY INFO] ${deliveryTag}Penerima: ${payload.recipientName || '-'} (${payload.recipientPhone || '-'}), Alamat: ${payload.address || '-'}`;
     finalNotes = finalNotes ? `${finalNotes}\n${deliveryInfo}` : deliveryInfo;
   }
 
@@ -661,7 +751,24 @@ export async function createOrder(payload: CreateOrderPayload): Promise<BuyerOrd
 
   const responseData = await createBuyerOrderAPI(buyerPayload);
   invalidateBuyerOrdersCache();
-  return mapApiOrder(responseData);
+  const mapped = mapApiOrder(responseData);
+  if (mapped.id) {
+    if (payload.deliveryMethod !== 'pickup') {
+      try {
+        localStorage.setItem(`toti_order_delivery_method_${mapped.id}`, payload.deliveryMethod);
+      } catch {
+        // ignore localStorage access error
+      }
+    }
+    if (payload.paymentMethod) {
+      try {
+        localStorage.setItem(`toti_payment_method_${mapped.id}`, payload.paymentMethod);
+      } catch {
+        // ignore localStorage access error
+      }
+    }
+  }
+  return mapped;
 }
 
 

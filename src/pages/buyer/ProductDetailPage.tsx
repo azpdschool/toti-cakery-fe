@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getProductBySlug, formatRupiah, getProductsByCategory } from '@/services/productService'
+import { getProductBySlug, formatRupiah, getProductsByCategory, getAllProductsDetailed } from '@/services/productService'
 import { getProductReviewsAPI } from '@/api/review'
 import type { ReviewResponse } from '@/api/review'
 
@@ -47,7 +47,9 @@ export default function ProductDetailPage() {
           setError(t('product_detail.failed_to_load'))
         } else {
           setProduct(data)
-          setQuantity(data.variants[0]?.minOrder || 1)
+          const minOrd = data.variants[0]?.minOrder || 1
+          const initQty = data.stockQuantity > 0 ? Math.min(data.stockQuantity, Math.max(minOrd, 1)) : 1
+          setQuantity(initQty)
 
           // Initial selected image: find isPrimary === true image or default to 0
           if (data.images && data.images.length > 0) {
@@ -62,13 +64,46 @@ export default function ProductDetailPage() {
             .then(res => setReviews(res))
             .catch(err => console.error("Failed to fetch reviews", err))
             
-          // Fetch Recommendations (same category)
+          // Fetch Recommendations (same category with client-side fallback)
           getProductsByCategory(data.category)
-            .then(catProducts => {
-              const recs = catProducts.filter(p => p.id !== data.id && p.backendId !== data.backendId && p.slug !== data.slug && p.isActive !== false && p.isAvailable !== false)
+            .then(async (catProducts) => {
+              let recs = catProducts.filter(p => p.id !== data.id && p.backendId !== data.backendId && p.slug !== data.slug && p.isActive !== false && p.isAvailable !== false)
+              if (recs.length === 0) {
+                try {
+                  const allProducts = await getAllProductsDetailed()
+                  recs = allProducts.filter((p: Product) => 
+                    p.id !== data.id &&
+                    p.backendId !== data.backendId &&
+                    p.slug !== data.slug &&
+                    p.isActive !== false &&
+                    p.isAvailable !== false &&
+                    p.category && data.category &&
+                    p.category.trim().toLowerCase() === data.category.trim().toLowerCase()
+                  )
+                } catch (e) {
+                  console.error("Failed to fetch fallback recommendations", e)
+                }
+              }
               setRecommendations(recs)
             })
-            .catch(err => console.error("Failed to fetch recommendations", err))
+            .catch(async (err) => {
+              console.error("Failed to fetch recommendations", err)
+              try {
+                const allProducts = await getAllProductsDetailed()
+                const recs = allProducts.filter((p: Product) => 
+                  p.id !== data.id &&
+                  p.backendId !== data.backendId &&
+                  p.slug !== data.slug &&
+                  p.isActive !== false &&
+                  p.isAvailable !== false &&
+                  p.category && data.category &&
+                  p.category.trim().toLowerCase() === data.category.trim().toLowerCase()
+                )
+                setRecommendations(recs)
+              } catch {
+                // ignore error
+              }
+            })
         }
       })
       .catch((err) => setError(err.message))
@@ -193,8 +228,11 @@ export default function ProductDetailPage() {
   }
 
   const variant = product.variants[0]
-  const isPurchasable = product.isAvailable && product.isInStock && product.stockQuantity > 0;
-  const maxQty = product.stockQuantity;
+  const minOrder = variant.minOrder || 1
+  const step = variant.step || 1
+  const isStockInsufficientForMin = product.stockQuantity > 0 && product.stockQuantity < minOrder
+  const isPurchasable = product.isAvailable && product.isInStock && product.stockQuantity > 0 && !isStockInsufficientForMin
+  const maxQty = product.stockQuantity
 
   const galleryImages = product.images && product.images.length > 0
     ? product.images
@@ -218,6 +256,8 @@ export default function ProductDetailPage() {
     badgeText = `⚠️ ${t('product_detail.unavailable')}`;
   } else if (!product.isInStock || maxQty <= 0) {
     badgeText = `⚠️ ${t('product_detail.out_of_stock')}`;
+  } else if (isStockInsufficientForMin) {
+    badgeText = `⚠️ ${i18n.language === 'en' ? `Stock is below minimum order (${minOrder})` : `Stok kurang dari minimum pemesanan (${minOrder})`}`;
   }
 
   const renderPurchasePanel = () => (
@@ -229,8 +269,8 @@ export default function ProductDetailPage() {
         <div className="flex items-center gap-3">
           <div className="flex items-center rounded-lg border border-[#D0BFAF] bg-white p-1">
             <button
-              onClick={() => setQuantity((q) => Math.max(variant.minOrder, q - variant.step))}
-              disabled={!isPurchasable || quantity <= variant.minOrder}
+              onClick={() => setQuantity((q) => Math.max(minOrder, q - step))}
+              disabled={!isPurchasable || quantity <= minOrder}
               className="flex h-8 w-8 items-center justify-center rounded-md text-[#3A1F16] hover:bg-[#F6EFE6] disabled:opacity-40 disabled:cursor-not-allowed"
               aria-label={t('product_detail.decrease_qty')}
               title={t('product_detail.decrease_qty')}
@@ -239,7 +279,7 @@ export default function ProductDetailPage() {
             </button>
             <span className="w-12 text-center text-sm font-semibold">{quantity}</span>
             <button
-              onClick={() => setQuantity((q) => Math.min(maxQty, q + variant.step))}
+              onClick={() => setQuantity((q) => Math.min(maxQty, q + step))}
               disabled={!isPurchasable || quantity >= maxQty}
               className="flex h-8 w-8 items-center justify-center rounded-md text-[#3A1F16] hover:bg-[#F6EFE6] disabled:opacity-40 disabled:cursor-not-allowed"
               aria-label={t('product_detail.increase_qty')}
@@ -613,8 +653,8 @@ export default function ProductDetailPage() {
           <div className="flex items-center rounded-lg border border-[#D0BFAF] bg-[#FAF5EF] p-0.5">
             <button
               type="button"
-              onClick={() => setQuantity((q) => Math.max(variant.minOrder, q - variant.step))}
-              disabled={!isPurchasable || quantity <= variant.minOrder}
+              onClick={() => setQuantity((q) => Math.max(minOrder, q - step))}
+              disabled={!isPurchasable || quantity <= minOrder}
               className="flex h-7 w-7 items-center justify-center rounded text-sm font-bold text-[#3A1F16] hover:bg-[#EAD8CA] disabled:opacity-40 disabled:cursor-not-allowed"
               aria-label={t('product_detail.decrease_qty')}
             >
@@ -623,7 +663,7 @@ export default function ProductDetailPage() {
             <span className="w-6 text-center text-xs font-bold text-[#3A1F16]">{quantity}</span>
             <button
               type="button"
-              onClick={() => setQuantity((q) => Math.min(maxQty, q + variant.step))}
+              onClick={() => setQuantity((q) => Math.min(maxQty, q + step))}
               disabled={!isPurchasable || quantity >= maxQty}
               className="flex h-7 w-7 items-center justify-center rounded text-sm font-bold text-[#3A1F16] hover:bg-[#EAD8CA] disabled:opacity-40 disabled:cursor-not-allowed"
               aria-label={t('product_detail.increase_qty')}

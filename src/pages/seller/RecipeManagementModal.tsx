@@ -83,7 +83,7 @@ export default function RecipeManagementModal({ productId, productName, onClose 
       await loadData();
     } catch (err: any) {
       console.error(err);
-      setError('Failed to delete material.');
+      setError('Failed to delete ingredient.');
     }
   };
 
@@ -110,7 +110,9 @@ export default function RecipeManagementModal({ productId, productName, onClose 
         </div>
         <div className="flex items-end gap-3 flex-wrap sm:flex-nowrap">
           <div className="flex-1 w-full sm:w-auto">
-            <label className="mb-1 block text-xs text-gray-500">Select Ingredient (from Inventory)</label>
+            <label className="mb-1 block text-xs font-semibold text-[#4b2417]">
+              Select Ingredient <span className="text-red-500 ml-0.5">*</span>
+            </label>
             <select
               value={selectedStockId}
               onChange={e => setSelectedStockId(e.target.value === '' ? '' : Number(e.target.value))}
@@ -128,7 +130,9 @@ export default function RecipeManagementModal({ productId, productName, onClose 
             </select>
           </div>
           <div className="w-full sm:w-32">
-            <label className="mb-1 block text-xs text-gray-500">Quantity</label>
+            <label className="mb-1 block text-xs font-semibold text-[#4b2417]">
+              Quantity <span className="text-red-500 ml-0.5">*</span>
+            </label>
             <DecimalInput
               value={quantity}
               onChange={(_num, raw) => setQuantity(raw)}

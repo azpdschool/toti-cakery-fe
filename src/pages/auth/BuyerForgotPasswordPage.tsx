@@ -21,6 +21,8 @@ import {
 } from '@/api/auth'
 import { LanguageToggle } from '@/components/common/Languagetoggle'
 
+import type { TFunction } from 'i18next'
+
 function maskEmail(val: string): string {
   if (!val || !val.includes('@')) return val
   const [name, domain] = val.split('@')
@@ -33,7 +35,11 @@ function maskEmail(val: string): string {
   return `${first}${asterisks}${last}@${domain}`
 }
 
-function parseApiError(error: unknown, fallback: string, t: any): string {
+function parseApiError(
+  error: unknown,
+  fallback: string,
+  t: TFunction,
+): string {
   if (error && typeof error === 'object') {
     const axiosErr = error as {
       code?: string
@@ -76,8 +82,7 @@ function parseApiError(error: unknown, fallback: string, t: any): string {
         const remainingMatch = detail.match(/sisa percobaan:\s*(\d+)/i)
         if (remainingMatch) {
           return t('auth.otp_wrong_with_remaining', {
-            count: remainingMatch[1],
-            defaultValue: `Kode OTP salah. Sisa percobaan: ${remainingMatch[1]}.`,
+            count: Number(remainingMatch[1]),
           })
         }
         if (
@@ -360,6 +365,11 @@ export default function BuyerForgotPasswordPage() {
         'Password berhasil diubah. Silakan login.',
       )
       toast.success(successToastMsg)
+      try {
+        sessionStorage.removeItem('buyer_reset_email')
+      } catch {
+        // ignore storage errors
+      }
       navigate(ROUTES.AUTH_BUYER, { replace: true })
     } catch (err) {
       const parsedError = parseApiError(
@@ -464,7 +474,7 @@ export default function BuyerForgotPasswordPage() {
           <form onSubmit={handleEmailSubmit} noValidate className="space-y-4">
             <div>
               <label className="block text-sm font-semibold text-[#4b2417] mb-1.5">
-                {t('auth.method_email', 'Email')}
+                {t('auth.method_email', 'Email')} <span className="text-red-500 ml-0.5">*</span>
               </label>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b7166]" />
@@ -518,7 +528,7 @@ export default function BuyerForgotPasswordPage() {
 
             <div>
               <label className="block text-sm font-semibold text-[#4b2417] mb-1.5">
-                {t('auth.otp_label', 'Kode OTP (6 digit)')}
+                {t('auth.otp_label', 'Kode OTP (6 digit)')} <span className="text-red-500 ml-0.5">*</span>
               </label>
               <input
                 type="text"
@@ -582,7 +592,7 @@ export default function BuyerForgotPasswordPage() {
           <form onSubmit={handleResetPassword} noValidate className="space-y-4">
             <div>
               <label className="block text-sm font-semibold text-[#4b2417] mb-1.5">
-                {t('auth.new_password', 'Password Baru')}
+                {t('auth.new_password', 'Password Baru')} <span className="text-red-500 ml-0.5">*</span>
               </label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b7166]" />
@@ -613,7 +623,7 @@ export default function BuyerForgotPasswordPage() {
 
             <div>
               <label className="block text-sm font-semibold text-[#4b2417] mb-1.5">
-                {t('auth.confirm_password', 'Konfirmasi Password Baru')}
+                {t('auth.confirm_password', 'Konfirmasi Password Baru')} <span className="text-red-500 ml-0.5">*</span>
               </label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b7166]" />

@@ -10,7 +10,15 @@
     "orders": "Pesanan Saya",
     "profile": "Profil",
     "login_register": "Masuk / Daftar",
-    "search": "Cari dessert favorit kamu..."
+    "search": "Cari dessert favorit kamu...",
+    "login": "Masuk",
+    "open_menu": "Buka menu navigasi",
+    "mobile_menu": "Menu Navigasi",
+    "mobile_nav": "Navigasi Mobile",
+    "search_aria": "Cari produk",
+    "cart_aria": "Keranjang belanja",
+    "wishlist_aria": "Wishlist",
+    "language_aria": "Ganti bahasa"
   },
   "auth": {
     "login": "Masuk",
@@ -105,7 +113,14 @@
     "change_email": "Ganti email",
     "resend_in": "Kirim ulang dalam",
     "sending": "Mengirim...",
-    "back_to_otp": "Kembali ke Input OTP"
+    "back_to_otp": "Kembali ke Input OTP",
+    "register_success": "Pendaftaran akun berhasil! Mengalihkan...",
+    "invalid_phone": "Nomor HP harus antara 10 hingga 15 digit.",
+    "resend_wa_link": "Kirim Ulang Link WhatsApp",
+    "email_label": "Email / Username",
+    "whatsapp_number": "Nomor WhatsApp",
+    "full_name": "Nama Lengkap",
+    "current_password": "Password Saat Ini"
   },
   "common": {
     "save": "Simpan",
@@ -124,7 +139,10 @@
     "page": "Halaman",
     "yes": "Ya",
     "no": "Tidak",
-    "retry": "Coba Lagi"
+    "retry": "Coba Lagi",
+    "language": "Pilihan Bahasa / Language",
+    "optional": "Opsional",
+    "sold": "terjual"
   },
   "whatsapp": {
     "chat": "Chat via WhatsApp",
@@ -278,7 +296,11 @@
     "success_delete": "Produk berhasil dihapus!",
     "error_delete": "Gagal menghapus produk.",
     "empty_list": "Belum ada produk.",
-    "loading": "Memuat data produk..."
+    "loading": "Memuat data produk...",
+    "prev_image": "Foto Sebelumnya",
+    "next_image": "Foto Selanjutnya",
+    "form_incomplete": "Mohon lengkapi seluruh data formulir produk terlebih dahulu.",
+    "view_details": "Lihat Detail"
   },
   "catalog": {
     "badge": "Produk Kami",
@@ -515,6 +537,10 @@
     "error": "Gagal memuat notifikasi.",
     "retry": "Coba Lagi",
     "mark_all_read": "Tandai Semua Dibaca",
+    "clear_all": "Hapus semua",
+    "clearing": "Menghapus...",
+    "bell_label": "Notifikasi",
+    "bell_label_unread": "Notifikasi, {{count}} belum dibaca",
     "order_created_title": "Pesanan Baru",
     "order_created_msg": "Pesanan {{orderNumber}} telah dibuat.",
     "order_status_updated_title": "Status Pesanan Diperbarui",
@@ -556,7 +582,10 @@
     "method_delivery_third_party": "Third Party",
     "invoice_download_started": "Mengunduh invoice...",
     "download_invoice": "Unduh Invoice",
-    "invoice_download_failed": "Gagal mengunduh invoice."
+    "invoice_download_failed": "Gagal mengunduh invoice.",
+    "status_cancelled_settlement_expired": "Batas Waktu Pelunasan Berakhir",
+    "status_waiting_payment": "Menunggu Pembayaran",
+    "status_waiting_confirmation": "Menunggu Konfirmasi Penjual"
   },
   "order_detail": {
     "failed_load": "Gagal memuat detail pesanan",
@@ -603,11 +632,13 @@
     "ready_delivery": "Siap Dikirim",
     "in_delivery": "Dalam Pengiriman",
     "estimated_completion": "Estimasi selesai",
-    "product_review": "Ulasan Produk"
+    "product_review": "Ulasan Produk",
+    "upload_file_hint": "JPG, PNG, WEBP (Maks 5 MB per file)",
+    "payment_not_selected": "Belum dipilih"
   },
   "home": {
     "packaged_well": "Pesanan dikemas rapi sampai tujuan.",
-    "made_with_love": "kami dibuat dengan penuh cinta dan perhatian pada detail,",
+    "made_with_love": "kami dibuat dengan penuh cinta dan perhatian pada detail, ",
     "add_to_cart": "Tambah ke Keranjang",
     "hero_title_1": "Kue Lezat,",
     "hero_title_2": "Momen Berkesan",
@@ -676,7 +707,8 @@
     "add_photos": "Tambah Foto",
     "remove_photo": "Hapus Foto",
     "invalid_format": "Format foto tidak valid (hanya JPG, PNG, WEBP)",
-    "file_too_large": "Ukuran foto maksimal 5 MB"
+    "file_too_large": "Ukuran foto maksimal 5 MB",
+    "rating_label": "Penilaian"
   },
   "checkout": {
     "title": "Checkout",
@@ -766,7 +798,8 @@
     "failed_create_order": "Gagal membuat pesanan.",
     "failed_get_instruction": "Gagal mendapatkan instruksi pembayaran.",
     "failed_process_payment": "Gagal memproses pembayaran.",
-    "fulfillment_date_range_error": "Tanggal pemenuhan pesanan harus antara besok dan 30 hari ke depan."
+    "fulfillment_date_range_error": "Tanggal pemenuhan pesanan harus antara besok dan 30 hari ke depan.",
+    "fulfillment_date": "Tanggal Pengiriman / Pengambilan"
   },
   "faq": {
     "title": "Pertanyaan yang Sering Diajukan",
@@ -889,6 +922,7 @@
     "rate_limited": "Terlalu banyak permintaan. Silakan tunggu beberapa saat.",
     "view_all_catalog": "Lihat semua produk untuk \"{{query}}\"",
     "open_whatsapp": "Hubungi via WhatsApp",
-    "loading": "Mencari..."
+    "loading": "Mencari...",
+    "rate_limit_exceeded": "Batas pencarian tercapai (maks. 30/menit). Mohon istirahat sejenak sebelum mencari lagi."
   }
 }

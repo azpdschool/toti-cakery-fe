@@ -191,7 +191,7 @@ export default function SupplierManagementModal({ isOpen, onClose }: SupplierMan
       {(mode === 'add' || mode === 'edit') && (
         <form onSubmit={handleSubmit} className="space-y-4" id="supplier-form">
           <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">Supplier Name <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-semibold text-[#4b2417]">Supplier Name <span className="text-red-500 ml-0.5">*</span></label>
             <input
               type="text"
               required
@@ -203,7 +203,7 @@ export default function SupplierManagementModal({ isOpen, onClose }: SupplierMan
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">Contact Person</label>
+            <label className="block text-sm font-semibold text-[#4b2417]">Contact Person <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span></label>
             <input
               type="text"
               value={formData.kontak_person}
@@ -214,7 +214,7 @@ export default function SupplierManagementModal({ isOpen, onClose }: SupplierMan
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">Phone Number</label>
+            <label className="block text-sm font-semibold text-[#4b2417]">Phone Number <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span></label>
             <input
               type="tel"
               value={formData.nomor_telepon}
@@ -225,7 +225,7 @@ export default function SupplierManagementModal({ isOpen, onClose }: SupplierMan
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">Email Address</label>
+            <label className="block text-sm font-semibold text-[#4b2417]">Email Address <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span></label>
             <input
               type="email"
               value={formData.email}

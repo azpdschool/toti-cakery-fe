@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { Link } from 'react-router-dom';
+import { ROUTES } from '@/constants';
 import { useToast } from '@/components/ui/Toast';
 import { toast } from 'react-hot-toast';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
@@ -25,6 +27,7 @@ import {
   AlertTriangle,
   ChevronLeft,
   ChevronRight,
+  Lock,
 } from 'lucide-react';
 import { SellerSortDropdown } from '@/components/ui/SellerSortDropdown';
 import { SellerFilterDropdown } from '@/components/ui/SellerFilterDropdown';
@@ -59,6 +62,7 @@ import {
   type WhatsAppStatus
 } from "@/services/whatsappService";
 import ImageCropper from '@/components/common/ImageCropper';
+import { roleLabel } from '@/lib/roles';
 
 // ============================================================
 // KOMPONEN TAB NAVIGATION
@@ -94,6 +98,7 @@ function TabButton({ label, icon: Icon, isActive, onClick }: TabButtonProps) {
 function ProfileTab() {
   const { t } = useTranslation();
   const { showToast } = useToast();
+  const { user: currentUser, updateUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -114,33 +119,19 @@ function ProfileTab() {
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-  // Password State
-  const [isEditingPassword, setIsEditingPassword] = useState(false);
-  const [passwordData, setPasswordData] = useState({
-    current: '',
-    new: '',
-    confirm: '',
-  });
-  const [showCurrent, setShowCurrent] = useState(false);
-  const [showNew, setShowNew] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [savingPassword, setSavingPassword] = useState(false);
-  const [passwordError, setPasswordError] = useState<string | null>(null);
-
-
   useEffect(() => {
     let ignore = false;
     const load = async () => {
       try {
         setLoading(true);
         setError(null);
-        const data = await getMyProfile();
+        const data = await getMyProfile(true);
         if (ignore) return;
         setProfile(data);
         setFormData({
-          username: data.username || '',
-          email: data.email || '',
-          phone_number: data.phone_number || '',
+          username: data.username || currentUser?.username || '',
+          email: data.email || currentUser?.email || '',
+          phone_number: data.phone_number || currentUser?.phone || '',
           nomor_wa_admin: data.nomor_wa_admin || '',
         });
       } catch (err: any) {
@@ -153,27 +144,27 @@ function ProfileTab() {
     };
     load();
     return () => { ignore = true; };
-  }, []);
+  }, [currentUser?.email, currentUser?.phone, currentUser?.username]);
 
   const handleEditClick = () => {
-    if (profile) {
+    if (profile || currentUser) {
       setFormData({
-        username: profile.username || '',
-        email: profile.email || '',
-        phone_number: profile.phone_number || '',
-        nomor_wa_admin: profile.nomor_wa_admin || '',
+        username: profile?.username || currentUser?.username || '',
+        email: profile?.email || currentUser?.email || '',
+        phone_number: profile?.phone_number || currentUser?.phone || '',
+        nomor_wa_admin: profile?.nomor_wa_admin || '',
       });
     }
     setIsEditing(true);
   };
 
   const handleCancelClick = () => {
-    if (profile) {
+    if (profile || currentUser) {
       setFormData({
-        username: profile.username || '',
-        email: profile.email || '',
-        phone_number: profile.phone_number || '',
-        nomor_wa_admin: profile.nomor_wa_admin || '',
+        username: profile?.username || currentUser?.username || '',
+        email: profile?.email || currentUser?.email || '',
+        phone_number: profile?.phone_number || currentUser?.phone || '',
+        nomor_wa_admin: profile?.nomor_wa_admin || '',
       });
     }
     setIsEditing(false);
@@ -206,6 +197,13 @@ function ProfileTab() {
       const updated = await updateMyProfile(payload);
       setProfile(updated);
       setIsEditing(false);
+      updateUser({
+        name: updated.username,
+        username: updated.username,
+        email: updated.email ?? undefined,
+        phone: updated.phone_number ?? undefined,
+        avatar_url: updated.avatar_url ?? undefined,
+      });
       showToast({ message: 'Profile updated successfully.', type: 'success' });
     } catch (err: any) {
       if (err.response?.data?.detail) {
@@ -246,6 +244,9 @@ function ProfileTab() {
       setIsUploadingAvatar(true);
       const updated = await uploadAvatar(croppedFile);
       setProfile(updated);
+      updateUser({
+        avatar_url: updated.avatar_url ?? undefined,
+      });
       showToast({ message: 'Profile photo updated successfully.', type: 'success' });
       setShowAvatarModal(false);
       if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl);
@@ -264,64 +265,6 @@ function ProfileTab() {
     setAvatarPreviewUrl(null);
   };
 
-  // Password Handlers
-  const handleEditPasswordClick = () => {
-    setPasswordData({ current: '', new: '', confirm: '' });
-    setPasswordError(null);
-    setShowCurrent(false);
-    setShowNew(false);
-    setShowConfirm(false);
-    setIsEditingPassword(true);
-  };
-
-  const handleCancelPasswordClick = () => {
-    setPasswordData({ current: '', new: '', confirm: '' });
-    setPasswordError(null);
-    setShowCurrent(false);
-    setShowNew(false);
-    setShowConfirm(false);
-    setIsEditingPassword(false);
-  };
-
-  const handleUpdatePassword = async () => {
-    if (!passwordData.current) {
-      setPasswordError('Current password is required');
-      return;
-    }
-    if (passwordData.new.length < 8) {
-      setPasswordError('New password must be at least 8 characters');
-      return;
-    }
-    if (passwordData.new !== passwordData.confirm) {
-      setPasswordError('Passwords do not match');
-      return;
-    }
-    
-    try {
-      setSavingPassword(true);
-      setPasswordError(null);
-      await changeMyPassword({
-        old_password: passwordData.current,
-        new_password: passwordData.new,
-      });
-      showToast({ message: 'Password updated successfully.', type: 'success' });
-      setPasswordData({ current: '', new: '', confirm: '' });
-      setShowCurrent(false);
-      setShowNew(false);
-      setShowConfirm(false);
-      setIsEditingPassword(false);
-    } catch (err: any) {
-      if (err.response?.data?.detail) {
-        setPasswordError(err.response.data.detail);
-      } else {
-        setPasswordError('Failed to update password.');
-      }
-      showToast({ message: 'Unable to update password right now.', type: 'error' });
-    } finally {
-      setSavingPassword(false);
-    }
-  };
-
   if (loading) return <div className="py-8 text-center text-gray-500">Loading profile...</div>;
   if (!profile) return <div className="py-8 text-center text-red-500">Failed to load profile.</div>;
 
@@ -331,11 +274,15 @@ function ProfileTab() {
       <div className="rounded-xl bg-white p-4 sm:p-6 shadow-sm">
         <div className="flex items-center gap-3 sm:gap-4">
           <div className="relative group">
-            {profile.avatar_url ? (
-              <img src={profile.avatar_url} alt="Avatar" className="h-14 w-14 sm:h-16 sm:w-16 rounded-full object-cover border border-[#d0bfaf]" />
+            {profile?.avatar_url || currentUser?.avatar_url ? (
+              <img
+                src={profile?.avatar_url || currentUser?.avatar_url!}
+                alt="Avatar"
+                className="h-14 w-14 sm:h-16 sm:w-16 rounded-full object-cover border border-[#d0bfaf]"
+              />
             ) : (
               <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-[#d85b30] text-xl sm:text-2xl font-black text-white">
-                {profile.username?.charAt(0).toUpperCase()}
+                {(currentUser?.name || currentUser?.username || profile?.username || 'U').charAt(0).toUpperCase()}
               </div>
             )}
             <label className="absolute inset-0 flex cursor-pointer items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity hover:opacity-100">
@@ -350,11 +297,13 @@ function ProfileTab() {
             </label>
           </div>
           <div>
-            <h3 className="text-base sm:text-lg font-bold text-[#4b2417]">{profile.username}</h3>
+            <h3 className="text-base sm:text-lg font-bold text-[#4b2417]">
+              {currentUser?.name || currentUser?.username || profile?.username}
+            </h3>
             <p className="text-xs sm:text-sm capitalize text-[#6f5448]">
-              {profile.role_name || (profile.role_id === 1 ? 'Owner' : profile.role_id === 2 ? 'Admin' : 'Staff')}
+              {profile?.role_name || (currentUser?.role ? roleLabel(currentUser.role) : (profile?.role_id === 1 ? 'Owner' : profile?.role_id === 2 ? 'Admin' : 'Staff'))}
             </p>
-            {profile.is_active ? (
+            {profile?.is_active ?? true ? (
               <p className="text-xs sm:text-sm text-green-600 font-semibold">Active</p>
             ) : (
               <p className="text-xs sm:text-sm text-red-600 font-semibold">Inactive</p>
@@ -386,10 +335,10 @@ function ProfileTab() {
 
         <div className="space-y-3 sm:space-y-4">
           <div>
-            <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">Username *</label>
+            <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">Username <span className="text-red-500 ml-0.5">*</span></label>
             <input
               type="text"
-              value={isEditing ? formData.username : profile.username}
+              value={isEditing ? formData.username : (profile?.username || currentUser?.username || '')}
               onChange={(e) => setFormData({ ...formData, username: e.target.value })}
               readOnly={!isEditing}
               className={`mt-1 w-full rounded-lg border px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none ${
@@ -400,10 +349,10 @@ function ProfileTab() {
             />
           </div>
           <div>
-            <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">Email (Optional)</label>
+            <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">Email <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span></label>
             <input
               type="email"
-              value={isEditing ? formData.email : (profile.email || '')}
+              value={isEditing ? formData.email : (profile?.email || currentUser?.email || '')}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               readOnly={!isEditing}
               className={`mt-1 w-full rounded-lg border px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none ${
@@ -414,10 +363,10 @@ function ProfileTab() {
             />
           </div>
           <div>
-            <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">Phone Number (Optional)</label>
+            <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">Phone Number <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span></label>
             <input
               type="tel"
-              value={isEditing ? formData.phone_number : (profile.phone_number || '')}
+              value={isEditing ? formData.phone_number : (profile?.phone_number || currentUser?.phone || '')}
               onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
               readOnly={!isEditing}
               className={`mt-1 w-full rounded-lg border px-3 sm:px-4 py-2 text-xs sm:text-sm outline-none ${
@@ -428,10 +377,10 @@ function ProfileTab() {
             />
           </div>
           <div>
-            <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">Admin WhatsApp Number (Optional)</label>
+            <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">Admin WhatsApp Number <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span></label>
             <input
               type="tel"
-              value={isEditing ? formData.nomor_wa_admin : (profile.nomor_wa_admin || '')}
+              value={isEditing ? formData.nomor_wa_admin : (profile?.nomor_wa_admin || '')}
               onChange={(e) => setFormData({ ...formData, nomor_wa_admin: e.target.value })}
               readOnly={!isEditing}
               placeholder={isEditing ? "Example: +62812..." : ""}
@@ -464,7 +413,101 @@ function ProfileTab() {
         )}
       </div>
 
-      {/* Change Password Section */}
+      {/* Avatar Edit Modal */}
+      {showAvatarModal && avatarPreviewUrl && (
+        <ImageCropper
+          imageSrc={avatarPreviewUrl}
+          title={t('profile.change_avatar_title', 'Ubah Foto Profil')}
+          cropShape="round"
+          aspectRatio={1}
+          onCrop={handleAvatarConfirm}
+          onCancel={handleAvatarCancel}
+          isUploading={isUploadingAvatar}
+        />
+      )}
+    </div>
+  );
+}
+
+// ============================================================
+// TAB 2: SECURITY (PASSWORD & SECURITY)
+// ============================================================
+
+function SecurityTab() {
+  const { t } = useTranslation();
+  const { showToast } = useToast();
+  const [isEditingPassword, setIsEditingPassword] = useState(false);
+  const [passwordData, setPasswordData] = useState({
+    current: '',
+    new: '',
+    confirm: '',
+  });
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+
+  const handleEditPasswordClick = () => {
+    setPasswordData({ current: '', new: '', confirm: '' });
+    setPasswordError(null);
+    setShowCurrent(false);
+    setShowNew(false);
+    setShowConfirm(false);
+    setIsEditingPassword(true);
+  };
+
+  const handleCancelPasswordClick = () => {
+    setPasswordData({ current: '', new: '', confirm: '' });
+    setPasswordError(null);
+    setShowCurrent(false);
+    setShowNew(false);
+    setShowConfirm(false);
+    setIsEditingPassword(false);
+  };
+
+  const handleUpdatePassword = async () => {
+    if (!passwordData.current) {
+      setPasswordError(t('settings.error_current_password_required', 'Current password is required'));
+      return;
+    }
+    if (passwordData.new.length < 8) {
+      setPasswordError(t('settings.error_new_password_min_length', 'New password must be at least 8 characters'));
+      return;
+    }
+    if (passwordData.new !== passwordData.confirm) {
+      setPasswordError(t('settings.error_passwords_not_match', 'Passwords do not match'));
+      return;
+    }
+    
+    try {
+      setSavingPassword(true);
+      setPasswordError(null);
+      await changeMyPassword({
+        old_password: passwordData.current,
+        new_password: passwordData.new,
+      });
+      showToast({ message: t('settings.password_updated_success', 'Password updated successfully.'), type: 'success' });
+      setPasswordData({ current: '', new: '', confirm: '' });
+      setShowCurrent(false);
+      setShowNew(false);
+      setShowConfirm(false);
+      setIsEditingPassword(false);
+    } catch (err) {
+      const axiosError = err as { response?: { data?: { detail?: string } } };
+      if (axiosError.response?.data?.detail) {
+        setPasswordError(axiosError.response.data.detail);
+      } else {
+        setPasswordError(t('settings.error_update_password', 'Failed to update password.'));
+      }
+      showToast({ message: t('settings.error_update_password_toast', 'Unable to update password right now.'), type: 'error' });
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4 sm:space-y-6">
       <div className="rounded-xl bg-white p-4 sm:p-6 shadow-sm">
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
@@ -502,12 +545,28 @@ function ProfileTab() {
                 className="mt-1 w-full rounded-lg border border-transparent bg-gray-50 px-3 sm:px-4 py-2 text-xs sm:text-sm text-gray-700 outline-none focus:border-transparent"
               />
             </div>
+            <div className="pt-1">
+              <Link
+                to={ROUTES.AUTH_SELLER_FORGOT_PASSWORD}
+                className="text-xs font-medium text-[#d85b30] hover:underline inline-flex items-center gap-1"
+              >
+                {t('settings.forgot_old_password', 'Forgot old password?')}
+              </Link>
+            </div>
           </div>
         ) : (
           <div>
             <div className="space-y-3 sm:space-y-4">
               <div>
-                <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">Current Password *</label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">Current Password <span className="text-red-500 ml-0.5">*</span></label>
+                  <Link
+                    to={ROUTES.AUTH_SELLER_FORGOT_PASSWORD}
+                    className="text-[11px] sm:text-xs font-medium text-[#d85b30] hover:underline"
+                  >
+                    {t('settings.forgot_old_password', 'Forgot old password?')}
+                  </Link>
+                </div>
                 <div className="relative mt-1">
                   <input
                     type={showCurrent ? 'text' : 'password'}
@@ -527,7 +586,7 @@ function ProfileTab() {
               </div>
 
               <div>
-                <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">New Password *</label>
+                <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">New Password <span className="text-red-500 ml-0.5">*</span></label>
                 <div className="relative mt-1">
                   <input
                     type={showNew ? 'text' : 'password'}
@@ -548,7 +607,7 @@ function ProfileTab() {
               </div>
 
               <div>
-                <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">Confirm New Password *</label>
+                <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">Confirm New Password <span className="text-red-500 ml-0.5">*</span></label>
                 <div className="relative mt-1">
                   <input
                     type={showConfirm ? 'text' : 'password'}
@@ -590,19 +649,6 @@ function ProfileTab() {
           </div>
         )}
       </div>
-
-      {/* Avatar Edit Modal */}
-      {showAvatarModal && avatarPreviewUrl && (
-        <ImageCropper
-          imageSrc={avatarPreviewUrl}
-          title={t('profile.change_avatar_title', 'Ubah Foto Profil')}
-          cropShape="round"
-          aspectRatio={1}
-          onCrop={handleAvatarConfirm}
-          onCancel={handleAvatarCancel}
-          isUploading={isUploadingAvatar}
-        />
-      )}
     </div>
   );
 }
@@ -653,8 +699,8 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.username || !formData.email || !formData.phone_number) {
-      toast.error('All fields are required');
+    if (!formData.username.trim()) {
+      toast.error('Username is required');
       return;
     }
     
@@ -704,7 +750,7 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
       <form id="user-form" onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
         <div>
           <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">
-            Username *
+            Username <span className="text-red-500 ml-0.5">*</span>
           </label>
           <input
             type="text"
@@ -718,7 +764,7 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
         
         <div>
           <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">
-            Email
+            Email <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span>
           </label>
           <input
             type="email"
@@ -731,7 +777,7 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
 
         <div>
           <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">
-            Phone Number
+            Phone Number <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span>
           </label>
           <input
             type="text"
@@ -744,7 +790,7 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
 
         <div>
           <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">
-            Role *
+            Role <span className="text-red-500 ml-0.5">*</span>
           </label>
           <select
             value={formData.role_id}
@@ -769,7 +815,7 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
         {!initialData && (
           <div>
             <label className="block text-xs sm:text-sm font-semibold text-[#4b2417]">
-              Password *
+              Password <span className="text-red-500 ml-0.5">*</span>
             </label>
             <div className="relative mt-1">
               <input
@@ -1663,7 +1709,7 @@ function EmailSenderTab() {
                   </p>
                 ) : (
                   <p className="text-sm italic text-stone-500">
-                    Belum diatur (Not configured yet)
+                    Not configured yet
                   </p>
                 )}
               </div>
@@ -1743,7 +1789,7 @@ function EmailSenderTab() {
       <form onSubmit={handleSubmit} className="max-w-xl space-y-4">
         <div>
           <label className="block text-sm font-semibold text-[#4b2417] mb-1">
-            From Name *
+            From Name <span className="text-red-500 ml-0.5">*</span>
           </label>
           <input
             type="text"
@@ -1760,7 +1806,7 @@ function EmailSenderTab() {
 
         <div>
           <label className="block text-sm font-semibold text-[#4b2417] mb-1">
-            From Email *
+            From Email <span className="text-red-500 ml-0.5">*</span>
           </label>
           <input
             type="email"
@@ -2017,7 +2063,14 @@ function StoreCustomizationTab() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (mapsEmbedUrl.trim() && !isGoogleMapsEmbedUrl(mapsEmbedUrl.trim())) {
+    let finalMapsUrl = mapsEmbedUrl.trim();
+    const iframeMatch = finalMapsUrl.match(/<iframe.*?src=["']([^"']+)["']/i);
+    if (iframeMatch) {
+      finalMapsUrl = iframeMatch[1].trim();
+      setMapsEmbedUrl(finalMapsUrl);
+    }
+
+    if (finalMapsUrl && !isGoogleMapsEmbedUrl(finalMapsUrl)) {
       toast.error('Google Maps must use a valid HTTPS embed URL (https://www.google.com/maps/embed?...).');
       return;
     }
@@ -2039,7 +2092,7 @@ function StoreCustomizationTab() {
       },
       hero_image_url: heroImageUrl.trim() || null,
       store_address: storeAddress.trim() || null,
-      maps_embed_url: mapsEmbedUrl.trim() || null,
+      maps_embed_url: finalMapsUrl || null,
     };
 
     try {
@@ -2241,7 +2294,7 @@ function StoreCustomizationTab() {
             <div className="space-y-3.5 sm:space-y-4">
               <div>
                 <label className="block text-xs font-bold text-[#4b2417] mb-1">
-                  Hero Title (ID)
+                  Hero Title (ID) <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span>
                 </label>
                 <input
                   type="text"
@@ -2257,7 +2310,7 @@ function StoreCustomizationTab() {
 
               <div>
                 <label className="block text-xs font-bold text-[#4b2417] mb-1">
-                  Hero Subtitle (ID)
+                  Hero Subtitle (ID) <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span>
                 </label>
                 <textarea
                   rows={2}
@@ -2273,7 +2326,7 @@ function StoreCustomizationTab() {
 
               <div>
                 <label className="block text-xs font-bold text-[#4b2417] mb-1">
-                  About Section Title (ID)
+                  About Section Title (ID) <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span>
                 </label>
                 <input
                   type="text"
@@ -2289,7 +2342,7 @@ function StoreCustomizationTab() {
 
               <div>
                 <label className="block text-xs font-bold text-[#4b2417] mb-1">
-                  About Description (ID)
+                  About Description (ID) <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span>
                 </label>
                 <textarea
                   rows={4}
@@ -2307,7 +2360,7 @@ function StoreCustomizationTab() {
             <div className="space-y-3.5 sm:space-y-4">
               <div>
                 <label className="block text-xs font-bold text-[#4b2417] mb-1">
-                  Hero Title (EN)
+                  Hero Title (EN) <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span>
                 </label>
                 <input
                   type="text"
@@ -2323,7 +2376,7 @@ function StoreCustomizationTab() {
 
               <div>
                 <label className="block text-xs font-bold text-[#4b2417] mb-1">
-                  Hero Subtitle (EN)
+                  Hero Subtitle (EN) <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span>
                 </label>
                 <textarea
                   rows={2}
@@ -2339,7 +2392,7 @@ function StoreCustomizationTab() {
 
               <div>
                 <label className="block text-xs font-bold text-[#4b2417] mb-1">
-                  About Section Title (EN)
+                  About Section Title (EN) <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span>
                 </label>
                 <input
                   type="text"
@@ -2355,7 +2408,7 @@ function StoreCustomizationTab() {
 
               <div>
                 <label className="block text-xs font-bold text-[#4b2417] mb-1">
-                  About Description (EN)
+                  About Description (EN) <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span>
                 </label>
                 <textarea
                   rows={4}
@@ -2386,7 +2439,7 @@ function StoreCustomizationTab() {
 
           <div>
             <label className="block text-xs font-bold text-[#4b2417] mb-1">
-              Store Address
+              Store Address <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span>
             </label>
             <textarea
               rows={2}
@@ -2402,13 +2455,17 @@ function StoreCustomizationTab() {
 
           <div>
             <label className="block text-xs font-bold text-[#4b2417] mb-1">
-              Google Maps Embed URL
+              Google Maps Embed URL <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span>
             </label>
             <input
               type="url"
               maxLength={2048}
               value={mapsEmbedUrl}
-              onChange={(e) => setMapsEmbedUrl(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                const match = val.match(/<iframe.*?src=["']([^"']+)["']/i);
+                setMapsEmbedUrl(match ? match[1] : val);
+              }}
               placeholder="https://www.google.com/maps/embed?pb=..."
               className={`w-full rounded-lg border bg-white px-3 sm:px-3.5 py-2 text-xs sm:text-sm outline-none transition ${
                 mapsEmbedUrl.trim() && !isMapsValid
@@ -2523,7 +2580,7 @@ function StoreCustomizationTab() {
 // KOMPONEN UTAMA SETTINGS
 // ============================================================
 
-type SettingsTab = 'profile' | 'users' | 'whatsapp' | 'email_sender' | 'store_customization';
+type SettingsTab = 'profile' | 'security' | 'users' | 'whatsapp' | 'email_sender' | 'store_customization';
 
 export default function SellerSettingsPage() {
   const { user: currentUser } = useAuth();
@@ -2532,6 +2589,7 @@ export default function SellerSettingsPage() {
 
   const tabs = useMemo(() => [
     { key: 'profile' as const, label: 'My Profile', icon: User },
+    { key: 'security' as const, label: 'Security', icon: Lock },
     ...(isOwner ? [{ key: 'users' as const, label: 'Users', icon: Users }] : []),
     ...(!isStaff ? [{ key: 'whatsapp' as const, label: 'WhatsApp', icon: MessageCircle }] : []),
     ...(isOwner ? [{ key: 'email_sender' as const, label: 'Email Sender', icon: Mail }] : []),
@@ -2641,6 +2699,7 @@ export default function SellerSettingsPage() {
 
       <div>
         {activeTab === 'profile' && <ProfileTab />}
+        {activeTab === 'security' && <SecurityTab />}
         {activeTab === 'users' && isOwner && <UsersTab />}
         {activeTab === 'whatsapp' && !isStaff && <WhatsAppTab />}
         {activeTab === 'email_sender' && isOwner && <EmailSenderTab />}

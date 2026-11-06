@@ -464,34 +464,34 @@ export default function PurchaseManagementModal({ isOpen, onClose, onSuccess }: 
             <form onSubmit={handleFormSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold">Supplier <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-semibold text-[#4b2417]">Supplier <span className="text-red-500 ml-0.5">*</span></label>
                   <select required value={supplierId} onChange={e => setSupplierId(e.target.value)} className="w-full mt-1 p-2 border rounded-lg text-sm">
                     <option value="">Select Supplier</option>
                     {suppliers.map(s => <option key={s.id} value={s.id}>{s.nama_supplier}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold">PO Number</label>
-                  <input type="text" value={poNumber} onChange={e => setPoNumber(e.target.value)} className="w-full mt-1 p-2 border rounded-lg text-sm" placeholder="Optional" />
+                  <label className="block text-sm font-semibold text-[#4b2417]">PO Number <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span></label>
+                  <input type="text" value={poNumber} onChange={e => setPoNumber(e.target.value)} className="w-full mt-1 p-2 border rounded-lg text-sm" placeholder="e.g. PO-2026-001" />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-semibold">Notes</label>
-                <input type="text" value={notes} onChange={e => setNotes(e.target.value)} className="w-full mt-1 p-2 border rounded-lg text-sm" placeholder="Optional" />
+                <label className="block text-sm font-semibold text-[#4b2417]">Notes <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span></label>
+                <input type="text" value={notes} onChange={e => setNotes(e.target.value)} className="w-full mt-1 p-2 border rounded-lg text-sm" placeholder="e.g. Delivered by vendor truck" />
               </div>
               
               <div className="mt-6">
                 <div className="flex justify-between items-center mb-2">
-                  <h3 className="font-bold">Items</h3>
+                  <h3 className="font-bold text-[#4b2417]">Items <span className="text-red-500 ml-0.5">*</span></h3>
                   <button type="button" onClick={() => setItems([...items, { stock_item_id: '', jumlah: '', harga_total: '' }])} className="text-sm text-[#d85b30] font-semibold flex items-center"><Plus className="w-4 h-4"/> Add Item</button>
                 </div>
                 
                 <div className="overflow-x-auto pb-2">
                   <div className="min-w-[500px]">
                     <div className="flex gap-2 mb-1 px-1">
-                      <div className="flex-1 text-xs font-semibold text-gray-500">Ingredient / Stock Item</div>
-                      <div className="w-28 text-xs font-semibold text-gray-500">Quantity</div>
-                      <div className="w-36 text-xs font-semibold text-gray-500">Total Price (Rp)</div>
+                      <div className="flex-1 text-xs font-semibold text-gray-500">Ingredient / Stock Item <span className="text-red-500 ml-0.5">*</span></div>
+                      <div className="w-28 text-xs font-semibold text-gray-500">Quantity <span className="text-red-500 ml-0.5">*</span></div>
+                      <div className="w-36 text-xs font-semibold text-gray-500">Total Price (Rp) <span className="text-red-500 ml-0.5">*</span></div>
                       {items.length > 1 && <div className="w-9"></div>}
                     </div>
                     

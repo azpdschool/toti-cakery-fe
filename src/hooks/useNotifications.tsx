@@ -7,8 +7,11 @@ import {
   fetchUnreadCountApi,
   markNotificationReadApi,
   markAllNotificationsReadApi,
+  invalidateNotificationCache,
 } from '@/api/notification';
 import type { NotificationItem } from '@/types/notification';
+
+export { invalidateNotificationCache };
 
 import { getTranslatedNotification, type TranslatedNotification } from '@/utils/notificationTranslator';
 import { calculateToastDuration } from '@/components/ui/SmartToastBar';
@@ -77,13 +80,13 @@ export function useNotifications() {
       });
 
       initialFetchDoneRef.current = true;
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to fetch notifications:', err);
-      setError('Gagal memuat notifikasi.');
+      setError('Failed to load notifications.');
     } finally {
       if (showLoading) setLoading(false);
     }
-  }, [user?.id, user?.role]);
+  }, [user?.id]);
 
   const markAsRead = async (id: number) => {
     try {

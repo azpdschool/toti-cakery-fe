@@ -58,7 +58,7 @@ const allMenuItems = [
     path: ROUTES.SELLER_SETTINGS,
     label: 'Settings',
     icon: Settings,
-    permission: 'manage_users',
+    permission: 'view_settings',
   },
 ]
 
@@ -97,7 +97,7 @@ export function SellerSidebar({ isOpen, onClose }: SellerSidebarProps) {
   const role = user?.role
 
   const menuItems = allMenuItems.filter((item) => {
-    return hasPermission(role, item.permission)
+    return !item.permission || hasPermission(role, item.permission)
   })
 
   return (
@@ -156,9 +156,9 @@ export function SellerSidebar({ isOpen, onClose }: SellerSidebarProps) {
 
         <div className="mt-auto border-t border-[#4b2417]/10 pt-4">
           <div className="flex items-center gap-3 rounded-lg bg-[#4b2417]/5 p-3">
-            {avatarUrl ? (
+            {avatarUrl || user?.avatar_url ? (
               <img
-                src={avatarUrl}
+                src={avatarUrl || user?.avatar_url!}
                 alt={user?.name || user?.username || 'Profile'}
                 className="h-10 w-10 shrink-0 rounded-full object-cover"
               />

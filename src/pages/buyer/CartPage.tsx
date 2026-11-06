@@ -100,13 +100,19 @@ export default function CartPage() {
   const fallbackCategoryName = t('cart.category_other', 'Lainnya')
   
   const groupedItems = useMemo(() => {
-    const groups: Record<string, CartItem[]> = {}
+    const groupMap: Record<string, { displayName: string; items: CartItem[] }> = {}
     items.forEach((item) => {
-      const cat = item.category?.trim() || fallbackCategoryName
-      if (!groups[cat]) {
-        groups[cat] = []
+      const rawCat = item.category?.trim() || fallbackCategoryName
+      const key = rawCat.toLowerCase()
+      if (!groupMap[key]) {
+        const displayName = rawCat.charAt(0).toUpperCase() + rawCat.slice(1)
+        groupMap[key] = { displayName, items: [] }
       }
-      groups[cat].push(item)
+      groupMap[key].items.push(item)
+    })
+    const groups: Record<string, CartItem[]> = {}
+    Object.values(groupMap).forEach(({ displayName, items }) => {
+      groups[displayName] = items
     })
     return groups
   }, [items, fallbackCategoryName])
@@ -273,7 +279,7 @@ export default function CartPage() {
                             <button
                               type="button"
                               onClick={() => updateQuantity(item.productId, item.variantId, item.quantity - item.step)}
-                              disabled={isUnavailable || isUnknown || isValidating}
+                              disabled={isUnavailable || isUnknown || isValidating || item.quantity <= (item.minOrder || 1)}
                               className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#D0BFAF] bg-white text-[#3A1F16] hover:bg-[#E8DCCB] disabled:opacity-40 disabled:cursor-not-allowed transition"
                               aria-label={t('cart.decrease_qty', 'Kurangi jumlah')}
                               title={t('cart.decrease_qty', 'Kurangi jumlah')}

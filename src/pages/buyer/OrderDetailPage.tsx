@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import i18n from '@/lib/i18n'
+import type { TFunction } from 'i18next'
 import { useState, useEffect, useCallback } from 'react'
 import type React from 'react'
 import { Link, useParams, Navigate } from 'react-router-dom'
@@ -15,6 +15,7 @@ import {
   Package,
   User,
   Phone,
+  MapPin,
   Loader2,
   Star,
   Upload,
@@ -47,66 +48,66 @@ import {
   PaymentSupportCard
 } from '@/components/payment'
 
-const statusMap: Record<
-  OrderStatus,
-  { label: string; icon: React.ElementType; color: string }
-> = {
+const getStatusMap = (
+  t: TFunction
+): Record<OrderStatus, { label: string; icon: React.ElementType; color: string }> => ({
   pending: {
-    label: i18n.language === 'en' ? 'Waiting for Confirmation' : 'Menunggu Konfirmasi',
+    label: t('orders.status_pending', 'Menunggu'),
     icon: Clock,
     color: 'text-yellow-600 bg-yellow-50',
   },
   processed: {
-    label: 'Sedang Diproses',
+    label: t('orders.status_processed', 'Diproses'),
     icon: Package,
     color: 'text-blue-600 bg-blue-50',
   },
   shipped: {
-    label: 'Dalam Perjalanan',
+    label: t('orders.status_shipped', 'Dikirim'),
     icon: Truck,
     color: 'text-purple-600 bg-purple-50',
   },
   completed: {
-    label: i18n.language === 'en' ? 'Completed' : 'Selesai',
+    label: t('orders.status_completed', 'Selesai'),
     icon: CheckCircle,
     color: 'text-green-600 bg-green-50',
   },
   ready: {
-    label: 'Siap',
+    label: t('orders.status_ready', 'Siap'),
     icon: CheckCircle,
     color: 'text-teal-600 bg-teal-50',
   },
   cancelled: {
-    label: 'Dibatalkan',
+    label: t('orders.status_cancelled', 'Dibatalkan'),
     icon: XCircle,
     color: 'text-red-600 bg-red-50',
   },
   refunded: {
-    label: 'Dikembalikan',
+    label: t('orders.status_refunded', 'Dikembalikan'),
     icon: XCircle,
     color: 'text-red-600 bg-red-50',
   },
   cancelled_settlement_expired: {
-    label: i18n.language === 'en' ? 'Settlement Expired' : 'Batas Waktu Pelunasan Berakhir',
+    label: t('orders.status_cancelled_settlement_expired', 'Batas Waktu Pelunasan Berakhir'),
     icon: XCircle,
     color: 'text-red-600 bg-red-50',
   },
-}
+})
 
-const methodMap: Record<
-  string,
-  { label: string; icon: React.ElementType }
-> = {
-  pickup: { label: 'Pickup (Ambil di Toko)', icon: Store },
-  delivery_toko: { label: 'Delivery oleh Toko', icon: Truck },
-  delivery_third_party: { label: 'Delivery Pihak Ketiga', icon: Send },
-}
+const getMethodMap = (
+  t: TFunction
+): Record<string, { label: string; icon: React.ElementType }> => ({
+  pickup: { label: t('orders.method_pickup', 'Pickup'), icon: Store },
+  delivery_toko: { label: t('orders.method_delivery_toko', 'Delivery Toko'), icon: Truck },
+  delivery_third_party: { label: t('orders.method_delivery_third_party', 'Third Party'), icon: Send },
+})
 
 export default function OrderDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { user, isAuthenticated } = useAuth()
 
   const { t, i18n } = useTranslation()
+  const statusMap = getStatusMap(t)
+  const methodMap = getMethodMap(t)
   const [order, setOrder] = useState<BuyerOrder | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -165,6 +166,9 @@ export default function OrderDetailPage() {
 
       if (resultStatus === 'pending' || resultStatus === 'success' || hasInstruction) {
         setPaymentInstructions(result);
+        try {
+          localStorage.setItem(`toti_payment_method_${order.id}`, payRemainingMethod);
+        } catch {}
         setShowPayRemaining(false);
       } else {
         setError(i18n.language === 'en' ? 'Failed to get settlement payment instructions' : 'Gagal mendapatkan instruksi pembayaran untuk pelunasan');
@@ -341,13 +345,21 @@ export default function OrderDetailPage() {
         setOrder(data)
         
         const needsPayment = data.paymentStatus === 'unpaid' || (data.paymentStatus === 'partial' && (data.amountDue === undefined || data.amountDue > 0));
-        if (data.status !== 'cancelled' && data.status !== 'cancelled_settlement_expired' && needsPayment) {
+        if (data.status !== 'cancelled' && data.status !== 'cancelled_settlement_expired') {
           try {
             const paymentData = await getOrderPaymentStatus(id)
             if (paymentData.payments && paymentData.payments.length > 0) {
-              // Find the latest pending payment
-              const pendingPayment = paymentData.payments.reverse().find((p: any) => p.payment_status.toLowerCase() === 'pending');
-              if (pendingPayment && (pendingPayment.qris_url || pendingPayment.va_number)) {
+              const pendingPayment = paymentData.payments.slice().reverse().find((p: any) => p.payment_status?.toLowerCase() === 'pending');
+              const paidPayment = paymentData.payments.slice().reverse().find((p: any) => {
+                const s = p.payment_status?.toLowerCase();
+                return s === 'success' || s === 'settlement' || s === 'paid';
+              });
+
+              if (needsPayment && pendingPayment && (pendingPayment.qris_url || pendingPayment.va_number)) {
+                setPaymentInstructions(pendingPayment);
+              } else if (paidPayment) {
+                setPaymentInstructions(paidPayment);
+              } else if (pendingPayment) {
                 setPaymentInstructions(pendingPayment);
               } else {
                 setPaymentInstructions(null);
@@ -357,6 +369,7 @@ export default function OrderDetailPage() {
             }
           } catch (err) {
             console.error('Gagal memuat status pembayaran:', err)
+            setPaymentInstructions(null);
           }
         } else {
           setPaymentInstructions(null);
@@ -771,20 +784,29 @@ export default function OrderDetailPage() {
                 </div>
 
                 {isDelivery && (
-                  <div className="mt-3 space-y-1 border-t border-[#ead8ca] pt-3 text-xs">
+                  <div className="mt-3 space-y-1.5 border-t border-[#ead8ca] pt-3 text-xs">
                     <div className="flex items-center gap-2">
-                      <User className="h-3.5 w-3.5 text-[#6f5448]" />
-                      <span className="text-[#4b2417]">
+                      <User className="h-3.5 w-3.5 text-[#6f5448] shrink-0" />
+                      <span className="font-semibold text-[#4b2417]">
                         {order.recipientName || '-'}
                       </span>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <Phone className="h-3.5 w-3.5 text-[#6f5448]" />
+                      <Phone className="h-3.5 w-3.5 text-[#6f5448] shrink-0" />
                       <span className="text-[#4b2417]">
                         {order.recipientPhone || '-'}
                       </span>
                     </div>
+
+                    {order.address && (
+                      <div className="flex items-start gap-2 pt-0.5">
+                        <MapPin className="h-3.5 w-3.5 text-[#6f5448] shrink-0 mt-0.5" />
+                        <span className="text-[#6f5448] leading-relaxed">
+                          {order.address}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -818,10 +840,20 @@ export default function OrderDetailPage() {
                     <span className="text-[#6f5448]">{t('order_detail.method')}</span>
                     <span className="font-medium text-[#4b2417]">
                       {(() => {
-                        const activeMethod = paymentInstructions?.payment_method || (order.paymentChannel !== '-' ? order.paymentChannel : null);
-                        if (activeMethod === 'qris') return t('checkout.qris');
-                        if (activeMethod === 'bank_transfer') return t('checkout.bca_va');
-                        return i18n.language === 'en' ? 'Not selected' : 'Belum dipilih';
+                        const rawMethod =
+                          paymentInstructions?.payment_method ||
+                          paymentInstructions?.payment_type ||
+                          (order.paymentChannel && order.paymentChannel !== '-' ? order.paymentChannel : null) ||
+                          localStorage.getItem(`toti_payment_method_${order.id}`);
+
+                        if (!rawMethod) {
+                          return i18n.language === 'en' ? 'Not selected' : 'Belum dipilih';
+                        }
+                        const m = rawMethod.toLowerCase();
+                        if (m === 'qris') return t('checkout.qris', 'QRIS');
+                        if (m === 'bank_transfer' || m === 'bca_va' || m === 'va') return t('checkout.bca_va', 'BCA Virtual Account');
+                        if (m === 'gopay') return 'GoPay';
+                        return rawMethod.toUpperCase();
                       })()}
                     </span>
                   </div>
@@ -1263,29 +1295,34 @@ export default function OrderDetailPage() {
               </div>
             )}
 
-            <div className="mt-6 flex justify-center gap-2">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <button
-                  key={star}
-                  type="button"
-                  onClick={() => setReviewRating(star)}
-                  className="transition-transform hover:scale-110 focus:outline-none"
-                  aria-label={`${t('review.rating')} ${star}`}
-                >
-                  <Star
-                    className={`h-8 w-8 ${
-                      reviewRating >= star
-                        ? 'fill-[#f59e0b] text-[#f59e0b]'
-                        : 'text-gray-300'
-                    }`}
-                  />
-                </button>
-              ))}
+            <div className="mt-6">
+              <label className="mb-2 block text-center text-sm font-semibold text-[#4b2417]">
+                {t('review.rating_label', 'Penilaian')} <span className="text-red-500 ml-0.5" aria-hidden="true">*</span>
+              </label>
+              <div className="flex justify-center gap-2">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setReviewRating(star)}
+                    className="transition-transform hover:scale-110 focus:outline-none"
+                    aria-label={`${t('review.rating')} ${star}`}
+                  >
+                    <Star
+                      className={`h-8 w-8 ${
+                        reviewRating >= star
+                          ? 'fill-[#f59e0b] text-[#f59e0b]'
+                          : 'text-gray-300'
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="mt-6">
               <label htmlFor="review-comment" className="mb-2 block text-sm font-semibold text-[#6f5448]">
-                {t('review.product_review')} <span className="text-red-500">*</span>
+                {t('review.product_review')} <span className="text-xs font-normal text-stone-400 ml-1">({t('common.optional', 'Opsional')})</span>
               </label>
               <textarea
                 id="review-comment"
@@ -1300,7 +1337,7 @@ export default function OrderDetailPage() {
             {/* Photo Upload Section */}
             <div className="mt-5">
               <label className="mb-2 block text-sm font-semibold text-[#6f5448]">
-                {t('review.review_photos')}
+                {t('review.review_photos')} <span className="text-xs font-normal text-stone-400 ml-1">({t('common.optional', 'Opsional')})</span>
               </label>
               
               <div className="flex flex-wrap gap-2.5 items-center">
@@ -1331,7 +1368,7 @@ export default function OrderDetailPage() {
                 </label>
               </div>
               <p className="mt-1.5 text-[11px] text-[#8b7166]">
-                JPG, PNG, WEBP (Maks 5 MB per file)
+                {t('order_detail.upload_file_hint', 'JPG, PNG, WEBP (Maks 5 MB per file)')}
               </p>
             </div>
 
@@ -1345,7 +1382,7 @@ export default function OrderDetailPage() {
               </button>
               <button
                 onClick={handleSubmitReview}
-                disabled={isSubmittingReview || reviewRating === 0 || !reviewComment.trim()}
+                disabled={isSubmittingReview || reviewRating === 0}
                 className="flex flex-1 items-center justify-center rounded-xl bg-[#d85b30] py-2.5 text-sm font-bold text-white hover:bg-[#c04e28] disabled:opacity-60"
               >
                 {isSubmittingReview ? (

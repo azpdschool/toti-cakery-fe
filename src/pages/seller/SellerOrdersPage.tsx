@@ -17,7 +17,9 @@ import {
   AlertCircle,
   Download, ShoppingBag,
   CreditCard, RotateCcw,
-  MoreVertical,
+  MoreVertical, ExternalLink,
+  XCircle,
+  Loader2,
 } from 'lucide-react';
 import { MultiFilterPopover } from '@/components/ui/MultiFilterPopover';
 import { SellerSortDropdown } from '@/components/ui/SellerSortDropdown';
@@ -93,12 +95,14 @@ function StatCard({ title, value, change, icon: Icon, color }: StatCardProps) {
 interface AddOrderModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (order: any) => void;
+  onSave: (order: any) => Promise<void> | void;
 }
 
 function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
   const [availableProducts, setAvailableProducts] = useState<SimpleProduct[]>([]);
   const [availableStock, setAvailableStock] = useState<StockOut[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const { minDateStr, maxDateStr } = useMemo(() => {
     const parts = getJakartaDateParts();
@@ -123,7 +127,11 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
   });
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setSubmitError(null);
+      setIsSubmitting(false);
+      return;
+    }
     let isMounted = true;
     Promise.all([
       getActiveProducts().catch(() => []),
@@ -206,10 +214,15 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
     setFormData({ ...formData, accessories: updated });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitError(null);
     if (!formData.customerName.trim() || !formData.customerPhone.trim()) {
       toast.error('Name and WhatsApp number are required');
+      return;
+    }
+    if (formData.deliveryMethod !== 'Pickup' && !formData.address.trim()) {
+      toast.error('Delivery address is required for delivery orders');
       return;
     }
     const validItems = formData.orderItems.filter(item => item.product_id !== '');
@@ -228,7 +241,7 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
       return;
     }
     if (formData.fulfillmentDate < minDateStr || formData.fulfillmentDate > maxDateStr) {
-      toast.error(`Fulfillment date must be between ${minDateStr} (H+1) and ${maxDateStr} (H+30)`);
+      toast.error(`Fulfillment date must be between ${minDateStr} (D+1) and ${maxDateStr} (D+30)`);
       return;
     }
     const validAccessories = formData.accessories
@@ -245,22 +258,35 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
       }
     }
 
-    onSave({
-      customer_name: formData.customerName,
-      customer_phone: formData.customerPhone,
-      customer_address: formData.address,
-      metode_pengiriman: formData.deliveryMethod === 'Pickup' ? 'pickup' : 'delivery',
-      payment_method_preference: formData.paymentMethod === 'LUNAS' ? 'full' : 'dp',
-      notes: formData.notes,
-      fulfillment_date: `${formData.fulfillmentDate}T12:00:00+07:00`,
-      items: validItems.map(item => ({
-        product_id: Number(item.product_id),
-        qty: Number(item.qty),
-        custom_decoration_charge: Number(item.custom_decoration_charge || 0),
-      })),
-      accessories: validAccessories,
-    });
-    onClose();
+    try {
+      setIsSubmitting(true);
+      await onSave({
+        customer_name: formData.customerName,
+        customer_phone: formData.customerPhone,
+        customer_address: formData.address,
+        metode_pengiriman: formData.deliveryMethod === 'Pickup' ? 'pickup' : 'delivery',
+        payment_method_preference: formData.paymentMethod === 'LUNAS' ? 'full' : 'dp',
+        notes: formData.notes,
+        fulfillment_date: `${formData.fulfillmentDate}T12:00:00+07:00`,
+        items: validItems.map(item => ({
+          product_id: Number(item.product_id),
+          qty: Number(item.qty),
+          custom_decoration_charge: Number(item.custom_decoration_charge || 0),
+        })),
+        accessories: validAccessories,
+      });
+      onClose();
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail;
+      const errorMsg = typeof detail === 'string'
+        ? detail
+        : Array.isArray(detail)
+          ? detail.map((d: any) => d.msg || (d.loc ? `${d.loc[d.loc.length - 1]}: ${d.msg}` : JSON.stringify(d))).join(', ')
+          : (err?.message || 'Failed to add custom order.');
+      setSubmitError(errorMsg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -270,12 +296,26 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
       <form onSubmit={handleSubmit} className="flex max-h-[90dvh] sm:max-h-[90vh] w-full max-w-4xl flex-col rounded-2xl bg-white shadow-xl overflow-hidden">
         <div className="flex items-center justify-between border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-6 shrink-0">
           <h2 className="text-xl sm:text-2xl font-black text-[#4b2417]">Add Custom Order</h2>
-          <button type="button" onClick={onClose} className="rounded-full p-1 hover:bg-gray-100">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="rounded-full p-1 hover:bg-gray-100 disabled:opacity-50"
+          >
             <X className="h-6 w-6" />
           </button>
         </div>
 
         <div className="overflow-y-auto px-4 sm:px-6 py-4 sm:py-6">
+          {submitError && (
+            <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 shrink-0 text-red-500 mt-0.5" />
+              <div className="flex-1">
+                <p className="font-semibold text-red-800">Failed to add order</p>
+                <p className="mt-0.5 text-xs sm:text-sm text-red-700 leading-relaxed">{submitError}</p>
+              </div>
+            </div>
+          )}
           <section className="mb-8">
             <h3 className="mb-4 text-sm font-bold text-[#6f5448] uppercase tracking-wider">
               Customer Information
@@ -283,7 +323,7 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-sm font-semibold text-[#4b2417]">
-                  Customer Name <span className="text-red-500">*</span>
+                  Customer Name <span className="text-red-500 ml-0.5">*</span>
                 </label>
                 <input
                   type="text"
@@ -295,7 +335,7 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
               </div>
               <div>
                 <label className="block text-sm font-semibold text-[#4b2417]">
-                  WhatsApp Number <span className="text-red-500">*</span>
+                  WhatsApp Number <span className="text-red-500 ml-0.5">*</span>
                 </label>
                 <div className="mt-1 flex w-full overflow-hidden rounded-lg border border-[#d0bfaf] focus-within:border-[#d85b30] bg-white">
                   <select className="w-16 shrink-0 cursor-pointer border-r border-[#d0bfaf] bg-gray-50 px-2 text-sm outline-none">
@@ -312,10 +352,17 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
               </div>
             </div>
             <div className="mt-4">
-              <label className="block text-sm font-semibold text-[#4b2417]">Delivery Address <span className="text-red-500">(Optional)</span></label>
+              <label className="block text-sm font-semibold text-[#4b2417]">
+                Delivery Address{' '}
+                {formData.deliveryMethod !== 'Pickup' ? (
+                  <span className="text-red-500 ml-0.5">*</span>
+                ) : (
+                  <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span>
+                )}
+              </label>
               <input
                 type="text"
-                placeholder="Leave blank if pickup"
+                placeholder={formData.deliveryMethod !== 'Pickup' ? 'Enter full delivery destination address' : 'Leave blank if pickup'}
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                 className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
@@ -334,10 +381,10 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
               <table className="w-full min-w-[600px] text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 text-left text-xs font-semibold uppercase text-[#6f5448]">
-                    <th className="pb-2 pr-4">Product Name <span className="text-red-500">*</span></th>
+                    <th className="pb-2 pr-4">Product Name <span className="text-red-500 ml-0.5">*</span></th>
                     <th className="pb-2 pr-4">Unit Price</th>
-                    <th className="pb-2 pr-4">Qty <span className="text-red-500">*</span></th>
-                    <th className="pb-2 pr-4">Deco Charge</th>
+                    <th className="pb-2 pr-4">Qty <span className="text-red-500 ml-0.5">*</span></th>
+                    <th className="pb-2 pr-4">Deco Charge <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span></th>
                     <th className="pb-2 pr-4">Total</th>
                     <th className="pb-2">Action</th>
                   </tr>
@@ -414,7 +461,7 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
 
           <section className="mb-8">
             <h3 className="mb-2 text-sm font-bold text-[#6f5448] uppercase tracking-wider">
-              Accessories <span className="text-xs font-normal lowercase">(optional)</span>
+              Accessories <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span>
             </h3>
             <p className="mb-3 text-xs text-[#6f5448]">
               Additional stock items like candles, sprinkles, or toppers from inventory.
@@ -515,7 +562,7 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-sm font-semibold text-[#4b2417]">
-                  Delivery Method <span className="text-red-500">*</span>
+                  Delivery Method <span className="text-red-500 ml-0.5">*</span>
                 </label>
                 <div className="relative mt-1">
                   <select
@@ -537,7 +584,7 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
               </div>
               <div>
                 <label className="block text-sm font-semibold text-[#4b2417]">
-                  Fulfillment Date <span className="text-red-500">*</span>
+                  Fulfillment Date <span className="text-red-500 ml-0.5">*</span>
                 </label>
                 <div className="relative mt-1">
                   <input
@@ -551,11 +598,11 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
                   />
                   <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6f5448] pointer-events-none" />
                 </div>
-                <p className="mt-1 text-xs text-[#6f5448]">Minimal H+1 dan maksimal H+30</p>
+                <p className="mt-1 text-xs text-[#6f5448]">Minimum D+1 and maximum D+30</p>
               </div>
             </div>
             <div className="mt-4">
-              <label className="block text-sm font-semibold text-[#4b2417]">Notes <span className="text-red-500">(Optional)</span></label>
+              <label className="block text-sm font-semibold text-[#4b2417]">Notes <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span></label>
               <textarea
                 rows={2}
                 placeholder="Special instructions for colors, cake, etc..."
@@ -572,7 +619,7 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
             </h3>
             <div>
               <label className="block text-sm font-semibold text-[#4b2417]">
-                Payment Method <span className="text-red-500">*</span>
+                Payment Method <span className="text-red-500 ml-0.5">*</span>
               </label>
               <div className="relative mt-1 max-w-xs">
                 <select
@@ -601,15 +648,18 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-gray-300 px-6 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+            disabled={isSubmitting}
+            className="rounded-lg border border-gray-300 px-6 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="rounded-lg bg-[#d85b30] px-6 py-2 text-sm font-semibold text-white hover:bg-[#c04e28]"
+            disabled={isSubmitting}
+            className="flex items-center gap-2 rounded-lg bg-[#d85b30] px-6 py-2 text-sm font-semibold text-white hover:bg-[#c04e28] disabled:opacity-50 transition-colors"
           >
-            Add Order
+            {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+            {isSubmitting ? 'Adding Order...' : 'Add Order'}
           </button>
         </div>
       </form>
@@ -1064,6 +1114,61 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
               </div>
             </div>
 
+            {/* Delivery Recipient & Destination Details */}
+            {(order.deliveryAddress || order.recipientName || order.recipientPhone || order.address || order.method !== 'Pickup') && (
+              <div className="rounded-xl border border-[#ead8ca] bg-[#fbf8f5] p-3.5 sm:p-4 space-y-2">
+                <div className="flex items-center gap-2 font-bold text-[#4b2417] text-sm">
+                  <Truck className="h-4 w-4 text-[#d85b30]" />
+                  <span>Delivery Recipient & Destination</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs sm:text-sm">
+                  <div>
+                    <span className="text-gray-500">Recipient:</span>{' '}
+                    <span className="font-semibold text-stone-800">{order.recipientName || order.customerName || '-'}</span>
+                    {(order.recipientPhone || order.customerPhone) && (
+                      <span className="text-gray-500 ml-1">({order.recipientPhone || order.customerPhone})</span>
+                    )}
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Method:</span>{' '}
+                    <span className="font-semibold text-stone-800">{formatSellerDeliveryMethod(order.method)}</span>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <span className="text-gray-500">Address:</span>{' '}
+                    <span className="font-medium text-stone-800">{order.deliveryAddress || order.address || '-'}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Payment Proof Preview if uploaded */}
+            {(order.payment_proof || (order as any).paymentProof || (order as any).bukti_pembayaran) && (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-3.5 sm:p-4 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 font-bold text-emerald-900 text-sm">
+                    <CheckCircle className="h-4 w-4 text-emerald-600" />
+                    <span>Customer Payment Proof Uploaded</span>
+                  </div>
+                  <a
+                    href={(order.payment_proof || (order as any).paymentProof || (order as any).bukti_pembayaran)!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 hover:text-emerald-900 underline"
+                  >
+                    View Full Image <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                </div>
+                <div className="relative h-32 w-48 overflow-hidden rounded-lg border border-emerald-300 bg-white shadow-xs">
+                  <img
+                    src={(order.payment_proof || (order as any).paymentProof || (order as any).bukti_pembayaran)!}
+                    alt="Payment Proof"
+                    className="h-full w-full object-cover cursor-pointer hover:opacity-90 transition"
+                    onClick={() => window.open((order.payment_proof || (order as any).paymentProof || (order as any).bukti_pembayaran)!, '_blank')}
+                  />
+                </div>
+              </div>
+            )}
+
             <div>
               <h3 className="font-bold text-[#4b2417] border-b pb-2 mb-2">{t('seller_orders.order_items')}</h3>
               <div className="overflow-x-auto">
@@ -1166,7 +1271,7 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
                       </div>
                       <div>
                         <label className="block text-xs font-semibold text-gray-700 mb-1">
-                          Notes (Optional)
+                          Notes <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span>
                         </label>
                         <input
                           type="text"
@@ -1315,7 +1420,7 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
 
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Refund Reason <span className="text-red-500">*</span>
+                    Refund Reason <span className="text-red-500 ml-0.5">*</span>
                   </label>
                   <textarea
                     rows={3}
@@ -1330,7 +1435,7 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
 
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    Refund Amount (Rp) <span className="text-gray-400 font-normal">(Leave blank for full amount)</span>
+                    Refund Amount (Rp) <span className="text-xs font-normal text-stone-400 ml-1">(Optional - Leave blank for full amount)</span>
                   </label>
                   <CurrencyInput
                     value={refundAmount}
@@ -1375,21 +1480,19 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
 interface OrderMoreActionsDropdownProps {
   order: Order;
   canManage: boolean;
-  canDelete: boolean;
   isDownloading: boolean;
   openUpward?: boolean;
   onDownloadInvoice: () => void;
-  onDelete?: () => void;
+  onCancelOrder?: () => void;
 }
 
 function OrderMoreActionsDropdown({
   order,
   canManage,
-  canDelete,
   isDownloading,
   openUpward = false,
   onDownloadInvoice,
-  onDelete,
+  onCancelOrder,
 }: OrderMoreActionsDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -1425,6 +1528,7 @@ function OrderMoreActionsDropdown({
         className={`rounded-lg p-1.5 transition-colors ${
           isOpen ? 'bg-gray-100 text-gray-800' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
         }`}
+        title={`More actions for order ${order.orderNumber}`}
         aria-label={`More actions for order ${order.orderNumber}`}
         aria-expanded={isOpen}
       >
@@ -1457,7 +1561,7 @@ function OrderMoreActionsDropdown({
             </button>
           )}
 
-          {canDelete && (
+          {canManage && onCancelOrder && (
             <>
               {canManage && <div className="my-1 border-t border-gray-100" />}
               <button
@@ -1465,12 +1569,12 @@ function OrderMoreActionsDropdown({
                 onClick={(e) => {
                   e.stopPropagation();
                   setIsOpen(false);
-                  onDelete?.();
+                  onCancelOrder();
                 }}
-                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
               >
-                <Trash2 className="h-4 w-4 text-red-500 shrink-0" />
-                <span>Delete Order</span>
+                <XCircle className="h-4 w-4 text-red-500 shrink-0" />
+                <span>Cancel Order</span>
               </button>
             </>
           )}
@@ -1490,6 +1594,7 @@ interface OrderQuickStatusModalProps {
   onClose: () => void;
   onStatusUpdated: (updatedOrder: Order) => void;
   onOpenFullDetail: (orderId: string) => void;
+  initialStatus?: OrderStatus;
 }
 
 function OrderQuickStatusModal({
@@ -1498,6 +1603,7 @@ function OrderQuickStatusModal({
   onClose,
   onStatusUpdated,
   onOpenFullDetail,
+  initialStatus,
 }: OrderQuickStatusModalProps) {
   const { t } = useTranslation();
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus>('pending');
@@ -1505,9 +1611,9 @@ function OrderQuickStatusModal({
 
   useEffect(() => {
     if (order) {
-      setSelectedStatus(order.status);
+      setSelectedStatus(initialStatus || order.status);
     }
-  }, [order]);
+  }, [order, initialStatus]);
 
   if (!isOpen || !order) return null;
 
@@ -1665,7 +1771,6 @@ export default function SellerOrdersPage() {
   const { user } = useAuth();
   const canManageOrders = hasPermission(user?.role as UserRole, 'view_process_orders');
   const canAddOrder = hasPermission(user?.role as UserRole, 'add_manual_order');
-  const canDelete = hasPermission(user?.role as UserRole, 'view_process_orders');
 
   const { showToast } = useToast();
 
@@ -1694,6 +1799,30 @@ export default function SellerOrdersPage() {
   const [downloadingRowId, setDownloadingRowId] = useState<string | null>(null);
   const [quickStatusOrder, setQuickStatusOrder] = useState<Order | null>(null);
   const [showQuickStatusModal, setShowQuickStatusModal] = useState(false);
+  const [quickStatusInitialStatus, setQuickStatusInitialStatus] = useState<OrderStatus | undefined>(undefined);
+
+  const isTerminalStatus = useCallback((status: OrderStatus) => {
+    return ['completed', 'cancelled', 'refunded', 'delivered', 'picked_up', 'cancelled_settlement_expired'].includes(status);
+  }, []);
+
+  const handleOpenQuickStatus = useCallback((order: Order, initialStatus?: OrderStatus) => {
+    setQuickStatusOrder(order);
+    setQuickStatusInitialStatus(initialStatus || order.status);
+    setShowQuickStatusModal(true);
+  }, []);
+
+  const handleOpenQuickCancel = useCallback((order: Order) => {
+    const isPaid = (order.amountPaid !== undefined && order.amountPaid > 0) ||
+      (order.paymentStatus && ['paid', 'settlement', 'capture'].includes(order.paymentStatus.toLowerCase())) ||
+      (order.invoiceStatus && ['paid', 'partially_paid'].includes(order.invoiceStatus.toLowerCase()));
+    if (isPaid) {
+      toast('Paid orders must be refunded. Opening order details...', { icon: 'ℹ️' });
+      setSelectedDetailOrderId(order.id);
+      setShowDetailModal(true);
+      return;
+    }
+    handleOpenQuickStatus(order, 'cancelled');
+  }, [handleOpenQuickStatus]);
 
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -1911,9 +2040,16 @@ export default function SellerOrdersPage() {
       setCurrentPage(1);
       loadData();
       setDueTodayRefreshKey(prev => prev + 1);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to add order:', error);
-      showToast({ message: 'Failed to add order.', type: 'error' });
+      const detail = error?.response?.data?.detail;
+      const errorMessage = typeof detail === 'string'
+        ? detail
+        : Array.isArray(detail)
+          ? detail.map((d: any) => d.msg || (d.loc ? `${d.loc[d.loc.length - 1]}: ${d.msg}` : JSON.stringify(d))).join(', ')
+          : (error?.message || 'Failed to add order.');
+      showToast({ message: errorMessage, type: 'error' });
+      throw error;
     }
   };
 
@@ -2165,7 +2301,7 @@ export default function SellerOrdersPage() {
                   </td>
                 </tr>
               ) : (
-                filteredOrders.map((order) => {
+                filteredOrders.map((order, index) => {
                   const statusBadge = getStatusBadge(order);
                   return (
                     <tr key={order.id} className="hover:bg-gray-50/50 transition-colors group">
@@ -2209,41 +2345,42 @@ export default function SellerOrdersPage() {
                         </div>
                       </td>
                       <td className="p-4 text-right">
-                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                        <div className="flex items-center justify-end gap-1">
                           {canManageOrders && (
                             <>
+                              {/* Direct Action 1: View Details */}
                               <button 
+                                type="button"
                                 onClick={() => { setSelectedDetailOrderId(order.id); setShowDetailModal(true); }} 
-                                className="p-1.5 text-gray-500 hover:text-[#d85b30] hover:bg-orange-50 rounded-md transition-colors"
-                                aria-label="View Order"
-                                title="View Order"
+                                className="p-1.5 text-gray-500 hover:text-[#d85b30] hover:bg-orange-50 rounded-lg transition-colors"
+                                aria-label={`View Details for order ${order.orderNumber}`}
+                                title="View Details"
                               >
                                 <Eye className="h-4 w-4" />
                               </button>
+
+                              {/* Direct Action 2: Update Status */}
                               <button
-                                onClick={() => handleQuickDownload(order.id)}
-                                disabled={downloadingRowId === order.id}
-                                title="Download Invoice"
-                                aria-label="Download Invoice"
-                                className="p-1.5 text-gray-500 hover:text-[#d85b30] hover:bg-orange-50 rounded-md transition-colors disabled:opacity-50"
+                                type="button"
+                                onClick={() => handleOpenQuickStatus(order)}
+                                className="p-1.5 text-gray-500 hover:text-[#d85b30] hover:bg-orange-50 rounded-lg transition-colors"
+                                aria-label={`Update Status for order ${order.orderNumber}`}
+                                title="Update Status"
                               >
-                                {downloadingRowId === order.id ? (
-                                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                                ) : (
-                                  <Download className="h-4 w-4" />
-                                )}
+                                <Clock className="h-4 w-4" />
                               </button>
                             </>
                           )}
-                          {canDelete && (
-                            <button 
-                              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                              aria-label="Delete Order"
-                              title="Delete Order"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          )}
+
+                          {/* Overflow Menu: More Actions (Download Invoice, Cancel Order) */}
+                          <OrderMoreActionsDropdown
+                            order={order}
+                            canManage={canManageOrders}
+                            isDownloading={downloadingRowId === order.id}
+                            openUpward={index >= filteredOrders.length - 2 && filteredOrders.length > 2}
+                            onDownloadInvoice={() => handleQuickDownload(order.id)}
+                            onCancelOrder={!isTerminalStatus(order.status) ? () => handleOpenQuickCancel(order) : undefined}
+                          />
                         </div>
                       </td>
                     </tr>
@@ -2326,13 +2463,10 @@ export default function SellerOrdersPage() {
                         <OrderMoreActionsDropdown
                           order={order}
                           canManage={canManageOrders}
-                          canDelete={canDelete}
                           isDownloading={downloadingRowId === order.id}
                           openUpward={index >= filteredOrders.length - 2 && filteredOrders.length > 2}
                           onDownloadInvoice={() => handleQuickDownload(order.id)}
-                          onDelete={() => {
-                            toast.error('Order deletion is not supported');
-                          }}
+                          onCancelOrder={!isTerminalStatus(order.status) ? () => handleOpenQuickCancel(order) : undefined}
                         />
                       </div>
                     </div>
@@ -2394,10 +2528,7 @@ export default function SellerOrdersPage() {
                       {canManageOrders && (
                         <button
                           type="button"
-                          onClick={() => {
-                            setQuickStatusOrder(order);
-                            setShowQuickStatusModal(true);
-                          }}
+                          onClick={() => handleOpenQuickStatus(order)}
                           className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-[#f8eee5] py-2 text-xs font-semibold text-[#d85b30] hover:bg-[#f2dfce] transition-colors"
                         >
                           <Clock className="w-3.5 h-3.5" />
@@ -2461,9 +2592,11 @@ export default function SellerOrdersPage() {
         <OrderQuickStatusModal
           order={quickStatusOrder}
           isOpen={showQuickStatusModal}
+          initialStatus={quickStatusInitialStatus}
           onClose={() => {
             setShowQuickStatusModal(false);
             setQuickStatusOrder(null);
+            setQuickStatusInitialStatus(undefined);
           }}
           onStatusUpdated={(updatedOrder) => {
             setOrders(prev => prev.map(o => o.id === updatedOrder.id ? { ...o, status: updatedOrder.status } : o));

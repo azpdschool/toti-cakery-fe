@@ -37,6 +37,11 @@ export default function StockAdjustmentModal({ isOpen, item, onClose, onSuccess 
       return;
     }
 
+    if (projectedStock < 0) {
+      toast.error('Stock adjustment cannot result in negative stock.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await adjustStockService(
@@ -74,7 +79,7 @@ export default function StockAdjustmentModal({ isOpen, item, onClose, onSuccess 
             <p className="text-sm font-semibold text-gray-700">Current Stock: <span className="font-normal">{item.stock} {item.unit}</span></p>
           </div>
           <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">Stock Change (+/-) <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-semibold text-[#4b2417]">Stock Change (+/-) <span className="text-red-500 ml-0.5">*</span></label>
             <DecimalInput
               allowNegative={true}
               value={quantityDiff}
@@ -87,24 +92,30 @@ export default function StockAdjustmentModal({ isOpen, item, onClose, onSuccess 
               Enter -2 if 2 are missing, +3 if you found 3 extra. This is the change, not the new total.
             </p>
             {isValidDiff && (
-              <p className="text-sm font-bold text-green-700 mt-2">
-                Stock after correction: {projectedStock} {item.unit}
-              </p>
+              projectedStock < 0 ? (
+                <p className="text-sm font-bold text-red-600 mt-2">
+                  Invalid: Stock cannot drop below 0 ({projectedStock} {item.unit})
+                </p>
+              ) : (
+                <p className="text-sm font-bold text-green-700 mt-2">
+                  Stock after correction: {projectedStock} {item.unit}
+                </p>
+              )
             )}
           </div>
           <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">Reason <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-semibold text-[#4b2417]">Reason <span className="text-red-500 ml-0.5">*</span></label>
             <input
               type="text"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="e.g. Spilled, Expired, Stock Opname"
+              placeholder="e.g. Spilled, Expired, Stock Count"
               className="mt-1 w-full rounded-lg border border-[#d0bfaf] px-4 py-2 text-sm outline-none focus:border-[#d85b30]"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-[#4b2417]">Average Cost (Optional)</label>
+            <label className="block text-sm font-semibold text-[#4b2417]">Average Cost <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span></label>
             <CurrencyInput
               value={unitCost}
               onChange={(val, raw) => setUnitCost(raw ? String(val) : '')}
@@ -116,7 +127,7 @@ export default function StockAdjustmentModal({ isOpen, item, onClose, onSuccess 
         </div>
         <div className="flex justify-end gap-3 border-t border-gray-200 p-6 shrink-0">
           <button type="button" onClick={onClose} className="rounded-lg border border-gray-300 px-6 py-2 text-sm font-semibold hover:bg-gray-50">Cancel</button>
-          <button type="submit" disabled={isSubmitting} className="rounded-lg bg-[#d85b30] px-6 py-2 text-sm font-semibold text-white hover:bg-[#c04e28] disabled:opacity-60">
+          <button type="submit" disabled={isSubmitting || (isValidDiff && projectedStock < 0)} className="rounded-lg bg-[#d85b30] px-6 py-2 text-sm font-semibold text-white hover:bg-[#c04e28] disabled:opacity-60">
             {isSubmitting ? 'Saving...' : 'Save'}
           </button>
         </div>

@@ -124,7 +124,7 @@ export function OrdersDueTodaySection({
     setInternalLoading(true);
     setInternalError(false);
     try {
-      const statuses: OrderStatus[] = ['pending', 'in_process', 'ready'];
+      const statuses: OrderStatus[] = ['pending', 'waiting_confirmation', 'in_process', 'ready'];
       const batches = await Promise.all(
         statuses.map((st) => fetchOrdersByStatusWithPagination(st, signal))
       );
@@ -198,8 +198,9 @@ export function OrdersDueTodaySection({
     return filtered.sort((a, b) => {
       const statusPriority: Record<string, number> = {
         pending: 1,
-        in_process: 2,
-        ready: 3,
+        waiting_confirmation: 2,
+        in_process: 3,
+        ready: 4,
       };
       const prioA = statusPriority[String(a.status).toLowerCase()] || 99;
       const prioB = statusPriority[String(b.status).toLowerCase()] || 99;

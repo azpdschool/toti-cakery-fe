@@ -6,6 +6,7 @@ import { getInventoryItems, type InventoryItem } from '@/services/sellerInventor
 import { HorizontalCardScroller } from '@/components/common/HorizontalCardScroller'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { OrdersDueTodaySection } from '@/components/seller/OrdersDueTodaySection'
+import { ROUTES } from '@/constants'
 
 export default function SellerDashboardPage() {
   const navigate = useNavigate()
@@ -61,8 +62,10 @@ export default function SellerDashboardPage() {
   }, [])
 
   // Formatting helpers
-  const formatCurrency = (amount: number) => {
-    return `Rp ${amount.toLocaleString('id-ID')}`
+  const formatCurrency = (amount: number | string) => {
+    const num = Number(amount)
+    if (isNaN(num)) return 'Rp 0'
+    return 'Rp ' + Math.round(num).toLocaleString('id-ID')
   }
 
   return (
@@ -89,7 +92,11 @@ export default function SellerDashboardPage() {
           ) : inventoryAttention.length > 0 ? (
             <HorizontalCardScroller scrollContainerClassName="gap-3 pb-2">
               {inventoryAttention.map(item => (
-                <div key={item.id} className={`flex-shrink-0 snap-start border rounded-lg px-4 py-3 min-w-[200px] ${item.stock === 0 ? 'border-red-200 bg-red-50' : 'border-yellow-200 bg-yellow-50'}`}>
+                <div
+                  key={item.id}
+                  onClick={() => navigate(ROUTES.SELLER_INVENTORY)}
+                  className={`flex-shrink-0 snap-start border rounded-lg px-4 py-3 min-w-[200px] cursor-pointer hover:border-red-300 transition-colors ${item.stock === 0 ? 'border-red-200 bg-red-50' : 'border-yellow-200 bg-yellow-50'}`}
+                >
                   <p className="font-semibold text-gray-900 truncate">{item.name}</p>
                   <div className="flex justify-between items-center mt-1">
                     <span className="text-xs font-medium text-gray-700">{item.stock} {item.unit}</span>

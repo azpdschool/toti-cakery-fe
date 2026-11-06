@@ -20,7 +20,7 @@ export function BuyerBottomNav() {
 
   return (
     <nav
-      aria-label="Mobile Navigation"
+      aria-label={t('nav.mobile_nav', 'Navigasi Mobile')}
       className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#EAD8CA] pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       <div className="flex h-14 items-center justify-around px-2">

@@ -428,7 +428,7 @@ export default function ProfilePage() {
               <form onSubmit={handleSavePassword} noValidate className="max-w-md space-y-4 border-t border-[#EAD8CA] pt-4">
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-[#3A1F16]">
-                    {t('profile.current_password')}
+                    {t('profile.current_password')} <span className="text-red-500 ml-0.5">*</span>
                   </label>
                   <div className="relative mt-1">
                     <input
@@ -450,7 +450,7 @@ export default function ProfilePage() {
 
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-[#3A1F16]">
-                    {t('profile.new_password')}
+                    {t('profile.new_password')} <span className="text-red-500 ml-0.5">*</span>
                   </label>
                   <div className="relative mt-1">
                     <input
@@ -465,7 +465,7 @@ export default function ProfilePage() {
 
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-[#3A1F16]">
-                    {t('profile.confirm_password')}
+                    {t('profile.confirm_password')} <span className="text-red-500 ml-0.5">*</span>
                   </label>
                   <div className="relative mt-1">
                     <input
@@ -558,7 +558,7 @@ export default function ProfilePage() {
 
               <div>
                 <label className="block text-sm font-semibold text-[#4b2417] mb-1">
-                  {t('profile.current_password')}
+                  {t('profile.current_password')} <span className="text-red-500 ml-0.5">*</span>
                 </label>
                 <div className="relative">
                   <input

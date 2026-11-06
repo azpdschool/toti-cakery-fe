@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import type React from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
@@ -27,64 +28,64 @@ import { toast } from 'react-hot-toast'
 import { downloadInvoice } from '@/services/invoiceService'
 import { Download, Loader2 } from 'lucide-react'
 
-const statusMap: Record<
-  OrderStatus,
-  { label: string; icon: React.ElementType; color: string }
-> = {
+const getStatusMap = (
+  t: TFunction
+): Record<OrderStatus, { label: string; icon: React.ElementType; color: string }> => ({
   pending: {
-    label: 'Menunggu',
+    label: t('orders.status_pending', 'Menunggu'),
     icon: Clock,
     color: 'text-yellow-700 bg-yellow-100 ring-yellow-600/20',
   },
   processed: {
-    label: 'Diproses',
+    label: t('orders.status_processed', 'Diproses'),
     icon: Package,
     color: 'text-blue-700 bg-blue-100 ring-blue-600/20',
   },
   shipped: {
-    label: 'Dikirim',
+    label: t('orders.status_shipped', 'Dikirim'),
     icon: Truck,
     color: 'text-purple-700 bg-purple-100 ring-purple-600/20',
   },
   completed: {
-    label: 'Selesai',
+    label: t('orders.status_completed', 'Selesai'),
     icon: CheckCircle,
     color: 'text-green-700 bg-green-100 ring-green-600/20',
   },
   ready: {
-    label: 'Siap',
+    label: t('orders.status_ready', 'Siap'),
     icon: CheckCircle,
     color: 'text-teal-700 bg-teal-100 ring-teal-600/20',
   },
   cancelled: {
-    label: 'Dibatalkan',
+    label: t('orders.status_cancelled', 'Dibatalkan'),
     icon: XCircle,
     color: 'text-red-700 bg-red-100 ring-red-600/20',
   },
   refunded: {
-    label: 'Dikembalikan',
+    label: t('orders.status_refunded', 'Dikembalikan'),
     icon: XCircle,
     color: 'text-red-700 bg-red-100 ring-red-600/20',
   },
   cancelled_settlement_expired: {
-    label: 'Batas Waktu Pelunasan Berakhir',
+    label: t('orders.status_cancelled_settlement_expired', 'Batas Waktu Pelunasan Berakhir'),
     icon: XCircle,
     color: 'text-red-700 bg-red-100 ring-red-600/20',
   },
-}
+})
 
-const methodMap: Record<
-  string,
-  { label: string; icon: React.ElementType }
-> = {
-  pickup: { label: 'Pickup', icon: Store },
-  delivery_toko: { label: 'Delivery Toko', icon: Truck },
-  delivery_third_party: { label: 'Third Party', icon: Send },
-}
+const getMethodMap = (
+  t: TFunction
+): Record<string, { label: string; icon: React.ElementType }> => ({
+  pickup: { label: t('orders.method_pickup', 'Pickup'), icon: Store },
+  delivery_toko: { label: t('orders.method_delivery_toko', 'Delivery Toko'), icon: Truck },
+  delivery_third_party: { label: t('orders.method_delivery_third_party', 'Third Party'), icon: Send },
+})
 
 export default function OrdersPage() {
   const { user, isAuthenticated } = useAuth()
   const { t, i18n } = useTranslation()
+  const statusMap = getStatusMap(t)
+  const methodMap = getMethodMap(t)
   const navigate = useNavigate()
   const [orders, setOrders] = useState<BuyerOrder[]>([])
   const [loading, setLoading] = useState(true)
@@ -202,7 +203,7 @@ export default function OrdersPage() {
       return (
         <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black ring-1 ring-inset text-red-700 bg-red-100 ring-red-600/20">
           <XCircle className="h-3.5 w-3.5" />
-          {i18n.language === 'en' ? 'Settlement Expired' : 'Batas Waktu Pelunasan Berakhir'}
+          {t('orders.status_cancelled_settlement_expired', i18n.language === 'en' ? 'Settlement Expired' : 'Batas Waktu Pelunasan Berakhir')}
         </span>
       )
     }
@@ -211,7 +212,7 @@ export default function OrdersPage() {
       return (
         <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black ring-1 ring-inset text-red-700 bg-red-100 ring-red-600/20">
           <XCircle className="h-3.5 w-3.5" />
-          {i18n.language === 'en' ? 'Cancelled' : t('orders.status_cancelled', 'Dibatalkan')}
+          {t('orders.status_cancelled', 'Dibatalkan')}
         </span>
       )
     }
@@ -220,7 +221,7 @@ export default function OrdersPage() {
       return (
         <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black ring-1 ring-inset text-red-700 bg-red-100 ring-red-600/20">
           <XCircle className="h-3.5 w-3.5" />
-          {i18n.language === 'en' ? 'Refunded' : t('orders.status_refunded', 'Dikembalikan')}
+          {t('orders.status_refunded', 'Dikembalikan')}
         </span>
       )
     }
@@ -229,7 +230,7 @@ export default function OrdersPage() {
       return (
         <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black ring-1 ring-inset text-amber-800 bg-amber-100 ring-amber-600/20">
           <Clock className="h-3.5 w-3.5" />
-          {i18n.language === 'en' ? 'Waiting for payment' : 'Menunggu pembayaran'}
+          {t('orders.status_waiting_payment', i18n.language === 'en' ? 'Waiting for payment' : 'Menunggu pembayaran')}
         </span>
       )
     }
@@ -238,7 +239,7 @@ export default function OrdersPage() {
       return (
         <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black ring-1 ring-inset text-blue-800 bg-blue-100 ring-blue-600/20">
           <Clock className="h-3.5 w-3.5" />
-          {i18n.language === 'en' ? 'Waiting for seller confirmation' : 'Menunggu konfirmasi seller'}
+          {t('orders.status_waiting_confirmation', i18n.language === 'en' ? 'Waiting for seller confirmation' : 'Menunggu konfirmasi seller')}
         </span>
       )
     }

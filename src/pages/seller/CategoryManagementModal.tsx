@@ -90,8 +90,17 @@ export default function CategoryManagementModal({ isOpen, onClose, onCategoriesC
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim()) {
+    const trimmedName = formData.name.trim();
+    if (!trimmedName) {
       setError('Name is required');
+      return;
+    }
+
+    const isDuplicate = categories.some(
+      (c) => c.name.toLowerCase() === trimmedName.toLowerCase() && (mode === 'add' || c.id !== editingId)
+    );
+    if (isDuplicate) {
+      setError('A category with this name already exists.');
       return;
     }
     
@@ -203,7 +212,7 @@ export default function CategoryManagementModal({ isOpen, onClose, onCategoriesC
               value={formData.name}
               onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
               className="w-full rounded-xl border border-[#d0bfaf] px-4 py-2 text-sm focus:border-[#c95b31] focus:ring-1 focus:ring-[#c95b31] outline-none"
-              placeholder="e.g. Kue Basah"
+              placeholder="e.g. Pastries"
             />
           </div>
 

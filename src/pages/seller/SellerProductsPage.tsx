@@ -373,9 +373,7 @@ export default function SellerProductsPage() {
     const isNameValid = (formData.nama_produk || '').trim().length > 0
     const isDescIdFormatValid = !validateDescriptionText(formData.deskripsi_id)
     const isDescEnFormatValid = !validateDescriptionText(formData.deskripsi_en)
-    const isDescriptionIdValid = editId
-      ? isDescIdFormatValid
-      : ((formData.deskripsi_id || '').trim().length > 0 && isDescIdFormatValid)
+    const isDescriptionIdValid = (formData.deskripsi_id || '').trim().length > 0 && isDescIdFormatValid
     const isCategoryValid = Boolean(formData.category_id || (formData.kategori || '').trim().length > 0)
     const isPriceValid = Number(formData.harga_jual) > 0
     const isMinOrderValid = Number(formData.minimum_order) >= 1
@@ -398,12 +396,12 @@ export default function SellerProductsPage() {
       isRecipesValid &&
       isImagesValid
     )
-  }, [formData, ingredients, existingImages.length, draftImages.length, editId])
+  }, [formData, ingredients, existingImages.length, draftImages.length])
 
   const missingValidationReasons = useMemo(() => {
     const reasons: string[] = []
     if (!(formData.nama_produk || '').trim()) reasons.push('Product name is required')
-    if (!editId && !(formData.deskripsi_id || '').trim()) reasons.push('Indonesian description is required')
+    if (!(formData.deskripsi_id || '').trim()) reasons.push('Indonesian description is required')
     if (validateDescriptionText(formData.deskripsi_id)) reasons.push('Indonesian description contains invalid formatting')
     if (validateDescriptionText(formData.deskripsi_en)) reasons.push('English description contains invalid formatting')
     if (!formData.category_id && !(formData.kategori || '').trim()) reasons.push('Category is required')
@@ -805,12 +803,12 @@ export default function SellerProductsPage() {
 
     const validTypes = ['image/jpeg', 'image/png', 'image/webp']
     if (!validTypes.includes(file.type)) {
-      setError('Format file tidak didukung. Gunakan JPG, PNG, atau WEBP.')
+      setError('Unsupported file format. Please use JPG, PNG, or WEBP.')
       e.target.value = ''
       return
     }
     if (file.size > 5 * 1024 * 1024) {
-      setError('Ukuran file tidak boleh melebihi 5MB.')
+      setError('File size must not exceed 5MB.')
       e.target.value = ''
       return
     }
@@ -835,7 +833,7 @@ export default function SellerProductsPage() {
       await setPrimaryProductImage(editId, imageId)
       const fresh = await getProductByBackendId(editId)
       setExistingImages(fresh.images)
-      toast.success(t('products.image_primary_success', 'Foto utama berhasil diperbarui.'))
+      toast.success(t('products.image_primary_success', 'Primary photo updated successfully.'))
       fetchProducts()
     } catch (err) {
       console.error(err)
@@ -848,7 +846,7 @@ export default function SellerProductsPage() {
   const handleDeleteExistingImage = async (imageId: number) => {
     if (!editId) return
     if (existingImages.length + draftImages.length <= 1) {
-      toast.error(t('products.cannot_delete_last_image', 'Tidak dapat menghapus foto terakhir. Tambahkan foto pengganti terlebih dahulu.'))
+      toast.error(t('products.cannot_delete_last_image', 'Cannot delete the last photo. Please add a replacement photo first.'))
       return
     }
     try {
@@ -856,7 +854,7 @@ export default function SellerProductsPage() {
       await deleteProductImage(editId, imageId)
       const fresh = await getProductByBackendId(editId)
       setExistingImages(fresh.images)
-      toast.success(t('products.image_removed_success', 'Foto berhasil dihapus.'))
+      toast.success(t('products.image_removed_success', 'Photo deleted successfully.'))
       fetchProducts()
     } catch (err) {
       console.error(err)
@@ -868,7 +866,7 @@ export default function SellerProductsPage() {
 
   const handleRemoveDraftImage = (index: number) => {
     if (existingImages.length + draftImages.length <= 1) {
-      toast.error(t('products.cannot_delete_last_image', 'Tidak dapat menghapus foto terakhir. Tambahkan foto pengganti terlebih dahulu.'))
+      toast.error(t('products.cannot_delete_last_image', 'Cannot delete the last photo. Please add a replacement photo first.'))
       return
     }
     URL.revokeObjectURL(draftImages[index].previewUrl)
@@ -926,7 +924,7 @@ export default function SellerProductsPage() {
 
         if (updatedProduct?.warningBelowHpp) {
           toast(
-            `Warning: Saved selling price ${formatRupiah(updatedProduct.price)} is below HPP (${formatRupiah(updatedProduct.hppTotal)}).`,
+            `Warning: Saved selling price ${formatRupiah(updatedProduct.price)} is below COGS (${formatRupiah(updatedProduct.hppTotal)}).`,
             { icon: '⚠️' }
           )
         }
@@ -1012,7 +1010,7 @@ export default function SellerProductsPage() {
 
         if (createdProduct.warningBelowHpp) {
           toast(
-            `Warning: Saved selling price ${formatRupiah(createdProduct.price)} is below HPP (${formatRupiah(createdProduct.hppTotal)}).`,
+            `Warning: Saved selling price ${formatRupiah(createdProduct.price)} is below COGS (${formatRupiah(createdProduct.hppTotal)}).`,
             { icon: '⚠️' }
           )
         }
@@ -1114,7 +1112,7 @@ export default function SellerProductsPage() {
     // Require at least 1 image (existing or newly uploaded)
     const totalImages = existingImages.length + draftImages.length
     if (totalImages === 0) {
-      setError(t('products.at_least_one_image_required', 'Minimal 1 foto produk wajib ada.'))
+      setError(t('products.at_least_one_image_required', 'At least 1 product photo is required.'))
       return
     }
 
@@ -1275,7 +1273,7 @@ export default function SellerProductsPage() {
               <div className="sm:col-span-2">
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-sm font-semibold text-[#4b2417]">
-                    Indonesian Description (ID) {!editId && <span className="text-red-500">*</span>}
+                    Indonesian Description (ID) <span className="text-red-500 ml-0.5">*</span>
                   </label>
                   <span className="text-xs text-gray-500">
                     {(formData.deskripsi_id || '').length}/5000
@@ -1308,7 +1306,7 @@ export default function SellerProductsPage() {
               <div className="sm:col-span-2">
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-sm font-semibold text-[#4b2417]">
-                    English Description (EN) <span className="text-xs font-normal text-gray-500">(Optional)</span>
+                    English Description (EN) <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span>
                   </label>
                   <span className="text-xs text-gray-500">
                     {(formData.deskripsi_en || '').length}/5000
@@ -1398,11 +1396,11 @@ export default function SellerProductsPage() {
                   }`}
                 />
 
-                {/* Live HPP Warning / Info */}
+                {/* Live COGS Warning / Info */}
                 {formHpp <= 0 ? (
                   <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-amber-600">
                     <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                    <span>HPP unavailable — complete recipe</span>
+                    <span>COGS unavailable — complete recipe</span>
                   </p>
                 ) : Number(formData.harga_jual) > 0 && Number(formData.harga_jual) < formHpp ? (
                   <div className="mt-2.5 flex items-start gap-2.5 rounded-xl border border-amber-200/90 bg-amber-50/90 p-3 text-xs text-amber-900 shadow-xs transition-all">
@@ -1411,14 +1409,14 @@ export default function SellerProductsPage() {
                     </div>
                     <div className="space-y-0.5">
                       <p className="font-semibold text-amber-900">
-                        Selling Price Below HPP
+                        Selling Price Below COGS
                       </p>
                       <p className="text-amber-800 leading-relaxed">
                         Selling price <span className="font-bold text-amber-950">{formatRupiah(Number(formData.harga_jual))}</span> is{' '}
                         <span className="font-semibold text-red-700 underline decoration-red-300">
                           {formatRupiah(formHpp - Number(formData.harga_jual))}
                         </span>{' '}
-                        below estimated HPP ({formatRupiah(formHpp)}/pcs).
+                        below estimated COGS ({formatRupiah(formHpp)}/pcs).
                       </p>
                     </div>
                   </div>
@@ -1426,12 +1424,12 @@ export default function SellerProductsPage() {
                   <div className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-emerald-700">
                     <CheckCircle className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
                     <span>
-                      HPP: {formatRupiah(formHpp)} &bull; Margin: {(((Number(formData.harga_jual) - formHpp) / formHpp) * 100).toFixed(1)}% (+{formatRupiah(Number(formData.harga_jual) - formHpp)})
+                      COGS: {formatRupiah(formHpp)} &bull; Margin: {(((Number(formData.harga_jual) - formHpp) / formHpp) * 100).toFixed(1)}% (+{formatRupiah(Number(formData.harga_jual) - formHpp)})
                     </span>
                   </div>
                 ) : (
                   <p className="mt-1.5 text-xs text-[#6f5448]">
-                    HPP per product: <span className="font-semibold text-[#4b2417]">{formatRupiah(formHpp)}</span>
+                    COGS per product: <span className="font-semibold text-[#4b2417]">{formatRupiah(formHpp)}</span>
                   </p>
                 )}
               </div>
@@ -1469,8 +1467,8 @@ export default function SellerProductsPage() {
                       </span>
                       <p className="mt-1 text-xs text-gray-500">
                         {formData.is_active
-                          ? t('products.status_active_help', 'Produk aktif dan ditampilkan di katalog toko.')
-                          : t('products.status_inactive_help', 'Produk dinonaktifkan dan disembunyikan dari katalog toko.')}
+                          ? t('products.status_active_help', 'Active product: visible to buyers.')
+                          : t('products.status_inactive_help', 'Inactive product: hidden from buyers.')}
                       </p>
                     </div>
                     <button
@@ -1529,7 +1527,7 @@ export default function SellerProductsPage() {
               <div className="sm:col-span-2 border-t border-[#ead8ca] pt-4 mt-2">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm font-semibold text-[#4b2417]">
-                    Recipe & Ingredients
+                    Recipe & Ingredients <span className="text-red-500 ml-0.5">*</span>
                   </h3>
                   {isLoadingRecipe && (
                     <span className="flex items-center gap-1 text-xs text-[#8b7166]">
@@ -1546,8 +1544,12 @@ export default function SellerProductsPage() {
                   <table className="w-full min-w-[500px] text-sm">
                     <thead className="bg-[#f8eee5] text-[#6f5448]">
                       <tr className="text-left text-xs font-semibold uppercase">
-                        <th className="py-2.5 px-3">Ingredient Name</th>
-                        <th className="py-2.5 px-3 w-32">Quantity Used</th>
+                        <th className="py-2.5 px-3">
+                          Ingredient Name <span className="text-red-500 ml-0.5">*</span>
+                        </th>
+                        <th className="py-2.5 px-3 w-32">
+                          Quantity Used <span className="text-red-500 ml-0.5">*</span>
+                        </th>
                         <th className="py-2.5 px-3 w-24">Unit</th>
                         <th className="py-2.5 px-3 w-16 text-center">Action</th>
                       </tr>
@@ -1658,10 +1660,10 @@ export default function SellerProductsPage() {
               <div className="sm:col-span-2 border-t border-[#ead8ca] pt-4 mt-2">
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-sm font-semibold text-[#4b2417]">
-                    {t('products.product_images', 'Foto Produk')} <span className="text-red-500">*</span>
+                    {t('products.product_images', 'Product Photos')} <span className="text-red-500">*</span>
                   </label>
                   <span className="text-xs text-[#8b7166]">
-                    {t('products.at_least_one_image_required', 'Minimal 1 foto produk wajib ada.')}
+                    {t('products.at_least_one_image_required', 'At least 1 product photo is required.')}
                   </span>
                 </div>
 
@@ -1683,7 +1685,7 @@ export default function SellerProductsPage() {
                       {img.isPrimary && (
                         <div className="absolute top-1 left-1 z-10 rounded-md bg-[#d85b30] px-1.5 py-0.5 text-[10px] font-bold text-white flex items-center gap-1 shadow">
                           <Star className="h-3 w-3 fill-white" />
-                          {t('products.primary_image', 'Foto Utama')}
+                          {t('products.primary_image', 'Primary Photo')}
                         </div>
                       )}
 
@@ -1702,7 +1704,7 @@ export default function SellerProductsPage() {
                             disabled={isUploadingImage || existingImages.length + draftImages.length <= 1}
                             onClick={() => handleDeleteExistingImage(img.id)}
                             className="rounded-lg bg-red-600/80 p-1.5 text-white hover:bg-red-600 disabled:opacity-40 transition"
-                            title={t('products.remove_image', 'Hapus Foto')}
+                            title={t('products.remove_image', 'Delete Photo')}
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -1714,7 +1716,7 @@ export default function SellerProductsPage() {
                             onClick={() => handleSetExistingPrimary(img.id)}
                             className="mt-1 w-full rounded bg-[#d85b30] py-1 text-[10px] font-semibold text-white hover:bg-[#c04e28] transition"
                           >
-                            {t('products.set_primary', 'Jadikan Utama')}
+                            {t('products.set_primary', 'Set as Primary')}
                           </button>
                         )}
                       </div>
@@ -1734,7 +1736,7 @@ export default function SellerProductsPage() {
                       {existingImages.length === 0 && primaryDraftIndex === idx && (
                         <div className="absolute top-1 left-1 z-10 rounded-md bg-[#d85b30] px-1.5 py-0.5 text-[10px] font-bold text-white flex items-center gap-1 shadow">
                           <Star className="h-3 w-3 fill-white" />
-                          {t('products.primary_image', 'Foto Utama')}
+                          {t('products.primary_image', 'Primary Photo')}
                         </div>
                       )}
 
@@ -1752,7 +1754,7 @@ export default function SellerProductsPage() {
                             type="button"
                             onClick={() => handleRemoveDraftImage(idx)}
                             className="rounded-lg bg-red-600/80 p-1.5 text-white hover:bg-red-600 transition"
-                            title={t('products.remove_image', 'Hapus Foto')}
+                            title={t('products.remove_image', 'Delete Photo')}
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -1763,7 +1765,7 @@ export default function SellerProductsPage() {
                             onClick={() => setPrimaryDraftIndex(idx)}
                             className="mt-1 w-full rounded bg-[#d85b30] py-1 text-[10px] font-semibold text-white hover:bg-[#c04e28] transition"
                           >
-                            {t('products.set_primary', 'Jadikan Utama')}
+                            {t('products.set_primary', 'Set as Primary')}
                           </button>
                         )}
                       </div>
@@ -1773,7 +1775,7 @@ export default function SellerProductsPage() {
                   {/* Add Image Button */}
                   <label className="flex h-28 w-28 shrink-0 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#d0bfaf] bg-[#f8eee5] text-[#d85b30] hover:bg-[#f0e0d0] transition">
                     <Plus className="h-6 w-6" />
-                    <span className="mt-1 text-xs font-semibold">{t('products.add_image', 'Tambah Foto')}</span>
+                    <span className="mt-1 text-xs font-semibold">{t('products.add_image', 'Add Photos')}</span>
                     <input
                       type="file"
                       accept="image/png, image/jpeg, image/webp"
@@ -2331,7 +2333,7 @@ export default function SellerProductsPage() {
       {cropperSource && (
         <ImageCropper
           imageSrc={cropperSource}
-          title={t('products.upload_image_title', 'Unggah Foto Produk')}
+          title={t('products.upload_image_title', 'Upload Product Photo')}
           cropShape="rect"
           aspectRatio={1}
           onCrop={handleCropConfirm}
@@ -2407,7 +2409,7 @@ export default function SellerProductsPage() {
                     <p className="text-sm font-bold text-[#4b2417] mt-0.5">{formatRupiah(viewProductModal.price)}</p>
                   </div>
                   <div className="rounded-xl bg-gray-50 p-2.5 border border-gray-100">
-                    <p className="text-gray-500 font-medium">Estimated HPP</p>
+                    <p className="text-gray-500 font-medium">Estimated COGS</p>
                     <p className="text-sm font-bold text-gray-800 mt-0.5">{formatRupiah(viewProductModal.hppTotal)}</p>
                   </div>
                   <div className="rounded-xl bg-gray-50 p-2.5 border border-gray-100">
@@ -2494,7 +2496,7 @@ export default function SellerProductsPage() {
                   </span>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  Historical selling price adjustments, HPP snapshots, and margins.
+                  Historical selling price adjustments, COGS snapshots, and margins.
                 </p>
               </div>
               <button
@@ -2534,7 +2536,7 @@ export default function SellerProductsPage() {
                         <th className="p-3">Date & Time</th>
                         <th className="p-3 text-right">Previous Price</th>
                         <th className="p-3 text-right">New Price</th>
-                        <th className="p-3 text-right">HPP Snapshot</th>
+                        <th className="p-3 text-right">COGS Snapshot</th>
                         <th className="p-3 text-right">Margin</th>
                         <th className="p-3 text-center">Changed By</th>
                       </tr>
@@ -2616,11 +2618,11 @@ export default function SellerProductsPage() {
 
       <ConfirmationModal
         isOpen={showHppConfirmModal}
-        title="Selling Price Below HPP"
+        title="Selling Price Below COGS"
         message={
           formData.harga_jual && formHpp > 0
-            ? `Selling price ${formatRupiah(Number(formData.harga_jual))} is ${formatRupiah(formHpp - Number(formData.harga_jual))} below estimated HPP (${formatRupiah(formHpp)}) per product. Are you sure you want to proceed and save?`
-            : 'The selling price is below the estimated HPP. Are you sure you want to proceed and save?'
+            ? `Selling price ${formatRupiah(Number(formData.harga_jual))} is ${formatRupiah(formHpp - Number(formData.harga_jual))} below estimated COGS (${formatRupiah(formHpp)}) per product. Are you sure you want to proceed and save?`
+            : 'The selling price is below the estimated COGS. Are you sure you want to proceed and save?'
         }
         confirmText="Save Anyway"
         cancelText="Cancel"

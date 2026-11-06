@@ -1,4 +1,5 @@
 import { apiClient } from '@/api/client';
+import { TOKEN_KEY } from '@/constants';
 
 export type UserRole = "owner" | "admin" | "staff";
 export type UserStatus = "active" | "inactive";
@@ -42,15 +43,24 @@ export interface UserAdminUpdate {
 
 const PROFILE_TTL_MS = 60_000;
 let cachedProfile: UserProfile | null = null;
+let cachedProfileToken: string | null = null;
 let lastProfileFetchTime = 0;
 let activeProfileRequest: Promise<UserProfile> | null = null;
 
 export function invalidateProfileCache(): void {
   cachedProfile = null;
+  cachedProfileToken = null;
   lastProfileFetchTime = 0;
 }
 
 export async function getMyProfile(forceRefresh: boolean = false): Promise<UserProfile> {
+  const currentToken = typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null;
+  if (cachedProfileToken !== currentToken) {
+    cachedProfile = null;
+    cachedProfileToken = currentToken;
+    lastProfileFetchTime = 0;
+  }
+
   const now = Date.now();
   if (!forceRefresh && cachedProfile && now - lastProfileFetchTime < PROFILE_TTL_MS) {
     return cachedProfile;
@@ -61,6 +71,7 @@ export async function getMyProfile(forceRefresh: boolean = false): Promise<UserP
   activeProfileRequest = apiClient.get('/users/me')
     .then(response => {
       cachedProfile = response.data;
+      cachedProfileToken = currentToken;
       lastProfileFetchTime = Date.now();
       return response.data;
     })
@@ -74,6 +85,7 @@ export async function getMyProfile(forceRefresh: boolean = false): Promise<UserP
 export async function updateMyProfile(data: UserProfileUpdate): Promise<UserProfile> {
   const response = await apiClient.put('/users/me', data);
   cachedProfile = response.data;
+  cachedProfileToken = typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null;
   lastProfileFetchTime = Date.now();
   return response.data;
 }
@@ -91,6 +103,7 @@ export async function uploadAvatar(file: File): Promise<UserProfile> {
     },
   });
   cachedProfile = response.data;
+  cachedProfileToken = typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null;
   lastProfileFetchTime = Date.now();
   return response.data;
 }

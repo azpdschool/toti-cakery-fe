@@ -2228,7 +2228,7 @@ export default function SellerFinancePage() {
             <form onSubmit={handleSaveExpense} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Category <span className="text-red-500">*</span>
+                  Category <span className="text-red-500 ml-0.5">*</span>
                 </label>
                 <select
                   required
@@ -2246,7 +2246,7 @@ export default function SellerFinancePage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Amount (IDR) <span className="text-red-500">*</span>
+                    Amount (IDR) <span className="text-red-500 ml-0.5">*</span>
                   </label>
                   <CurrencyInput
                     required
@@ -2259,7 +2259,7 @@ export default function SellerFinancePage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Date
+                    Date <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span>
                   </label>
                   <input
                     type="date"
@@ -2273,7 +2273,7 @@ export default function SellerFinancePage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Payment Method
+                    Payment Method <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span>
                   </label>
                   <select
                     value={expenseForm.metode_pembayaran}
@@ -2291,7 +2291,7 @@ export default function SellerFinancePage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Recipient / Vendor
+                    Recipient / Vendor <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span>
                   </label>
                   <input
                     type="text"
@@ -2306,7 +2306,7 @@ export default function SellerFinancePage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
+                  Description <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span>
                 </label>
                 <textarea
                   rows={2}
@@ -2320,7 +2320,7 @@ export default function SellerFinancePage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Receipt URL (HTTPS)
+                  Receipt URL (HTTPS) <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span>
                 </label>
                 <input
                   type="url"

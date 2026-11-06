@@ -53,7 +53,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
     // or just store it and let the pages refresh it.
     // The prompt says: "Jangan menyimpan isAvailable sebagai cache permanen yang bisa stale tanpa refresh."
     // So we map it out before saving.
-    const itemsToStore = items.map(({ isAvailable, isInStock, stockQuantity, ...rest }) => rest);
+    const itemsToStore = items.map((item) => ({
+      productId: item.productId,
+      variantId: item.variantId,
+      name: item.name,
+      variantName: item.variantName,
+      price: item.price,
+      quantity: item.quantity,
+      image: item.image,
+      minOrder: item.minOrder,
+      step: item.step,
+      category: item.category,
+    }));
     const serialized = JSON.stringify(itemsToStore);
     
     // Avoid redundant writes to prevent infinite loops across tabs
@@ -98,6 +109,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
+  useEffect(() => {
+    const handleLogout = () => {
+      setItems([]);
+      localStorage.removeItem(CART_STORAGE_KEY);
+    };
+
+    window.addEventListener('auth:logout', handleLogout);
+    window.addEventListener('auth:unauthorized', handleLogout);
+
+    return () => {
+      window.removeEventListener('auth:logout', handleLogout);
+      window.removeEventListener('auth:unauthorized', handleLogout);
+    };
   }, []);
 
   const addItem = (item: Omit<CartItem, 'quantity' | 'isAvailable'> & { quantity?: number }) => {

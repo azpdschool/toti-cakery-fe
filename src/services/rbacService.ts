@@ -75,6 +75,12 @@ export const allPermissions: Permission[] = [
     label: 'Export laporan',
     module: 'Laporan',
   },
+  {
+    id: 'p12',
+    key: 'view_settings',
+    label: 'Lihat pengaturan akun',
+    module: 'Pengaturan',
+  },
 ]
 
 export type PermissionKey = (typeof allPermissions)[number]['key']
@@ -89,12 +95,14 @@ const rolePermissionMap: Record<SellerRole, string[]> = {
     'manage_inventory',
     'add_manual_order',
     'manage_chatbot_faq',
+    'view_settings',
   ],
 
   staff: [
     'view_dashboard',
     'view_process_orders',
     'manage_inventory',
+    'view_settings',
   ],
 }
 

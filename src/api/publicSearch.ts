@@ -17,6 +17,8 @@ export interface PublicFaqSearchResult {
   id: number
   pertanyaan: string
   jawaban: string
+  pertanyaan_en?: string | null
+  jawaban_en?: string | null
 }
 
 export interface PublicStoreInfoSearchResult {

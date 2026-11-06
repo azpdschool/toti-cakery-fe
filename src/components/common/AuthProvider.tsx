@@ -3,7 +3,10 @@ import { createContext, useEffect, useMemo, useState, useCallback, useRef, type 
 import type { AuthState, SellerRole, User, UserRole } from '@/types'
 import { TOKEN_KEY, USER_KEY } from '@/constants'
 import { jwtDecode } from 'jwt-decode'
-import { logoutApi, getBuyerProfile } from '@/api/auth'
+import { logoutApi, getBuyerProfile, invalidateBuyerProfileCache } from '@/api/auth'
+import { invalidateNotificationCache } from '@/hooks/useNotifications'
+import { invalidateWishlistCache } from '@/hooks/useWishlist'
+import { invalidateProfileCache } from '@/services/sellerSettingsService'
 import { toast } from 'react-hot-toast'
 import i18n from '@/lib/i18n'
 
@@ -39,6 +42,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(USER_KEY)
     localStorage.removeItem('buyer_avatar')
+    localStorage.removeItem('toti_cart')
+    localStorage.removeItem('last_activity')
+
+    invalidateBuyerProfileCache()
+    invalidateNotificationCache()
+    invalidateWishlistCache()
+    invalidateProfileCache()
+
+    window.dispatchEvent(new Event('auth:logout'))
 
     setAuth({
       user: null,
@@ -102,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = useCallback((token: string, user: User) => {
+    invalidateProfileCache()
     localStorage.setItem(TOKEN_KEY, token)
     localStorage.setItem(USER_KEY, JSON.stringify(user))
 

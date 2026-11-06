@@ -63,8 +63,8 @@ export function friendlyError(err: unknown): string {
     if (msg.includes('history') || msg.includes('movement') || msg.includes('movementout')) {
       return "This ingredient has stock history, so it can't be deleted.";
     }
-    if (msg.includes('supplier') && (msg.includes('purchase') || msg.includes('has'))) {
-      return "This supplier has purchases, so it can't be deleted.";
+    if (msg.includes('supplier') && (msg.includes('purchase') || msg.includes('has') || msg.includes('pemesanan') || msg.includes('memiliki'))) {
+      return "This supplier has recorded purchases, so it can't be deleted.";
     }
     if (msg.includes('already received')) {
       return "This purchase was already received.";
