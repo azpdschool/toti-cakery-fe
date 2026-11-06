@@ -148,6 +148,8 @@ function FaqModal({ isOpen, onClose, onSave, initialData }: FaqModalProps) {
     setIsSubmitting(true);
     try {
       await onSave(formData);
+    } catch {
+      // Keep modal open so form data is preserved
     } finally {
       setIsSubmitting(false);
     }
@@ -287,8 +289,32 @@ function FaqModal({ isOpen, onClose, onSave, initialData }: FaqModalProps) {
   );
 }
 
-function DeleteConfirmModal({ isOpen, onClose, onConfirm }: { isOpen: boolean, onClose: () => void, onConfirm: () => void }) {
+function DeleteConfirmModal({
+  isOpen,
+  onClose,
+  onConfirm,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => Promise<void> | void;
+}) {
+  const [isDeleting, setIsDeleting] = useState(false);
+
   if (!isOpen) return null;
+
+  const handleConfirm = async () => {
+    if (isDeleting) return;
+    try {
+      setIsDeleting(true);
+      await onConfirm();
+      onClose();
+    } catch {
+      // Keep modal open if delete fails
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl text-center">
@@ -299,24 +325,25 @@ function DeleteConfirmModal({ isOpen, onClose, onConfirm }: { isOpen: boolean, o
         </p>
         <div className="flex justify-center gap-3">
           <button
+            type="button"
             onClick={onClose}
-            className="rounded-lg border border-gray-300 px-6 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+            disabled={isDeleting}
+            className="rounded-lg border border-gray-300 px-6 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
           >
             Cancel
           </button>
           <button
-            onClick={() => {
-              onConfirm();
-              onClose();
-            }}
-            className="rounded-lg bg-red-500 px-4 py-2 font-bold text-white hover:bg-red-600"
+            type="button"
+            onClick={handleConfirm}
+            disabled={isDeleting}
+            className="rounded-lg bg-red-500 px-4 py-2 font-bold text-white hover:bg-red-600 disabled:opacity-50"
           >
-            Delete
+            {isDeleting ? 'Deleting...' : 'Delete'}
           </button>
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 function StatCard({
@@ -474,8 +501,13 @@ export default function SellerFaqPage() {
       await loadData();
       showToast({ message: 'FAQ created successfully.', type: 'success' });
       setShowModal(false);
-    } catch (error) {
-      showToast({ message: 'Unable to create FAQ.', type: 'error' });
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail;
+      const msg = typeof detail === 'string'
+        ? detail
+        : (Array.isArray(detail) ? detail.map((d: any) => d.msg).join(', ') : 'Unable to create FAQ.');
+      showToast({ message: msg, type: 'error' });
+      throw error;
     }
   };
 
@@ -486,8 +518,13 @@ export default function SellerFaqPage() {
       await loadData();
       showToast({ message: 'FAQ updated successfully.', type: 'success' });
       setShowModal(false);
-    } catch (error) {
-      showToast({ message: 'Unable to update FAQ.', type: 'error' });
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail;
+      const msg = typeof detail === 'string'
+        ? detail
+        : (Array.isArray(detail) ? detail.map((d: any) => d.msg).join(', ') : 'Unable to update FAQ.');
+      showToast({ message: msg, type: 'error' });
+      throw error;
     }
   };
 
@@ -497,8 +534,15 @@ export default function SellerFaqPage() {
       await deleteFaq(deletingId);
       await loadData();
       showToast({ message: 'FAQ deleted successfully.', type: 'success' });
-    } catch (error) {
-      showToast({ message: 'Unable to delete FAQ.', type: 'error' });
+      setShowDeleteModal(false);
+      setDeletingId(null);
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail;
+      const msg = typeof detail === 'string'
+        ? detail
+        : (Array.isArray(detail) ? detail.map((d: any) => d.msg).join(', ') : 'Unable to delete FAQ.');
+      showToast({ message: msg, type: 'error' });
+      throw error;
     }
   };
 

@@ -9,8 +9,8 @@ import {
 } from '../api/supplier';
 
 export const supplierService = {
-  async fetchSuppliers(): Promise<SupplierOut[]> {
-    return await getSuppliers();
+  async fetchSuppliers(onlyActive?: boolean): Promise<SupplierOut[]> {
+    return await getSuppliers(onlyActive);
   },
   async createSupplier(data: SupplierCreate): Promise<SupplierOut> {
     return await createSupplier(data);

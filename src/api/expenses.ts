@@ -17,6 +17,9 @@ function sanitizeExpenseCreatePayload(data: ExpenseCreate): Record<string, unkno
   if (data.tanggal) payload.tanggal = data.tanggal;
   if (data.deskripsi !== undefined) payload.deskripsi = data.deskripsi ? data.deskripsi.trim() : null;
   if (data.penerima !== undefined) payload.penerima = data.penerima ? data.penerima.trim() : null;
+  if (data.supplier_id !== undefined) {
+    payload.supplier_id = data.supplier_id ? Number(data.supplier_id) : null;
+  }
   if (data.metode_pembayaran !== undefined) payload.metode_pembayaran = data.metode_pembayaran || null;
   if (data.bukti_url !== undefined) {
     const trimmed = data.bukti_url ? data.bukti_url.trim() : null;
@@ -32,6 +35,9 @@ function sanitizeExpenseUpdatePayload(data: ExpenseUpdate): Record<string, unkno
   if (data.tanggal !== undefined && data.tanggal !== null) payload.tanggal = data.tanggal;
   if (data.deskripsi !== undefined) payload.deskripsi = data.deskripsi ? data.deskripsi.trim() : null;
   if (data.penerima !== undefined) payload.penerima = data.penerima ? data.penerima.trim() : null;
+  if (data.supplier_id !== undefined) {
+    payload.supplier_id = data.supplier_id ? Number(data.supplier_id) : null;
+  }
   if (data.metode_pembayaran !== undefined) payload.metode_pembayaran = data.metode_pembayaran || null;
   if (data.bukti_url !== undefined) {
     const trimmed = data.bukti_url ? data.bukti_url.trim() : null;

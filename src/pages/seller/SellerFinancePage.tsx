@@ -49,6 +49,8 @@ import {
 } from '@/utils/date';
 import type { ExpenseDetailResponse, ExpensePaymentMethod } from '@/types/expense';
 import type { ProductProfitabilityItem, SupplierSpendingItem } from '@/types/finance';
+import { supplierService } from '@/services/supplierService';
+import type { SupplierOut } from '@/api/supplier';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { hasPermission } from '@/services/rbacService';
 import { useAuth } from '@/hooks/useAuth';
@@ -674,6 +676,7 @@ interface TableProps<T> {
   columns: Column<T>[];
   isLoading: boolean;
   emptyMessage: string;
+  emptySubtext?: string;
   renderMobileCard?: (row: T, idx: number) => React.ReactNode;
   
   // Search
@@ -708,6 +711,7 @@ function DataTable<T>({
   columns,
   isLoading,
   emptyMessage,
+  emptySubtext,
   renderMobileCard,
   searchPlaceholder,
   searchValue,
@@ -746,7 +750,7 @@ function DataTable<T>({
                 placeholder={searchPlaceholder}
                 value={searchValue}
                 onChange={(e) => onSearchChange(e.target.value)}
-                className="w-full pl-9 pr-3 sm:pr-4 py-2 text-xs sm:text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                className="w-full pl-9 pr-3 sm:pr-4 py-2 text-xs sm:text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#d85b30]/30 focus:border-[#d85b30] transition-shadow"
                 aria-label="Search"
               />
             </div>
@@ -767,7 +771,7 @@ function DataTable<T>({
               <button
                 type="button"
                 onClick={() => setShowFilter(!showFilter)}
-                className="flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 sm:px-3.5 py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer shrink-0"
+                className="flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 sm:px-3.5 py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-[#d85b30] cursor-pointer shrink-0"
                 aria-expanded={showFilter}
                 aria-haspopup="true"
                 aria-label={`Filter ${title}`}
@@ -799,7 +803,7 @@ function DataTable<T>({
                               type="date"
                               value={f.value}
                               onChange={(e) => f.onChange(e.target.value)}
-                              className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs sm:text-sm text-gray-800 outline-none focus:border-blue-500 bg-white"
+                              className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs sm:text-sm text-gray-800 outline-none focus:border-[#d85b30] bg-white"
                             />
                           </div>
                         ) : f.type === 'select' ? (
@@ -817,7 +821,7 @@ function DataTable<T>({
                               type="text"
                               value={f.value}
                               onChange={(e) => f.onChange(e.target.value)}
-                              className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs sm:text-sm text-gray-800 outline-none focus:border-blue-500 bg-white"
+                              className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs sm:text-sm text-gray-800 outline-none focus:border-[#d85b30] bg-white"
                             />
                           </div>
                         )}
@@ -841,7 +845,7 @@ function DataTable<T>({
                         onApplyFilters?.();
                         setShowFilter(false);
                       }}
-                      className="flex-1 rounded-lg px-3 py-2 text-xs sm:text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 transition-colors cursor-pointer"
+                      className="flex-1 rounded-lg px-3 py-2 text-xs sm:text-sm font-semibold text-white bg-[#d85b30] hover:bg-[#c04e28] transition-colors cursor-pointer"
                     >
                       Apply Filters
                     </button>
@@ -881,7 +885,10 @@ function DataTable<T>({
             ) : data.length === 0 ? (
               <tr>
                 <td colSpan={columns.length} className="px-5 py-12 text-center text-gray-500">
-                  {emptyMessage}
+                  <p className="font-medium text-gray-700">{emptyMessage}</p>
+                  {emptySubtext && (
+                    <p className="text-xs text-gray-400 mt-1 max-w-md mx-auto">{emptySubtext}</p>
+                  )}
                 </td>
               </tr>
             ) : (
@@ -913,7 +920,10 @@ function DataTable<T>({
           ))
         ) : data.length === 0 ? (
           <div className="py-8 text-center text-sm text-gray-500">
-            {emptyMessage}
+            <p className="font-medium text-gray-700">{emptyMessage}</p>
+            {emptySubtext && (
+              <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto">{emptySubtext}</p>
+            )}
           </div>
         ) : (
           data.map((row, rowIdx) => (
@@ -998,6 +1008,8 @@ const PRODUCT_SORT_OPTIONS: SortOption[] = [
 const SUPPLIER_SORT_OPTIONS: SortOption[] = [
   { label: 'Total Spending: High to Low', value: 'spending_desc' },
   { label: 'Total Spending: Low to High', value: 'spending_asc' },
+  { label: 'PO Spending: High to Low', value: 'po_spending_desc' },
+  { label: 'Expense Spending: High to Low', value: 'expense_spending_desc' },
   { label: 'Transactions: High to Low', value: 'transactions_desc' },
   { label: 'Transactions: Low to High', value: 'transactions_asc' },
   { label: 'Supplier Name: A to Z', value: 'name_asc' },
@@ -1094,11 +1106,46 @@ export default function SellerFinancePage() {
     tanggal: '',
     metode_pembayaran: '' as ExpensePaymentMethod | '',
     penerima: '',
+    supplier_id: '',
     deskripsi: '',
     bukti_url: '',
   });
   const [submittingExpense, setSubmittingExpense] = useState(false);
-  const [cancellingExpenseId, setCancellingExpenseId] = useState<number | null>(null);
+  const [cancellingExpense, setCancellingExpense] = useState<ExpenseDetailResponse | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [isSubmittingCancel, setIsSubmittingCancel] = useState(false);
+
+  // Active Suppliers for Expense Linking
+  const [activeSuppliers, setActiveSuppliers] = useState<SupplierOut[]>([]);
+
+  const loadSuppliers = async () => {
+    if (!canViewFinance) return;
+    try {
+      const data = await supplierService.fetchSuppliers(true);
+      setActiveSuppliers(data);
+    } catch (err) {
+      console.error('Failed to load active suppliers:', err);
+    }
+  };
+
+  useEffect(() => {
+    loadSuppliers();
+  }, [canViewFinance]);
+
+  const supplierDropdownOptions = useMemo(() => {
+    const list = [...activeSuppliers];
+    if (
+      editingExpense?.supplier_id &&
+      !list.some(s => s.id === editingExpense.supplier_id)
+    ) {
+      list.push({
+        id: editingExpense.supplier_id,
+        nama_supplier: editingExpense.supplier_name || `Supplier #${editingExpense.supplier_id}`,
+        is_active: false,
+      });
+    }
+    return list;
+  }, [activeSuppliers, editingExpense]);
 
   // Audit Modal State
   const [auditExpense, setAuditExpense] = useState<ExpenseDetailResponse | null>(null);
@@ -1288,11 +1335,17 @@ export default function SellerFinancePage() {
       case 'spending_asc':
         result.sort((a, b) => a.total_spending - b.total_spending);
         break;
+      case 'po_spending_desc':
+        result.sort((a, b) => b.po_spending - a.po_spending);
+        break;
+      case 'expense_spending_desc':
+        result.sort((a, b) => b.expense_spending - a.expense_spending);
+        break;
       case 'transactions_desc':
-        result.sort((a, b) => b.purchase_count - a.purchase_count);
+        result.sort((a, b) => (b.purchase_count + b.expense_count) - (a.purchase_count + a.expense_count));
         break;
       case 'transactions_asc':
-        result.sort((a, b) => a.purchase_count - b.purchase_count);
+        result.sort((a, b) => (a.purchase_count + a.expense_count) - (b.purchase_count + b.expense_count));
         break;
       case 'name_asc':
         result.sort((a, b) => a.nama_supplier.localeCompare(b.nama_supplier));
@@ -1319,6 +1372,9 @@ export default function SellerFinancePage() {
       const s = expDebouncedSearch.toLowerCase();
       result = result.filter(e => 
         e.kategori.toLowerCase().includes(s) || 
+        (e.penerima && e.penerima.toLowerCase().includes(s)) ||
+        (e.supplier_name && e.supplier_name.toLowerCase().includes(s)) ||
+        (e.deskripsi && e.deskripsi.toLowerCase().includes(s)) ||
         e.recorded_by_username.toLowerCase().includes(s)
       );
     }
@@ -1361,6 +1417,7 @@ export default function SellerFinancePage() {
       tanggal: getTodayLocal(),
       metode_pembayaran: '',
       penerima: '',
+      supplier_id: '',
       deskripsi: '',
       bukti_url: '',
     });
@@ -1376,25 +1433,33 @@ export default function SellerFinancePage() {
       tanggal: dateStr,
       metode_pembayaran: expense.metode_pembayaran || '',
       penerima: expense.penerima || '',
+      supplier_id: expense.supplier_id ? String(expense.supplier_id) : '',
       deskripsi: expense.deskripsi || '',
       bukti_url: expense.bukti_url || '',
     });
     setShowExpenseModal(true);
   };
 
-  const handleCancelExpense = async (id: number) => {
-    const reason = window.prompt('Enter cancellation reason (at least 3 characters):');
-    if (reason === null) return;
-    const trimmed = reason.trim();
+  const handleOpenCancelModal = (expense: ExpenseDetailResponse) => {
+    setCancellingExpense(expense);
+    setCancelReason('');
+  };
+
+  const handleConfirmCancelExpense = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!cancellingExpense) return;
+    const trimmed = cancelReason.trim();
     if (trimmed.length < 3) {
       toast.error('Cancellation reason must be at least 3 characters.');
       return;
     }
 
     try {
-      setCancellingExpenseId(id);
-      await cancelExpense(id, trimmed);
+      setIsSubmittingCancel(true);
+      await cancelExpense(cancellingExpense.id, trimmed);
       toast.success('Expense cancelled successfully.');
+      setCancellingExpense(null);
+      setCancelReason('');
       loadExpenses();
       loadStats();
     } catch (err: any) {
@@ -1402,7 +1467,7 @@ export default function SellerFinancePage() {
       const displayMsg = typeof errMsg === 'string' ? errMsg : 'Unable to cancel expense.';
       toast.error(displayMsg);
     } finally {
-      setCancellingExpenseId(null);
+      setIsSubmittingCancel(false);
     }
   };
 
@@ -1486,6 +1551,13 @@ export default function SellerFinancePage() {
           hasChanges = true;
         }
 
+        const formSupplierId = expenseForm.supplier_id ? Number(expenseForm.supplier_id) : null;
+        const origSupplierId = editingExpense.supplier_id ?? null;
+        if (formSupplierId !== origSupplierId) {
+          updatePayload.supplier_id = formSupplierId;
+          hasChanges = true;
+        }
+
         if (!hasChanges) {
           toast('No changes detected.');
           setShowExpenseModal(false);
@@ -1501,6 +1573,7 @@ export default function SellerFinancePage() {
           jumlah: numAmount,
           tanggal: expenseForm.tanggal ? `${expenseForm.tanggal}T00:00:00` : undefined,
           penerima: expenseForm.penerima.trim() || null,
+          supplier_id: expenseForm.supplier_id ? Number(expenseForm.supplier_id) : null,
           deskripsi: expenseForm.deskripsi.trim() || null,
           metode_pembayaran: (expenseForm.metode_pembayaran || null) as ExpensePaymentMethod | null,
           bukti_url: trimmedReceipt || null,
@@ -1512,6 +1585,7 @@ export default function SellerFinancePage() {
       setEditingExpense(null);
       loadStats();
       loadExpenses();
+      loadSuppliers();
     } catch (err: any) {
       const errMsg = err?.response?.data?.detail;
       const displayMsg = Array.isArray(errMsg)
@@ -1575,30 +1649,53 @@ export default function SellerFinancePage() {
   };
 
   const renderSupplierMobileCard = (row: SupplierSpendingItem, idx: number) => {
+    const totalTransactions = row.purchase_count + row.expense_count;
     return (
       <div
         key={row.supplier_id ?? idx}
         className="p-3.5 bg-white border border-gray-100 rounded-xl space-y-2.5 shadow-xs min-w-0 max-w-full"
       >
-        <div className="pb-2 border-b border-gray-100 min-w-0">
-          <span className="text-[10px] text-gray-400 block uppercase font-medium">Nama Supplier</span>
-          <div className="font-semibold text-gray-900 text-sm mt-0.5 break-words">
-            {row.nama_supplier}
+        <div className="flex items-start justify-between pb-2 border-b border-gray-100 min-w-0">
+          <div className="min-w-0">
+            <span className="text-[10px] text-gray-400 block uppercase font-medium">Nama Supplier</span>
+            <div className="font-semibold text-gray-900 text-sm mt-0.5 break-words">
+              {row.nama_supplier}
+            </div>
           </div>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 font-medium whitespace-nowrap">
+            ID #{row.supplier_id}
+          </span>
         </div>
 
         <div className="grid grid-cols-2 gap-2 text-xs min-w-0">
           <div className="min-w-0">
-            <span className="text-[10px] text-gray-400 block uppercase font-medium">Jumlah Transaksi</span>
+            <span className="text-[10px] text-gray-400 block uppercase font-medium">PO Spending</span>
             <div className="text-gray-800 mt-0.5 font-medium break-words">
-              {row.purchase_count} transaksi
+              {formatRupiah(row.po_spending)}
+            </div>
+            <div className="text-[11px] text-gray-400">
+              {row.purchase_count} {row.purchase_count === 1 ? 'PO' : 'POs'}
             </div>
           </div>
           <div className="min-w-0 text-right">
-            <span className="text-[10px] text-gray-400 block uppercase font-medium">Total Spending</span>
-            <div className="text-gray-900 mt-0.5 font-semibold break-words">
-              {formatRupiah(row.total_spending)}
+            <span className="text-[10px] text-gray-400 block uppercase font-medium">Expense Spending</span>
+            <div className="text-gray-800 mt-0.5 font-medium break-words">
+              {formatRupiah(row.expense_spending)}
             </div>
+            <div className="text-[11px] text-gray-400">
+              {row.expense_count} {row.expense_count === 1 ? 'expense' : 'expenses'}
+            </div>
+          </div>
+        </div>
+
+        <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-xs">
+          <div>
+            <span className="text-[10px] text-gray-400 block uppercase font-medium">Total Transaksi</span>
+            <span className="text-gray-700 font-medium">{totalTransactions} transaksi</span>
+          </div>
+          <div className="text-right">
+            <span className="text-[10px] text-gray-400 block uppercase font-medium">Total Spending</span>
+            <span className="text-gray-900 font-bold text-sm">{formatRupiah(row.total_spending)}</span>
           </div>
         </div>
       </div>
@@ -1606,7 +1703,6 @@ export default function SellerFinancePage() {
   };
 
   const renderExpenseMobileCard = (row: ExpenseDetailResponse, idx: number) => {
-    const isCancelling = cancellingExpenseId === row.id;
     const paymentMethodText = row.metode_pembayaran
       ? (EXPENSE_PAYMENT_LABELS[row.metode_pembayaran] || row.metode_pembayaran)
       : '-';
@@ -1654,7 +1750,7 @@ export default function SellerFinancePage() {
           )}
         </div>
 
-        {/* Tanggal, Metode Pembayaran, Penerima/Vendor, Dicatat Oleh */}
+        {/* Tanggal, Metode Pembayaran, Supplier, Penerima/Vendor, Dicatat Oleh */}
         <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-gray-50 min-w-0">
           <div className="min-w-0">
             <span className="text-[10px] text-gray-400 block uppercase font-medium">Tanggal</span>
@@ -1669,12 +1765,22 @@ export default function SellerFinancePage() {
             </span>
           </div>
           <div className="min-w-0">
+            <span className="text-[10px] text-gray-400 block uppercase font-medium">Linked Supplier</span>
+            <span className="text-gray-700 font-medium break-words">
+              {row.supplier_name ? (
+                <span className="text-blue-700 font-semibold">{row.supplier_name}</span>
+              ) : (
+                <span className="text-gray-400 italic">No supplier linked</span>
+              )}
+            </span>
+          </div>
+          <div className="min-w-0 text-right">
             <span className="text-[10px] text-gray-400 block uppercase font-medium">Penerima / Vendor</span>
             <span className="text-gray-700 font-medium break-words">
               {row.penerima || '-'}
             </span>
           </div>
-          <div className="min-w-0 text-right">
+          <div className="min-w-0 col-span-2">
             <span className="text-[10px] text-gray-400 block uppercase font-medium">Dicatat Oleh</span>
             <span className="text-gray-600 font-medium break-words">
               {row.recorded_by_username || '-'}
@@ -1739,11 +1845,10 @@ export default function SellerFinancePage() {
               </button>
               <button
                 type="button"
-                onClick={() => handleCancelExpense(row.id)}
-                disabled={isCancelling}
-                className="px-2.5 py-1 text-xs font-medium text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 rounded-md disabled:opacity-50 transition-colors"
+                onClick={() => handleOpenCancelModal(row)}
+                className="px-2.5 py-1 text-xs font-medium text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 rounded-md transition-colors"
               >
-                {isCancelling ? 'Cancelling...' : 'Cancel'}
+                Cancel
               </button>
             </>
           )}
@@ -1774,7 +1879,7 @@ export default function SellerFinancePage() {
                   type="date"
                   value={globalStartDate}
                   onChange={e => setGlobalStartDate(e.target.value)}
-                  className="w-full pl-7 sm:pl-9 pr-1 sm:pr-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-7 sm:pl-9 pr-1 sm:pr-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#d85b30]/30 focus:border-[#d85b30]"
                   aria-label="Start Date"
                 />
               </div>
@@ -1788,14 +1893,14 @@ export default function SellerFinancePage() {
                   type="date"
                   value={globalEndDate}
                   onChange={e => setGlobalEndDate(e.target.value)}
-                  className="w-full pl-7 sm:pl-9 pr-1 sm:pr-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-7 sm:pl-9 pr-1 sm:pr-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#d85b30]/30 focus:border-[#d85b30]"
                   aria-label="End Date"
                 />
               </div>
             </div>
             <button 
               onClick={handleGlobalFilterApply}
-              className="shrink-0 px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors sm:self-end"
+              className="shrink-0 px-2.5 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-white bg-[#d85b30] rounded-lg hover:bg-[#c04e28] transition-colors sm:self-end"
             >
               <span className="inline sm:hidden">Update</span>
               <span className="hidden sm:inline">Update Summary</span>
@@ -1890,7 +1995,7 @@ export default function SellerFinancePage() {
           />
           <StatCard
             title="Other Income"
-            value={formatRupiah((stats?.nonRefundableDpIncome || 0) + (stats?.otherIncome || 0))}
+            value={formatRupiah(stats?.otherIncome ?? stats?.nonRefundableDpIncome ?? 0)}
             icon={Plus}
             color="bg-purple-100 text-purple-700"
             isLoading={statsLoading}
@@ -1967,6 +2072,7 @@ export default function SellerFinancePage() {
         data={paginatedSuppliers}
         isLoading={statsLoading}
         emptyMessage="No supplier spending data available."
+        emptySubtext="Supplier spending records are automatically aggregated from completed Purchase Orders (PO) and linked operational expenses."
         renderMobileCard={renderSupplierMobileCard}
         searchPlaceholder="Search supplier..."
         searchValue={supSearch}
@@ -1980,9 +2086,49 @@ export default function SellerFinancePage() {
         onPageChange={setSupPage}
         onPageSizeChange={(s) => { setSupPageSize(s); setSupPage(1); }}
         columns={[
-          { header: 'Supplier', accessor: 'nama_supplier', render: (row: any) => <span className="font-medium text-gray-900">{row.nama_supplier}</span> },
-          { header: 'Transactions', accessor: 'purchase_count', align: 'center' },
-          { header: 'Total Spending', accessor: 'total_spending', align: 'right', render: (row: any) => <span className="font-semibold text-gray-900">{formatRupiah(row.total_spending)}</span> }
+          {
+            header: 'Supplier',
+            accessor: 'nama_supplier',
+            render: (row: any) => (
+              <div>
+                <span className="font-medium text-gray-900">{row.nama_supplier}</span>
+                <p className="text-xs text-gray-400">ID #{row.supplier_id}</p>
+              </div>
+            )
+          },
+          {
+            header: 'PO Spending',
+            accessor: 'po_spending',
+            align: 'right',
+            render: (row: any) => (
+              <div className="text-right">
+                <div className="font-medium text-gray-900">{formatRupiah(row.po_spending)}</div>
+                <div className="text-xs text-gray-500">{row.purchase_count} {row.purchase_count === 1 ? 'PO' : 'POs'}</div>
+              </div>
+            )
+          },
+          {
+            header: 'Expense Spending',
+            accessor: 'expense_spending',
+            align: 'right',
+            render: (row: any) => (
+              <div className="text-right">
+                <div className="font-medium text-gray-900">{formatRupiah(row.expense_spending)}</div>
+                <div className="text-xs text-gray-500">{row.expense_count} {row.expense_count === 1 ? 'expense' : 'expenses'}</div>
+              </div>
+            )
+          },
+          {
+            header: 'Total Combined Spending',
+            accessor: 'total_spending',
+            align: 'right',
+            render: (row: any) => (
+              <div className="text-right">
+                <span className="font-semibold text-gray-900">{formatRupiah(row.total_spending)}</span>
+                <div className="text-xs text-gray-500">{row.purchase_count + row.expense_count} total tx</div>
+              </div>
+            )
+          }
         ]}
       />
 
@@ -1993,7 +2139,7 @@ export default function SellerFinancePage() {
         isLoading={expensesLoading}
         emptyMessage="No expenses found."
         renderMobileCard={renderExpenseMobileCard}
-        searchPlaceholder="Search expense category or user..."
+        searchPlaceholder="Search expense category, vendor, supplier..."
         searchValue={expSearch}
         onSearchChange={setExpSearch}
         sortOptions={EXPENSE_SORT_OPTIONS}
@@ -2039,7 +2185,7 @@ export default function SellerFinancePage() {
           canManageExpenses && (
             <button
               onClick={handleOpenCreateModal}
-              className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 transition-colors"
+              className="flex items-center gap-2 rounded-lg bg-[#d85b30] px-4 py-2 text-sm font-semibold text-white hover:bg-[#c04e28] transition-colors shadow-sm"
             >
               <Plus className="h-4 w-4" />
               Add Expense
@@ -2073,10 +2219,22 @@ export default function SellerFinancePage() {
             )
           },
           {
-            header: 'Recipient / Vendor',
+            header: 'Recipient / Supplier',
             accessor: 'penerima',
             render: (row: ExpenseDetailResponse) => (
-              <span className="text-gray-600">{row.penerima || '-'}</span>
+              <div className="text-xs space-y-0.5">
+                {row.supplier_name ? (
+                  <div className="font-medium text-stone-900 flex items-center gap-1.5">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0"></span>
+                    <span className="text-gray-900 font-semibold">{row.supplier_name}</span>
+                  </div>
+                ) : (
+                  <span className="text-stone-400 italic text-[11px]">No supplier linked</span>
+                )}
+                {row.penerima && row.penerima !== row.supplier_name && (
+                  <div className="text-stone-500 font-normal">{row.penerima}</div>
+                )}
+              </div>
             )
           },
           {
@@ -2163,37 +2321,33 @@ export default function SellerFinancePage() {
           ...(canManageExpenses ? [{
             header: 'Actions',
             align: 'center' as const,
-            render: (row: ExpenseDetailResponse) => {
-              const isCancelling = cancellingExpenseId === row.id;
-              return (
-                <div className="flex items-center justify-center gap-1.5">
-                  <button
-                    onClick={() => handleOpenAuditModal(row)}
-                    className="px-2.5 py-1 text-xs font-medium text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 rounded-md transition-colors"
-                    title="View Audit History"
-                  >
-                    History
-                  </button>
-                  {!row.is_voided && (
-                    <>
-                      <button
-                        onClick={() => handleOpenEditModal(row)}
-                        className="px-2.5 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => handleCancelExpense(row.id)}
-                        disabled={isCancelling}
-                        className="px-2.5 py-1 text-xs font-medium text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 rounded-md disabled:opacity-50 transition-colors"
-                      >
-                        {isCancelling ? 'Cancelling...' : 'Cancel'}
-                      </button>
-                    </>
-                  )}
-                </div>
-              );
-            }
+            render: (row: ExpenseDetailResponse) => (
+              <div className="flex items-center justify-center gap-1.5">
+                <button
+                  onClick={() => handleOpenAuditModal(row)}
+                  className="px-2.5 py-1 text-xs font-medium text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 rounded-md transition-colors"
+                  title="View Audit History"
+                >
+                  History
+                </button>
+                {!row.is_voided && (
+                  <>
+                    <button
+                      onClick={() => handleOpenEditModal(row)}
+                      className="px-2.5 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-md transition-colors"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleOpenCancelModal(row)}
+                      className="px-2.5 py-1 text-xs font-medium text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 rounded-md transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                )}
+              </div>
+            )
           }] : [])
         ]}
       />
@@ -2234,7 +2388,7 @@ export default function SellerFinancePage() {
                   required
                   value={expenseForm.kategori}
                   onChange={e => setExpenseForm(prev => ({ ...prev, kategori: e.target.value }))}
-                  className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none bg-white transition-shadow"
+                  className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-[#d85b30] focus:ring-1 focus:ring-[#d85b30]/20 outline-none bg-white transition-shadow"
                 >
                   <option value="">Select category</option>
                   {categoryOptions.map(cat => (
@@ -2252,7 +2406,7 @@ export default function SellerFinancePage() {
                     required
                     value={expenseForm.jumlah}
                     onChange={(val, raw) => setExpenseForm(prev => ({ ...prev, jumlah: raw ? String(val) : '' }))}
-                    className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-shadow"
+                    className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-[#d85b30] focus:ring-1 focus:ring-[#d85b30]/20 outline-none transition-shadow"
                     placeholder="0"
                   />
                 </div>
@@ -2265,7 +2419,7 @@ export default function SellerFinancePage() {
                     type="date"
                     value={expenseForm.tanggal}
                     onChange={e => setExpenseForm(prev => ({ ...prev, tanggal: e.target.value }))}
-                    className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-shadow"
+                    className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-[#d85b30] focus:ring-1 focus:ring-[#d85b30]/20 outline-none transition-shadow"
                   />
                 </div>
               </div>
@@ -2278,7 +2432,7 @@ export default function SellerFinancePage() {
                   <select
                     value={expenseForm.metode_pembayaran}
                     onChange={e => setExpenseForm(prev => ({ ...prev, metode_pembayaran: e.target.value as ExpensePaymentMethod | '' }))}
-                    className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none bg-white transition-shadow"
+                    className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-[#d85b30] focus:ring-1 focus:ring-[#d85b30]/20 outline-none bg-white transition-shadow"
                   >
                     <option value="">Select payment method (optional)</option>
                     <option value="cash">Cash</option>
@@ -2291,17 +2445,46 @@ export default function SellerFinancePage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Recipient / Vendor <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span>
+                    Supplier <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span>
                   </label>
-                  <input
-                    type="text"
-                    maxLength={120}
-                    value={expenseForm.penerima}
-                    onChange={e => setExpenseForm(prev => ({ ...prev, penerima: e.target.value }))}
-                    className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-shadow"
-                    placeholder="e.g. Toko Sejahtera, PLN"
-                  />
+                  <select
+                    value={expenseForm.supplier_id}
+                    onChange={e => {
+                      const selectedId = e.target.value;
+                      setExpenseForm(prev => {
+                        const selectedSup = supplierDropdownOptions.find(s => String(s.id) === selectedId);
+                        const shouldAutoFillRecipient = !prev.penerima.trim() && selectedSup;
+                        return {
+                          ...prev,
+                          supplier_id: selectedId,
+                          penerima: shouldAutoFillRecipient ? selectedSup.nama_supplier : prev.penerima,
+                        };
+                      });
+                    }}
+                    className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-[#d85b30] focus:ring-1 focus:ring-[#d85b30]/20 outline-none bg-white transition-shadow"
+                  >
+                    <option value="">None / Optional</option>
+                    {supplierDropdownOptions.map(sup => (
+                      <option key={sup.id} value={sup.id}>
+                        {sup.nama_supplier}{sup.is_active === false ? ' (Inactive)' : ''}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Recipient / Vendor <span className="text-xs font-normal text-stone-400 ml-1">(Optional)</span>
+                </label>
+                <input
+                  type="text"
+                  maxLength={120}
+                  value={expenseForm.penerima}
+                  onChange={e => setExpenseForm(prev => ({ ...prev, penerima: e.target.value }))}
+                  className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-[#d85b30] focus:ring-1 focus:ring-[#d85b30]/20 outline-none transition-shadow"
+                  placeholder="e.g. Toko Sejahtera, PLN"
+                />
               </div>
 
               <div>
@@ -2313,7 +2496,7 @@ export default function SellerFinancePage() {
                   maxLength={500}
                   value={expenseForm.deskripsi}
                   onChange={e => setExpenseForm(prev => ({ ...prev, deskripsi: e.target.value }))}
-                  className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-shadow"
+                  className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-[#d85b30] focus:ring-1 focus:ring-[#d85b30]/20 outline-none transition-shadow"
                   placeholder="Optional description or notes..."
                 />
               </div>
@@ -2327,7 +2510,7 @@ export default function SellerFinancePage() {
                   maxLength={2048}
                   value={expenseForm.bukti_url}
                   onChange={e => setExpenseForm(prev => ({ ...prev, bukti_url: e.target.value }))}
-                  className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-shadow"
+                  className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-[#d85b30] focus:ring-1 focus:ring-[#d85b30]/20 outline-none transition-shadow"
                   placeholder="https://example.com/receipt.pdf"
                 />
                 <p className="text-xs text-gray-500 mt-1">
@@ -2350,9 +2533,80 @@ export default function SellerFinancePage() {
                 <button
                   type="submit"
                   disabled={submittingExpense}
-                  className="flex-1 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  className="flex-1 rounded-lg bg-[#d85b30] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#c04e28] disabled:opacity-50 transition-colors shadow-sm"
                 >
                   {submittingExpense ? 'Saving...' : (editingExpense ? 'Update Expense' : 'Save Expense')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* CANCEL / VOID EXPENSE MODAL */}
+      {cancellingExpense && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-2 text-red-600">
+                <AlertCircle className="h-5 w-5" />
+                <h2 className="text-lg font-bold text-gray-900">Cancel Expense</h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setCancellingExpense(null);
+                  setCancelReason('');
+                }}
+                className="text-gray-400 hover:text-gray-600 rounded-full p-1 hover:bg-gray-100 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-600 mb-4">
+              Are you sure you want to void this expense for{' '}
+              <strong className="text-gray-900">{cancellingExpense.kategori}</strong> ({formatRupiah(cancellingExpense.jumlah)})? This action cannot be undone.
+            </p>
+
+            <form onSubmit={handleConfirmCancelExpense} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Reason for cancellation <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  minLength={3}
+                  maxLength={255}
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3.5 py-2 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500/20 outline-none transition-shadow"
+                  placeholder="Provide a detailed reason (minimum 3 characters)..."
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  {cancelReason.trim().length}/255 characters (minimum 3 characters required)
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCancellingExpense(null);
+                    setCancelReason('');
+                  }}
+                  disabled={isSubmittingCancel}
+                  className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Keep Expense
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingCancel || cancelReason.trim().length < 3}
+                  className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50 transition-colors shadow-sm"
+                >
+                  {isSubmittingCancel ? 'Cancelling...' : 'Confirm Void'}
                 </button>
               </div>
             </form>

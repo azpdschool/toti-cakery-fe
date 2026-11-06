@@ -660,7 +660,7 @@ function SecurityTab() {
 interface UserModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: any) => void;
+  onSave: (data: any) => Promise<void> | void;
   initialData?: UserProfile | null;
 }
 
@@ -674,6 +674,7 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
     password: '',
   });
   const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (initialData) {
@@ -697,8 +698,10 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
     }
   }, [initialData, isOpen]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
     if (!formData.username.trim()) {
       toast.error('Username is required');
       return;
@@ -718,8 +721,16 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
       toast.error('Password must be at least 8 characters');
       return;
     }
-    onSave(formData);
-    onClose();
+
+    try {
+      setIsSubmitting(true);
+      await onSave(formData);
+      onClose();
+    } catch {
+      // Keep modal open, preserving form data on error
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -733,16 +744,18 @@ function UserModal({ isOpen, onClose, onSave, initialData }: UserModalProps) {
           <button
             type="button"
             onClick={onClose}
-            className="w-full sm:w-auto rounded-lg border border-gray-300 px-4 sm:px-6 py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+            disabled={isSubmitting}
+            className="w-full sm:w-auto rounded-lg border border-gray-300 px-4 sm:px-6 py-2 text-xs sm:text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             type="submit"
             form="user-form"
-            className="w-full sm:w-auto rounded-lg bg-[#d85b30] px-4 sm:px-6 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-[#c04e28] transition-colors"
+            disabled={isSubmitting}
+            className="w-full sm:w-auto rounded-lg bg-[#d85b30] px-4 sm:px-6 py-2 text-xs sm:text-sm font-semibold text-white hover:bg-[#c04e28] transition-colors disabled:opacity-50"
           >
-            {initialData ? 'Save Changes' : 'Add User'}
+            {isSubmitting ? 'Saving...' : (initialData ? 'Save Changes' : 'Add User')}
           </button>
         </div>
       }
@@ -946,10 +959,11 @@ function UsersTab() {
     try {
       await addUser(data);
       await loadUsers(); // Refetch data
-      setToastMessage('User successfully added!');
+      showToast({ message: 'User successfully added!', type: 'success' });
       closeModal();
     } catch (error: any) {
       showToast({ message: extractErrorMessage(error, 'Failed to add user.'), type: 'error' });
+      throw error;
     }
   };
 
@@ -962,6 +976,7 @@ function UsersTab() {
       closeModal();
     } catch (error: any) {
       showToast({ message: extractErrorMessage(error, 'Failed to update user.'), type: 'error' });
+      throw error;
     }
   };
 
@@ -1735,17 +1750,6 @@ function EmailSenderTab() {
               </div>
             )}
           </div>
-
-          <div>
-            <button
-              type="button"
-              onClick={() => setIsEditing(true)}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#d85b30] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#c04e28] transition shadow-sm"
-            >
-              <Edit className="h-4 w-4" />
-              {fromEmail ? 'Edit Sender Identity' : 'Configure Email Sender'}
-            </button>
-          </div>
         </div>
       </div>
     );
@@ -1912,7 +1916,11 @@ interface StoreCustomizationFormState {
   };
 }
 
-function StoreCustomizationTab() {
+interface StoreCustomizationTabProps {
+  onDirtyChange?: (isDirty: boolean) => void;
+}
+
+function StoreCustomizationTab({ onDirtyChange }: StoreCustomizationTabProps = {}) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -2010,6 +2018,23 @@ function StoreCustomizationTab() {
     contentId,
     contentEn,
   ]);
+
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [isDirty]);
 
   const handleDiscard = () => {
     if (!initialCustomization) return;
@@ -2597,6 +2622,18 @@ export default function SellerSettingsPage() {
   ], [isOwner, isStaff]);
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
+  const [isStoreCustomizationDirty, setIsStoreCustomizationDirty] = useState(false);
+
+  const handleTabChange = (targetKey: SettingsTab) => {
+    if (activeTab === 'store_customization' && targetKey !== 'store_customization' && isStoreCustomizationDirty) {
+      const confirmLeave = window.confirm(
+        'You have unsaved changes in Store Customization. Are you sure you want to leave without saving?'
+      );
+      if (!confirmLeave) return;
+      setIsStoreCustomizationDirty(false);
+    }
+    setActiveTab(targetKey);
+  };
   const tabsContainerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -2674,7 +2711,7 @@ export default function SellerSettingsPage() {
               label={tab.label}
               icon={tab.icon}
               isActive={activeTab === tab.key}
-              onClick={() => setActiveTab(tab.key)}
+              onClick={() => handleTabChange(tab.key)}
             />
           ))}
         </div>
@@ -2703,7 +2740,9 @@ export default function SellerSettingsPage() {
         {activeTab === 'users' && isOwner && <UsersTab />}
         {activeTab === 'whatsapp' && !isStaff && <WhatsAppTab />}
         {activeTab === 'email_sender' && isOwner && <EmailSenderTab />}
-        {activeTab === 'store_customization' && isOwner && <StoreCustomizationTab />}
+        {activeTab === 'store_customization' && isOwner && (
+          <StoreCustomizationTab onDirtyChange={setIsStoreCustomizationDirty} />
+        )}
       </div>
     </div>
   );

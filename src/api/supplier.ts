@@ -32,18 +32,21 @@ export interface SupplierUpdate {
   is_active?: boolean;
 }
 
-let activeSuppliersRequest: Promise<SupplierOut[]> | null = null;
+const activeSuppliersRequests = new Map<string, Promise<SupplierOut[]>>();
 
-export async function getSuppliers(): Promise<SupplierOut[]> {
-  if (activeSuppliersRequest) return activeSuppliersRequest;
+export async function getSuppliers(onlyActive?: boolean): Promise<SupplierOut[]> {
+  const cacheKey = onlyActive ? 'active' : 'all';
+  if (activeSuppliersRequests.has(cacheKey)) return activeSuppliersRequests.get(cacheKey)!;
   
-  activeSuppliersRequest = apiClient.get<SupplierOut[]>('/purchases/suppliers')
+  const params = onlyActive ? { only_active: true } : undefined;
+  const promise = apiClient.get<SupplierOut[]>('/purchases/suppliers', { params })
     .then(response => response.data)
     .finally(() => {
-      activeSuppliersRequest = null;
+      activeSuppliersRequests.delete(cacheKey);
     });
     
-  return activeSuppliersRequest;
+  activeSuppliersRequests.set(cacheKey, promise);
+  return promise;
 }
 
 export async function createSupplier(payload: SupplierCreate): Promise<SupplierOut> {

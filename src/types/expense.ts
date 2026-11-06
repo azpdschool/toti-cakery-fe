@@ -8,6 +8,7 @@ export interface ExpenseCreate {
   tanggal?: string; // ISO date string
   deskripsi?: string | null;
   penerima?: string | null;
+  supplier_id?: number | null;
   metode_pembayaran?: ExpensePaymentMethod | null;
   bukti_url?: string | null;
 }
@@ -18,6 +19,7 @@ export interface ExpenseUpdate {
   tanggal?: string;
   deskripsi?: string | null;
   penerima?: string | null;
+  supplier_id?: number | null;
   metode_pembayaran?: ExpensePaymentMethod | null;
   bukti_url?: string | null;
 }
@@ -37,6 +39,8 @@ export interface ExpenseDetailResponse {
   updated_at: string | null;
   deskripsi?: string | null;
   penerima?: string | null;
+  supplier_id?: number | null;
+  supplier_name?: string | null;
   metode_pembayaran?: ExpensePaymentMethod | null;
   bukti_url?: string | null;
   is_voided?: boolean;

@@ -103,7 +103,10 @@ export async function getFinanceStats(startDate?: string, endDate?: string): Pro
       supplier_id: Number(s.supplier_id),
       nama_supplier: String(s.nama_supplier || ''),
       total_spending: Number(s.total_spending || 0),
+      po_spending: Number(s.po_spending || 0),
+      expense_spending: Number(s.expense_spending || 0),
       purchase_count: Number(s.purchase_count || 0),
+      expense_count: Number(s.expense_count || 0),
     })),
   };
 }

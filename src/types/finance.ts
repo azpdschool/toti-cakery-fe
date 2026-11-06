@@ -14,7 +14,10 @@ export interface SupplierSpendingItem {
   supplier_id: number;
   nama_supplier: string;
   total_spending: number;
+  po_spending: number;
+  expense_spending: number;
   purchase_count: number;
+  expense_count: number;
 }
 
 export interface FinancialReportDetail {

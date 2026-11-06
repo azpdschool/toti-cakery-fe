@@ -94,6 +94,7 @@ const rolePermissionMap: Record<SellerRole, string[]> = {
     'view_process_orders',
     'manage_inventory',
     'add_manual_order',
+    'view_financial_reports',
     'manage_chatbot_faq',
     'view_settings',
   ],

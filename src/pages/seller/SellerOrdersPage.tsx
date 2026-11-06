@@ -95,7 +95,7 @@ function StatCard({ title, value, change, icon: Icon, color }: StatCardProps) {
 interface AddOrderModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (order: any) => Promise<void> | void;
+  onSave: (order: any) => Promise<void>;
 }
 
 function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
