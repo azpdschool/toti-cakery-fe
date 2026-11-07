@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Download } from 'lucide-react';
 import { formatRupiah } from '@/services/productService';
 import { toast } from 'react-hot-toast';
+import { SandboxInlineAction } from './SandboxSimulationBanner';
 
 interface QrisPaymentCardProps {
   qrisUrl: string;
@@ -33,6 +34,8 @@ export function QrisPaymentCard({ qrisUrl, amount }: QrisPaymentCardProps) {
 
   return (
     <div className="rounded-2xl border border-[#ead8ca] bg-white p-6 shadow-sm text-center">
+      <SandboxInlineAction method="qris" qrisUrl={qrisUrl} />
+
       <div className="inline-flex items-center justify-center rounded-lg bg-[#ED0226]/10 px-4 py-2 mb-4">
         <span className="font-black text-[#ED0226] tracking-wide">QRIS</span>
       </div>

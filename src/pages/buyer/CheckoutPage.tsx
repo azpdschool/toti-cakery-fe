@@ -11,7 +11,8 @@ import { createOrder, processPayment, getOrderPaymentStatus, type DeliveryMethod
 import { ROUTES } from '@/constants';
 import {
   PaymentStatusHeader, PaymentSummaryCard, PaymentMethodSelector,
-  VirtualAccountPaymentCard, QrisPaymentCard, PaymentInstructions, PaymentSupportCard
+  VirtualAccountPaymentCard, QrisPaymentCard, PaymentInstructions, PaymentSupportCard,
+  SandboxTopBar
 } from '@/components/payment';
 
 type CheckoutStep = 'form' | 'payment';
@@ -305,80 +306,86 @@ export default function CheckoutPage() {
   if (step === 'payment') {
     const isPendingInstruction = paymentResult && (paymentResult.qris_url || paymentResult.va_number);
     return (
-      <div className="mx-auto max-w-2xl px-4 py-8">
-        <div className="mb-6 flex justify-between items-center">
-          <h1 className="text-2xl font-black text-[#4b2417]">{t('checkout.payment_title')}</h1>
-          {/* Cannot go back easily if order is already created, so we don't show back arrow to form */}
-        </div>
+      <div className="-mt-8">
+        <SandboxTopBar qrisUrl={paymentResult?.qris_url} />
+        <div className="mx-auto max-w-2xl px-4 py-8">
+          <div className="mb-6 flex justify-between items-center">
+            <h1 className="text-2xl font-black text-[#4b2417]">{t('checkout.payment_title')}</h1>
+            {/* Cannot go back easily if order is already created, so we don't show back arrow to form */}
+          </div>
 
-        <PaymentStatusHeader status={paymentStatusStr} isPolling={!!paymentResult} />
+          <PaymentStatusHeader status={paymentStatusStr} isPolling={!!paymentResult} />
 
-        <div className="grid gap-6">
-          <PaymentSummaryCard
-            orderNumber={orderId || ''}
-            total={confirmedOrderData?.total || total}
-            paymentPreference={confirmedOrderData?.paymentMethod || formData.paymentMethod}
-            amountDue={confirmedOrderData?.amountDue || payableAmount}
-            amountPaid={confirmedOrderData?.amountPaid}
-          />
+          <div className="grid gap-6">
+            <PaymentSummaryCard
+              orderNumber={orderId || ''}
+              total={confirmedOrderData?.total || total}
+              paymentPreference={confirmedOrderData?.paymentMethod || formData.paymentMethod}
+              amountDue={confirmedOrderData?.amountDue || payableAmount}
+              amountPaid={confirmedOrderData?.amountPaid}
+            />
 
-          {!paymentResult && (
-            <div className="rounded-2xl border border-[#ead8ca] bg-white p-6 shadow-sm">
-              <PaymentMethodSelector
-                selectedMethod={midtransMethod}
-                onSelect={setMidtransMethod}
-                disabled={isLoading}
-              />
-              
-              {error && (
-                <div className="mt-4 flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                  {error}
-                </div>
-              )}
-
-              <button
-                onClick={handlePayment}
-                disabled={isLoading}
-                className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white transition hover:bg-[#c04e28] disabled:opacity-60"
-              >
-                {isLoading ? (
-                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t('checkout.processing')}</>
-                ) : (
-                  t('checkout.continue_payment')
+            {!paymentResult && (
+              <div className="rounded-2xl border border-[#ead8ca] bg-white p-6 shadow-sm">
+                <PaymentMethodSelector
+                  selectedMethod={midtransMethod}
+                  onSelect={setMidtransMethod}
+                  disabled={isLoading}
+                />
+                
+                {error && (
+                  <div className="mt-4 flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    {error}
+                  </div>
                 )}
-              </button>
-            </div>
-          )}
 
-          {isPendingInstruction && (
-            <>
-              {paymentResult.qris_url ? (
-                <QrisPaymentCard qrisUrl={paymentResult.qris_url} amount={confirmedOrderData?.amountDue || payableAmount} />
-              ) : paymentResult.va_number ? (
-                <VirtualAccountPaymentCard bankName="BCA" vaNumber={paymentResult.va_number} amount={confirmedOrderData?.amountDue || payableAmount} />
-              ) : null}
-              
-              <PaymentInstructions method={paymentResult.qris_url ? 'qris' : 'bank_transfer'} />
-              
-              <div className="rounded-2xl border border-[#ead8ca] bg-[#f8f4f0] p-5 text-center shadow-sm">
-                <h4 className="font-bold text-[#4b2417] mb-2">{t('checkout.what_happens_next')}</h4>
-                <p className="text-sm text-[#6f5448]">{t('checkout.what_happens_next_desc')}</p>
-                <p className="mt-3 text-xs font-semibold text-[#d85b30] bg-white inline-block px-3 py-1 rounded-full border border-[#ead8ca]">{t('checkout.please_pay')}</p>
+                <button
+                  onClick={handlePayment}
+                  disabled={isLoading}
+                  className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white transition hover:bg-[#c04e28] disabled:opacity-60"
+                >
+                  {isLoading ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t('checkout.processing')}</>
+                  ) : (
+                    t('checkout.continue_payment')
+                  )}
+                </button>
               </div>
-            </>
-          )}
+            )}
 
-          <PaymentSupportCard />
-          
-          <div className="text-center pt-2">
-            <Link
-              to={ROUTES.ORDERS}
-              onClick={() => sessionStorage.removeItem('checkout_pending_order_id')}
-              className="text-sm font-semibold text-[#6f5448] hover:text-[#d85b30] underline underline-offset-4"
-            >
-              {t('checkout.view_order')}
-            </Link>
+            {isPendingInstruction && (
+              <>
+                {paymentResult.qris_url ? (
+                  <QrisPaymentCard qrisUrl={paymentResult.qris_url} amount={confirmedOrderData?.amountDue || payableAmount} />
+                ) : paymentResult.va_number ? (
+                  <VirtualAccountPaymentCard bankName="BCA" vaNumber={paymentResult.va_number} amount={confirmedOrderData?.amountDue || payableAmount} />
+                ) : null}
+                
+                <PaymentInstructions
+                  method={paymentResult.qris_url ? 'qris' : 'bank_transfer'}
+                  qrisUrl={paymentResult.qris_url}
+                />
+                
+                <div className="rounded-2xl border border-[#ead8ca] bg-[#f8f4f0] p-5 text-center shadow-sm">
+                  <h4 className="font-bold text-[#4b2417] mb-2">{t('checkout.what_happens_next')}</h4>
+                  <p className="text-sm text-[#6f5448]">{t('checkout.what_happens_next_desc')}</p>
+                  <p className="mt-3 text-xs font-semibold text-[#d85b30] bg-white inline-block px-3 py-1 rounded-full border border-[#ead8ca]">{t('checkout.please_pay')}</p>
+                </div>
+              </>
+            )}
+
+            <PaymentSupportCard />
+            
+            <div className="text-center pt-2">
+              <Link
+                to={ROUTES.ORDERS}
+                onClick={() => sessionStorage.removeItem('checkout_pending_order_id')}
+                className="text-sm font-semibold text-[#6f5448] hover:text-[#d85b30] underline underline-offset-4"
+              >
+                {t('checkout.view_order')}
+              </Link>
+            </div>
           </div>
         </div>
       </div>

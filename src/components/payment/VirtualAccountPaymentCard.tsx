@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Copy, CheckCircle2 } from 'lucide-react';
 import { formatRupiah } from '@/services/productService';
 import { toast } from 'react-hot-toast';
+import { SandboxInlineAction } from './SandboxSimulationBanner';
 
 interface VirtualAccountPaymentCardProps {
   bankName: string;
@@ -31,6 +32,8 @@ export function VirtualAccountPaymentCard({ bankName, vaNumber, amount }: Virtua
 
   return (
     <div className="rounded-2xl border border-[#ead8ca] bg-white p-6 shadow-sm text-center">
+      <SandboxInlineAction method="bank_transfer" />
+
       <div className="inline-flex items-center justify-center rounded-lg bg-[#0066AE]/10 px-4 py-2 mb-4">
         <span className="font-black text-[#0066AE] tracking-wide">
           {bankName === 'BCA' ? 'BCA' : bankName}

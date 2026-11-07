@@ -399,10 +399,17 @@ export default function OrdersPage() {
               </Link>
             </div>
           ) : (
-            filteredOrders.map((order) => (
-              <div
-                key={order.id}
-                onClick={() => navigate(`/orders/${order.id}`)}
+            filteredOrders.map((order) => {
+              const isCancelled =
+                order.status === 'cancelled' ||
+                order.status === 'cancelled_settlement_expired' ||
+                order.rawStatus === 'cancelled' ||
+                order.rawStatus === 'cancelled_settlement_expired'
+
+              return (
+                <div
+                  key={order.id}
+                  onClick={() => navigate(`/orders/${order.id}`)}
                 className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-[#EAD8CA] transition hover:shadow-md hover:-translate-y-0.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#9B4A2F]/30"
                 role="button"
                 tabIndex={0}
@@ -480,10 +487,10 @@ export default function OrdersPage() {
                   <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-[#EAD8CA] pt-5">
                     <div className="flex items-baseline gap-2">
                       <span className="text-sm font-bold text-[#6B4A3C] uppercase tracking-wide">{t('orders.total', 'Total')}</span>
-                      <span className="text-lg font-black text-[#9B4A2F]">
+                      <span className={`text-lg font-black ${isCancelled ? 'line-through text-gray-400' : 'text-[#9B4A2F]'}`}>
                         {formatRupiah(order.total)}
                       </span>
-                      {order.paymentStatus === 'partial' && (
+                      {!isCancelled && order.paymentStatus === 'partial' && (
                         <span className="ml-2 rounded-full bg-yellow-100 px-2.5 py-0.5 text-[11px] font-black uppercase text-yellow-800 ring-1 ring-inset ring-yellow-600/20">
                           DP
                         </span>
@@ -510,7 +517,8 @@ export default function OrdersPage() {
                   </div>
                 </div>
               </div>
-            ))
+            );
+          })
           )}
         </div>
       </div>

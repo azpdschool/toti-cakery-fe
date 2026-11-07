@@ -38,6 +38,7 @@ import {
   cancelBuyerOrder,
   isBuyerOrderOverdue,
   isOrderCancellable,
+  isChannelValid,
 } from '@/services/buyerOrderService'
 import { ROUTES } from '@/constants'
 import {
@@ -45,7 +46,8 @@ import {
   VirtualAccountPaymentCard,
   QrisPaymentCard,
   PaymentInstructions,
-  PaymentSupportCard
+  PaymentSupportCard,
+  SandboxTopBar,
 } from '@/components/payment'
 
 const getStatusMap = (
@@ -679,15 +681,24 @@ export default function OrderDetailPage() {
         ? Math.round(order.total / 2)
         : (order.amountDue || 0));
 
+  const showSandboxTopBar =
+    !isOrderCancelled &&
+    (!!paymentInstructions ||
+      showPayRemaining ||
+      order.paymentStatus === 'unpaid' ||
+      (order.paymentStatus === 'partial' && (order.amountDue || 0) > 0));
+
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
-      <Link
-        to={ROUTES.ORDERS}
-        className="mb-6 flex items-center gap-2 text-sm font-medium text-[#6f5448] transition hover:text-[#4b2417]"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        {t('order_detail.back_to_list')}
-      </Link>
+    <div className="-mt-8">
+      {showSandboxTopBar && <SandboxTopBar qrisUrl={paymentInstructions?.qris_url} />}
+      <div className="mx-auto max-w-4xl px-4 py-8">
+        <Link
+          to={ROUTES.ORDERS}
+          className="mb-6 flex items-center gap-2 text-sm font-medium text-[#6f5448] transition hover:text-[#4b2417]"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {t('order_detail.back_to_list')}
+        </Link>
 
       <div className="overflow-hidden rounded-2xl border border-[#ead8ca] bg-white shadow-sm">
         <div className="border-b border-[#ead8ca] bg-[#f8f4f0] px-4 py-3 sm:px-6 sm:py-4">
@@ -846,11 +857,13 @@ export default function OrderDetailPage() {
                     <span className="text-[#6f5448]">{t('order_detail.method')}</span>
                     <span className="font-medium text-[#4b2417]">
                       {(() => {
-                        const rawMethod =
+                        const rawCandidate =
                           paymentInstructions?.payment_method ||
                           paymentInstructions?.payment_type ||
-                          (order.paymentChannel && order.paymentChannel !== '-' ? order.paymentChannel : null) ||
+                          order.paymentChannel ||
                           localStorage.getItem(`toti_payment_method_${order.id}`);
+
+                        const rawMethod = isChannelValid(rawCandidate) ? rawCandidate : null;
 
                         if (!rawMethod) {
                           return i18n.language === 'en' ? 'Not selected' : 'Belum dipilih';
@@ -919,7 +932,7 @@ export default function OrderDetailPage() {
                   <div className="flex justify-between mt-1 text-sm font-bold">
                     <span className="text-[#4b2417]">{t('order_detail.total')}</span>
                     <span className="text-[#d85b30]">
-                      {formatRupiah(order.total)}
+                      {formatRupiah(isOrderCancelled && (order.amountPaid || 0) === 0 ? 0 : order.total)}
                     </span>
                   </div>
                 </div>
@@ -1104,7 +1117,7 @@ export default function OrderDetailPage() {
 
                   <div className="flex justify-between border-t border-[#ead8ca] pt-2 font-bold">
                     <span className="text-[#4b2417]">{t('order_detail.total', 'Total')}</span>
-                    <span className="text-[#d85b30]">
+                    <span className={isOrderCancelled ? "text-gray-400 line-through text-sm font-normal" : "text-[#d85b30]"}>
                       {formatRupiah(order.total)}
                     </span>
                   </div>
@@ -1116,7 +1129,7 @@ export default function OrderDetailPage() {
                       </span>
                     </div>
                   )}
-                  {order.amountDue !== undefined  && (
+                  {order.amountDue !== undefined && !isOrderCancelled && (
                     <div className="flex justify-between mt-1 text-sm font-bold">
                       <span className="text-[#4b2417]">{t('order_detail.remaining_bill', 'Sisa Tagihan')}</span>
                       <span className="text-red-600">
@@ -1158,7 +1171,10 @@ export default function OrderDetailPage() {
                       ) : paymentInstructions.va_number ? (
                         <VirtualAccountPaymentCard bankName="BCA" vaNumber={paymentInstructions.va_number} amount={activePaymentAmount} />
                       ) : null}
-                      <PaymentInstructions method={paymentInstructions.qris_url ? 'qris' : 'bank_transfer'} />
+                      <PaymentInstructions
+                        method={paymentInstructions.qris_url ? 'qris' : 'bank_transfer'}
+                        qrisUrl={paymentInstructions.qris_url}
+                      />
                       <PaymentSupportCard />
                     </div>
                   )}
@@ -1445,6 +1461,7 @@ export default function OrderDetailPage() {
         onConfirm={executeCancelOrder}
         onCancel={() => setIsCancelConfirmOpen(false)}
       />
+      </div>
     </div>
   )
 }

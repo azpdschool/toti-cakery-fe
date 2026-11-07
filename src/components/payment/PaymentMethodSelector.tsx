@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { QrCode, Building } from 'lucide-react';
+import { isMidtransSandbox } from '@/utils/midtransEnv';
 
 interface PaymentMethodSelectorProps {
   selectedMethod: 'qris' | 'bank_transfer';
@@ -9,10 +10,19 @@ interface PaymentMethodSelectorProps {
 
 export function PaymentMethodSelector({ selectedMethod, onSelect, disabled }: PaymentMethodSelectorProps) {
   const { t } = useTranslation();
+  const isSandbox = isMidtransSandbox();
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-bold text-[#4b2417]">{t('checkout.payment_method')}</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-bold text-[#4b2417]">{t('checkout.payment_method')}</h3>
+        {isSandbox && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800 border border-amber-300">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+            {t('checkout.sandbox_badge', 'Mode Simulasi')}
+          </span>
+        )}
+      </div>
       
       <div className="grid gap-3 sm:grid-cols-2">
         <button

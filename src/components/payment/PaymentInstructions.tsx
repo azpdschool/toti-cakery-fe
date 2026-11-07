@@ -1,19 +1,23 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { SandboxTutorialBox } from './SandboxSimulationBanner';
 
 interface PaymentInstructionsProps {
   method: 'qris' | 'bank_transfer';
+  qrisUrl?: string | null;
 }
 
-export function PaymentInstructions({ method }: PaymentInstructionsProps) {
+export function PaymentInstructions({ method, qrisUrl }: PaymentInstructionsProps) {
   const { t } = useTranslation();
   const [openSection, setOpenSection] = useState<string | null>('bca_mobile');
 
   if (method === 'qris') {
     const steps = t('checkout.qris_instructions', { returnObjects: true }) as string[];
     return (
-      <div className="rounded-2xl border border-[#ead8ca] bg-white overflow-hidden shadow-sm">
+      <div className="space-y-4">
+        <SandboxTutorialBox method="qris" qrisUrl={qrisUrl} />
+        <div className="rounded-2xl border border-[#ead8ca] bg-white overflow-hidden shadow-sm">
         <div className="bg-[#f8f4f0] p-4 border-b border-[#ead8ca]">
           <h3 className="font-bold text-[#4b2417]">{t('checkout.how_to_pay')}</h3>
         </div>
@@ -27,8 +31,9 @@ export function PaymentInstructions({ method }: PaymentInstructionsProps) {
           </ol>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   const sections = [
     { id: 'bca_mobile', title: t('checkout.bca_mobile'), steps: t('checkout.bca_mobile_steps', { returnObjects: true }) as string[] },
@@ -37,12 +42,14 @@ export function PaymentInstructions({ method }: PaymentInstructionsProps) {
   ];
 
   return (
-    <div className="rounded-2xl border border-[#ead8ca] bg-white overflow-hidden shadow-sm">
-      <div className="bg-[#f8f4f0] p-4 border-b border-[#ead8ca]">
-        <h3 className="font-bold text-[#4b2417]">{t('checkout.how_to_pay')}</h3>
-      </div>
-      
-      <div className="divide-y divide-[#ead8ca]">
+    <div className="space-y-4">
+      <SandboxTutorialBox method="bank_transfer" qrisUrl={qrisUrl} />
+      <div className="rounded-2xl border border-[#ead8ca] bg-white overflow-hidden shadow-sm">
+        <div className="bg-[#f8f4f0] p-4 border-b border-[#ead8ca]">
+          <h3 className="font-bold text-[#4b2417]">{t('checkout.how_to_pay')}</h3>
+        </div>
+        
+        <div className="divide-y divide-[#ead8ca]">
         {sections.map((section) => {
           const isOpen = openSection === section.id;
           return (
@@ -71,5 +78,6 @@ export function PaymentInstructions({ method }: PaymentInstructionsProps) {
         })}
       </div>
     </div>
+  </div>
   );
 }

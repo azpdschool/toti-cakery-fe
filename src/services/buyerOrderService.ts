@@ -107,6 +107,12 @@ export function isOrderCancellable(order?: BuyerOrder | null): boolean {
   return true;
 }
 
+export function isChannelValid(channel?: string | null): boolean {
+  if (!channel || channel === '-' || channel === 'undefined' || channel === 'null') return false;
+  const lower = channel.trim().toLowerCase();
+  return !['lunas', 'full', 'dp'].includes(lower);
+}
+
 /**
  * Endpoint ini perlu disesuaikan dengan BE order route kamu.
  *
@@ -506,18 +512,23 @@ function mapApiOrder(order: ApiOrder): BuyerOrder {
     orderId
   )
 
-  let resolvedPaymentChannel =
+  const rawChannel =
     order.payment_method ??
     order.paymentMethod ??
     order.metode_pembayaran ??
     (order as any).pembayaran?.metode ??
     null
 
-  if ((!resolvedPaymentChannel || resolvedPaymentChannel === '-') && orderId) {
+  let resolvedPaymentChannel = isChannelValid(rawChannel) ? rawChannel : null
+
+  if (!resolvedPaymentChannel && orderId) {
     try {
-      resolvedPaymentChannel = localStorage.getItem(`toti_payment_method_${orderId}`) || '-'
+      const stored = localStorage.getItem(`toti_payment_method_${orderId}`)
+      if (isChannelValid(stored)) {
+        resolvedPaymentChannel = stored
+      }
     } catch {
-      resolvedPaymentChannel = '-'
+      resolvedPaymentChannel = null
     }
   }
 
@@ -761,7 +772,7 @@ export async function createOrder(payload: CreateOrderPayload): Promise<BuyerOrd
         // ignore localStorage access error
       }
     }
-    if (payload.paymentMethod) {
+    if (payload.paymentMethod && isChannelValid(payload.paymentMethod)) {
       try {
         localStorage.setItem(`toti_payment_method_${mapped.id}`, payload.paymentMethod);
       } catch {

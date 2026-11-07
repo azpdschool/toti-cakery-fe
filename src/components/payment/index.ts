@@ -5,3 +5,4 @@ export { VirtualAccountPaymentCard } from './VirtualAccountPaymentCard';
 export { QrisPaymentCard } from './QrisPaymentCard';
 export { PaymentInstructions } from './PaymentInstructions';
 export { PaymentSupportCard } from './PaymentSupportCard';
+export { SandboxTopBar, SandboxInlineAction, SandboxTutorialBox } from './SandboxSimulationBanner';
