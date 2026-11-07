@@ -47,7 +47,6 @@ import {
   QrisPaymentCard,
   PaymentInstructions,
   PaymentSupportCard,
-  SandboxTopBar,
 } from '@/components/payment'
 
 const getStatusMap = (
@@ -498,8 +497,8 @@ export default function OrderDetailPage() {
 
   // Polling for payment status if there are instructions (pending payment)
   useEffect(() => {
-    let intervalId: NodeJS.Timeout;
-
+    let intervalId: ReturnType<typeof setInterval>;
+    
     async function checkStatus() {
       if (!id || !paymentInstructions) return;
       try {
@@ -681,21 +680,12 @@ export default function OrderDetailPage() {
         ? Math.round(order.total / 2)
         : (order.amountDue || 0));
 
-  const showSandboxTopBar =
-    !isOrderCancelled &&
-    (!!paymentInstructions ||
-      showPayRemaining ||
-      order.paymentStatus === 'unpaid' ||
-      (order.paymentStatus === 'partial' && (order.amountDue || 0) > 0));
-
   return (
-    <div className="-mt-8">
-      {showSandboxTopBar && <SandboxTopBar qrisUrl={paymentInstructions?.qris_url} />}
-      <div className="mx-auto max-w-4xl px-4 py-8">
-        <Link
-          to={ROUTES.ORDERS}
-          className="mb-6 flex items-center gap-2 text-sm font-medium text-[#6f5448] transition hover:text-[#4b2417]"
-        >
+    <div className="mx-auto max-w-4xl px-4 py-8">
+      <Link
+        to={ROUTES.ORDERS}
+        className="mb-6 flex items-center gap-2 text-sm font-medium text-[#6f5448] transition hover:text-[#4b2417]"
+      >
           <ArrowLeft className="h-4 w-4" />
           {t('order_detail.back_to_list')}
         </Link>
@@ -1461,7 +1451,6 @@ export default function OrderDetailPage() {
         onConfirm={executeCancelOrder}
         onCancel={() => setIsCancelConfirmOpen(false)}
       />
-      </div>
     </div>
   )
 }

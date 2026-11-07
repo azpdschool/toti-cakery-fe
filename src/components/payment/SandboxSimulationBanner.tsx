@@ -7,48 +7,6 @@ interface SandboxProps {
   qrisUrl?: string | null;
 }
 
-/**
- * 1. Sleek top bar placed below the navbar on active payment pages.
- */
-export function SandboxTopBar({ qrisUrl }: { qrisUrl?: string | null }) {
-  const { t } = useTranslation();
-
-  if (!isMidtransSandbox(qrisUrl)) {
-    return null;
-  }
-
-  return (
-    <div className="border-b border-amber-300 bg-amber-500/15 px-4 py-2.5 text-xs text-amber-950 transition-colors">
-      <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="relative flex h-2 w-2 shrink-0">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500" />
-          </span>
-          <span className="font-extrabold uppercase tracking-wider text-amber-900">
-            {t('checkout.sandbox_badge', 'Mode Simulasi')}
-          </span>
-          <span className="hidden text-amber-800 sm:inline">|</span>
-          <span className="text-amber-900">
-            {t(
-              'checkout.sandbox_topbar_desc',
-              'Midtrans Sandbox aktif. Transaksi ini adalah simulasi, tidak menggunakan uang asli.'
-            )}
-          </span>
-        </div>
-        <a
-          href={MIDTRANS_SIMULATOR_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 rounded-lg bg-amber-600 px-2.5 py-1 text-xs font-bold text-white transition hover:bg-amber-700 shadow-xs"
-        >
-          <span>{t('checkout.sandbox_open_simulator', 'Buka Simulator')}</span>
-          <ExternalLink className="h-3 w-3" />
-        </a>
-      </div>
-    </div>
-  );
-}
 
 /**
  * 2. Compact inline callout banner inside QRIS and Virtual Account cards.

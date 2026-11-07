@@ -11,8 +11,7 @@ import { createOrder, processPayment, getOrderPaymentStatus, type DeliveryMethod
 import { ROUTES } from '@/constants';
 import {
   PaymentStatusHeader, PaymentSummaryCard, PaymentMethodSelector,
-  VirtualAccountPaymentCard, QrisPaymentCard, PaymentInstructions, PaymentSupportCard,
-  SandboxTopBar
+  VirtualAccountPaymentCard, QrisPaymentCard, PaymentInstructions, PaymentSupportCard
 } from '@/components/payment';
 
 type CheckoutStep = 'form' | 'payment';
@@ -162,8 +161,7 @@ export default function CheckoutPage() {
 
   // Polling payment
   useEffect(() => {
-    let intervalId: NodeJS.Timeout;
-    if (step === 'payment' && orderId) {
+    let intervalId: ReturnType<typeof setInterval>;    if (step === 'payment' && orderId) {
       intervalId = setInterval(async () => {
         try {
           const status = await getOrderPaymentStatus(orderId);
@@ -306,10 +304,8 @@ export default function CheckoutPage() {
   if (step === 'payment') {
     const isPendingInstruction = paymentResult && (paymentResult.qris_url || paymentResult.va_number);
     return (
-      <div className="-mt-8">
-        <SandboxTopBar qrisUrl={paymentResult?.qris_url} />
-        <div className="mx-auto max-w-2xl px-4 py-8">
-          <div className="mb-6 flex justify-between items-center">
+      <div className="mx-auto max-w-2xl px-4 py-8">
+        <div className="mb-6 flex justify-between items-center">
             <h1 className="text-2xl font-black text-[#4b2417]">{t('checkout.payment_title')}</h1>
             {/* Cannot go back easily if order is already created, so we don't show back arrow to form */}
           </div>
@@ -388,9 +384,8 @@ export default function CheckoutPage() {
             </div>
           </div>
         </div>
-      </div>
-    );
-  }
+      );
+    }
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
