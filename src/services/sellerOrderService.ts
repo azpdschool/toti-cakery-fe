@@ -189,10 +189,36 @@ export function mapOrderResponse(o: any): Order {
   } as any;
 }
 
+export interface GetOrdersParams {
+  limit?: number;
+  offset?: number;
+  status?: string;
+  search?: string;
+  signal?: AbortSignal;
+  [key: string]: any;
+}
+
+export function sanitizeOrderSearch(raw?: string): string | undefined {
+  if (typeof raw !== 'string') return undefined;
+  // Strip ASCII control characters (< 32 and 127) and trim whitespace
+  const cleaned = raw.replace(/[\x00-\x1F\x7F]/g, '').trim();
+  if (!cleaned) return undefined;
+  // Clamp to backend max_length of 100 characters
+  return cleaned.slice(0, 100);
+}
+
 const activeOrdersRequests = new Map<string, Promise<Order[]>>();
 
-export async function getOrders(params?: { limit?: number; offset?: number; status?: string; signal?: AbortSignal; [key: string]: any }): Promise<Order[]> {
+export async function getOrders(params?: GetOrdersParams): Promise<Order[]> {
   const { signal: _signal, ...queryParams } = params || {};
+  if (queryParams.search !== undefined) {
+    const sanitized = sanitizeOrderSearch(queryParams.search);
+    if (sanitized) {
+      queryParams.search = sanitized;
+    } else {
+      delete queryParams.search;
+    }
+  }
   const key = JSON.stringify(queryParams);
   if (activeOrdersRequests.has(key)) return activeOrdersRequests.get(key)!;
 

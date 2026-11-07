@@ -1836,18 +1836,22 @@ export default function SellerOrdersPage() {
 
   // Debounced search query
   const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
+  const isInitialSearchMount = useRef(true);
 
   useEffect(() => {
     const handler = setTimeout(() => {
-      setDebouncedSearch(prev => {
-        if (prev !== searchQuery) {
-          setCurrentPage(1);
-        }
-        return searchQuery;
-      });
+      setDebouncedSearch(searchQuery);
     }, 500);
     return () => clearTimeout(handler);
   }, [searchQuery]);
+
+  useEffect(() => {
+    if (isInitialSearchMount.current) {
+      isInitialSearchMount.current = false;
+      return;
+    }
+    setCurrentPage(1);
+  }, [debouncedSearch]);
 
   const loadData = useCallback(async (signal?: AbortSignal) => {
     const currentRequestId = ++requestIdRef.current;
@@ -1886,6 +1890,7 @@ export default function SellerOrdersPage() {
         limit: itemsPerPage + 1,
         offset,
         status: apiStatus,
+        search: debouncedSearch.trim() || undefined,
         signal,
       });
 
@@ -1935,7 +1940,7 @@ export default function SellerOrdersPage() {
         setLoading(false);
       }
     }
-  }, [currentPage, itemsPerPage, filterValues.status]);
+  }, [currentPage, itemsPerPage, filterValues.status, debouncedSearch]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -1982,17 +1987,6 @@ export default function SellerOrdersPage() {
         }
       }
 
-      // Filter search query
-      if (debouncedSearch && debouncedSearch.trim()) {
-        const q = debouncedSearch.toLowerCase().trim();
-        const matchOrderNum = order.orderNumber?.toLowerCase().includes(q);
-        const matchCustomer = order.customerName?.toLowerCase().includes(q);
-        const matchPhone = order.customerPhone?.toLowerCase().includes(q);
-        if (!matchOrderNum && !matchCustomer && !matchPhone) {
-          return false;
-        }
-      }
-
       return true;
     });
 
@@ -2030,7 +2024,7 @@ export default function SellerOrdersPage() {
     }
 
     return dedupedResult;
-  }, [orders, filterValues.source, filterValues.fulfillment_date, debouncedSearch, sortBy]);
+  }, [orders, filterValues.source, filterValues.fulfillment_date, sortBy]);
 
   const handleAddOrder = async (orderData: any) => {
     try {
@@ -2152,12 +2146,25 @@ export default function SellerOrdersPage() {
           <input
             type="text"
             placeholder="Search orders..."
-            className="w-full rounded-lg border border-[#d0bfaf] py-2 pl-9 pr-3 text-xs sm:text-sm outline-none focus:border-[#d85b30]"
+            className="w-full rounded-lg border border-[#d0bfaf] py-2 pl-9 pr-8 text-xs sm:text-sm outline-none focus:border-[#d85b30]"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            disabled
-            title="Backend currently does not support search for orders"
+            maxLength={100}
+            aria-label="Search orders"
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery('');
+                setCurrentPage(1);
+              }}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+              aria-label="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
 
         {/* Sort By Dropdown */}
