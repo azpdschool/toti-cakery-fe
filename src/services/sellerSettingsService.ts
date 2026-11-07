@@ -131,6 +131,25 @@ export async function deleteUser(id: number): Promise<void> {
   await apiClient.delete(`/users/${id}`);
 }
 
+export interface UserTakeoverResponse {
+  id: number;
+  username: string;
+  handles_takeover: boolean;
+}
+
+export async function updateTakeoverHandler(
+  id: number,
+  handlesTakeover: boolean
+): Promise<UserTakeoverResponse> {
+  const response = await apiClient.patch(`/users/${id}/takeover-handler`, {
+    handles_takeover: handlesTakeover,
+  });
+  if (cachedProfile && cachedProfile.id === id) {
+    cachedProfile.handles_takeover = response.data.handles_takeover;
+  }
+  return response.data;
+}
+
 // ── EMAIL SENDER SETTINGS (OWNER ONLY) ──────────────────────
 
 export interface EmailSenderSettings {

@@ -48,6 +48,7 @@ import {
   deleteUser,
   getEmailSenderSettings,
   updateEmailSenderSettings,
+  updateTakeoverHandler,
   type UserProfile,
   type UserProfileUpdate,
 } from '@/services/sellerSettingsService';
@@ -98,11 +99,12 @@ function TabButton({ label, icon: Icon, isActive, onClick }: TabButtonProps) {
 function ProfileTab() {
   const { t } = useTranslation();
   const { showToast } = useToast();
-  const { user: currentUser, updateUser } = useAuth();
+  const { user: currentUser, updateUser, isOwner } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const isOwnerUser = isOwner || profile?.role_id === 1 || currentUser?.role === 'owner';
   
   // Edit mode state
   const [isEditing, setIsEditing] = useState(false);
@@ -111,6 +113,7 @@ function ProfileTab() {
     email: '',
     phone_number: '',
     nomor_wa_admin: '',
+    handles_takeover: false,
   });
 
   // Avatar Modal State
@@ -133,6 +136,7 @@ function ProfileTab() {
           email: data.email || currentUser?.email || '',
           phone_number: data.phone_number || currentUser?.phone || '',
           nomor_wa_admin: data.nomor_wa_admin || '',
+          handles_takeover: data.handles_takeover ?? false,
         });
       } catch (err: any) {
         if (ignore) return;
@@ -153,6 +157,7 @@ function ProfileTab() {
         email: profile?.email || currentUser?.email || '',
         phone_number: profile?.phone_number || currentUser?.phone || '',
         nomor_wa_admin: profile?.nomor_wa_admin || '',
+        handles_takeover: profile?.handles_takeover ?? false,
       });
     }
     setIsEditing(true);
@@ -165,6 +170,7 @@ function ProfileTab() {
         email: profile?.email || currentUser?.email || '',
         phone_number: profile?.phone_number || currentUser?.phone || '',
         nomor_wa_admin: profile?.nomor_wa_admin || '',
+        handles_takeover: profile?.handles_takeover ?? false,
       });
     }
     setIsEditing(false);
@@ -175,7 +181,8 @@ function ProfileTab() {
     formData.username !== (profile.username || '') ||
     formData.email !== (profile.email || '') ||
     formData.phone_number !== (profile.phone_number || '') ||
-    formData.nomor_wa_admin !== (profile.nomor_wa_admin || '')
+    formData.nomor_wa_admin !== (profile.nomor_wa_admin || '') ||
+    formData.handles_takeover !== (profile.handles_takeover ?? false)
   ) : false;
 
   const handleSaveProfile = async () => {
@@ -194,16 +201,30 @@ function ProfileTab() {
       if (formData.phone_number !== (profile?.phone_number || '')) payload.phone_number = formData.phone_number;
       if (formData.nomor_wa_admin !== (profile?.nomor_wa_admin || '')) payload.nomor_wa_admin = formData.nomor_wa_admin;
 
-      const updated = await updateMyProfile(payload);
-      setProfile(updated);
+      let updated = profile;
+      if (Object.keys(payload).length > 0) {
+        updated = await updateMyProfile(payload);
+      }
+
+      const takeoverChanged = profile ? formData.handles_takeover !== profile.handles_takeover : false;
+      if (profile && takeoverChanged) {
+        const takeoverRes = await updateTakeoverHandler(profile.id, formData.handles_takeover);
+        if (updated) {
+          updated = { ...updated, handles_takeover: takeoverRes.handles_takeover };
+        }
+      }
+
+      if (updated) {
+        setProfile(updated);
+        updateUser({
+          name: updated.username,
+          username: updated.username,
+          email: updated.email ?? undefined,
+          phone: updated.phone_number ?? undefined,
+          avatar_url: updated.avatar_url ?? undefined,
+        });
+      }
       setIsEditing(false);
-      updateUser({
-        name: updated.username,
-        username: updated.username,
-        email: updated.email ?? undefined,
-        phone: updated.phone_number ?? undefined,
-        avatar_url: updated.avatar_url ?? undefined,
-      });
       showToast({ message: 'Profile updated successfully.', type: 'success' });
     } catch (err: any) {
       if (err.response?.data?.detail) {
@@ -391,6 +412,24 @@ function ProfileTab() {
               }`}
             />
           </div>
+
+          {isOwnerUser && (
+            <div className="pt-1">
+              <label className="flex items-center gap-2 text-xs sm:text-sm font-semibold text-[#4b2417] cursor-pointer">
+                <input
+                  type="checkbox"
+                  disabled={!isEditing}
+                  checked={isEditing ? formData.handles_takeover : (profile?.handles_takeover ?? false)}
+                  onChange={(e) => setFormData({ ...formData, handles_takeover: e.target.checked })}
+                  className="h-4 w-4 rounded accent-[#d85b30] cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
+                />
+                <span>Receives WhatsApp escalations (human takeover)</span>
+              </label>
+              <p className="mt-1 text-[11px] sm:text-xs text-stone-500 pl-6">
+                When enabled, incoming customer escalations and takeover requests on WhatsApp will be routed to your Admin WhatsApp Number.
+              </p>
+            </div>
+          )}
         </div>
 
         {isEditing && (
