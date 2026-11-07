@@ -37,6 +37,7 @@ import {
   updateRecipeIngredient,
   deleteRecipeIngredient,
   type RecipeCreate,
+  type RecipeOut,
 } from '@/api/recipe'
 import { getInventoryOptions, type InventoryOption } from '@/services/sellerInventoryService'
 import { toast } from 'react-hot-toast'
@@ -883,6 +884,9 @@ export default function SellerProductsPage() {
     const isCreating = !editId
     setIsLoading(true)
     let isProductCreatedOrUpdated = false
+    let targetProductId: number | null = editId
+    let hasImageError = false
+
     try {
       if (editId) {
         const updatePayload: ProductUpdate = {}
@@ -916,6 +920,7 @@ export default function SellerProductsPage() {
         let updatedProduct: SimpleProduct | undefined
         if (Object.keys(updatePayload).length > 0) {
           updatedProduct = await updateProduct(editId, updatePayload)
+          setEditingProduct(updatedProduct)
         }
         isProductCreatedOrUpdated = true
 
@@ -926,66 +931,95 @@ export default function SellerProductsPage() {
           )
         }
 
-        // Recipe mutation flow promise
-        const recipeFlowPromise = (async () => {
-          // Delete removed recipes
-          if (deletedRecipeIds.length > 0) {
-            await Promise.all(
-              deletedRecipeIds.map((recipeId) => deleteRecipeIngredient(editId, recipeId))
-            )
+        // 1. Delete removed recipes sequentially
+        if (deletedRecipeIds.length > 0) {
+          for (const recipeId of deletedRecipeIds) {
+            await deleteRecipeIngredient(editId, recipeId)
           }
+          setDeletedRecipeIds([])
+        }
 
-          // Add/Update recipes
-          const validIngredients = ingredients.filter(
-            (ingredient) => ingredient.inventoryId && ingredient.quantity > 0
-          )
-          if (validIngredients.length > 0) {
-            await Promise.all(
-              validIngredients.map((ingredient) => {
-                const recipePayload: RecipeCreate = {
-                  stock_item_id: Number(ingredient.inventoryId),
-                  jumlah_dibutuhkan: ingredient.quantity,
-                }
-                if (!ingredient.recipeId) {
-                  return addRecipeIngredient(editId, recipePayload)
-                } else if (
-                  ingredient.originalInventoryId &&
-                  ingredient.originalInventoryId !== ingredient.inventoryId
-                ) {
-                  return deleteRecipeIngredient(editId, ingredient.recipeId).then(() =>
-                    addRecipeIngredient(editId, recipePayload)
+        // 2. Add/Update recipes sequentially
+        const validIngredients = ingredients.filter(
+          (ingredient) => ingredient.inventoryId && ingredient.quantity > 0
+        )
+        if (validIngredients.length > 0) {
+          for (const ingredient of validIngredients) {
+            const recipePayload: RecipeCreate = {
+              stock_item_id: Number(ingredient.inventoryId),
+              jumlah_dibutuhkan: ingredient.quantity,
+            }
+            if (!ingredient.recipeId) {
+              const res = await addRecipeIngredient(editId, recipePayload)
+              const matched = res.bahan.find((b) => b.stock_item_id === recipePayload.stock_item_id)
+              if (matched) {
+                ingredient.recipeId = matched.id
+                ingredient.originalInventoryId = String(matched.stock_item_id)
+                setIngredients((prev) =>
+                  prev.map((ing) =>
+                    ing === ingredient || Number(ing.inventoryId) === recipePayload.stock_item_id
+                      ? { ...ing, recipeId: matched.id, originalInventoryId: String(matched.stock_item_id) }
+                      : ing
                   )
-                } else {
-                  return updateRecipeIngredient(editId, ingredient.recipeId, {
-                    jumlah_dibutuhkan: ingredient.quantity,
-                  })
-                }
+                )
+              }
+            } else if (
+              ingredient.originalInventoryId &&
+              ingredient.originalInventoryId !== ingredient.inventoryId
+            ) {
+              await deleteRecipeIngredient(editId, ingredient.recipeId)
+              const res = await addRecipeIngredient(editId, recipePayload)
+              const matched = res.bahan.find((b) => b.stock_item_id === recipePayload.stock_item_id)
+              if (matched) {
+                ingredient.recipeId = matched.id
+                ingredient.originalInventoryId = String(matched.stock_item_id)
+                setIngredients((prev) =>
+                  prev.map((ing) =>
+                    ing === ingredient || Number(ing.inventoryId) === recipePayload.stock_item_id
+                      ? { ...ing, recipeId: matched.id, originalInventoryId: String(matched.stock_item_id) }
+                      : ing
+                  )
+                )
+              }
+            } else {
+              await updateRecipeIngredient(editId, ingredient.recipeId, {
+                jumlah_dibutuhkan: ingredient.quantity,
               })
-            )
+            }
           }
+        }
 
-          // Price lock immediately after recipes finish so harga_jual is never mutated by backend HPP recalculations
-          if (harga_jual !== null && harga_jual > 0) {
-            await updateProduct(editId, { harga_jual })
-          }
-        })()
+        // 3. Price lock immediately after recipes finish so harga_jual is never mutated by backend HPP recalculations
+        if (harga_jual !== null && harga_jual > 0) {
+          await updateProduct(editId, { harga_jual })
+        }
 
-        // Image upload promise in parallel
-        const imageUploadPromise = draftImages.length > 0
-          ? uploadProductImages(
+        // 4. Image upload sequentially
+        if (draftImages.length > 0) {
+          try {
+            await uploadProductImages(
               editId,
               draftImages.map((d) => d.file),
               primaryDraftIndex
-            ).catch((imgErr: any) => {
-              console.error('Image upload failed during product update:', imgErr)
-              const imgMsg = extractApiErrorMessage(imgErr, 'Product updated, but image upload failed.')
-              setError(imgMsg)
-              toast.error(imgMsg)
-            })
-          : Promise.resolve(null)
+            )
+            draftImages.forEach((img) => URL.revokeObjectURL(img.previewUrl))
+            setDraftImages([])
+            const fresh = await getProductByBackendId(editId).catch(() => null)
+            if (fresh?.images) {
+              setExistingImages(fresh.images)
+            }
+          } catch (imgErr: any) {
+            console.error('Image upload failed during product update:', imgErr)
+            const imgMsg = extractApiErrorMessage(imgErr, 'Product updated, but image upload failed.')
+            setError(imgMsg)
+            toast.error(imgMsg)
+            hasImageError = true
+          }
+        }
 
-        await Promise.all([recipeFlowPromise, imageUploadPromise])
-        setSuccess('Product updated successfully.')
+        if (!hasImageError) {
+          setSuccess('Product updated successfully.')
+        }
       } else {
         const effectiveCategoryId = formData.category_id ?? (categories.find(c => c.name.toLowerCase() === (formData.kategori || '').toLowerCase())?.id ?? null)
         const createPayload: ProductCreate = {
@@ -1000,8 +1034,10 @@ export default function SellerProductsPage() {
           is_available: true,
         }
 
+        // 1. Create base product
         const createdProduct = await createProductWithOptionalPrice(createPayload, harga_jual)
         isProductCreatedOrUpdated = true
+        targetProductId = createdProduct.backendId
         setEditId(createdProduct.backendId)
         setEditingProduct(createdProduct)
 
@@ -1012,7 +1048,7 @@ export default function SellerProductsPage() {
           )
         }
 
-        // Recipe mutation flow promise
+        // 2. Sequential recipe creation
         const recipePayloads: RecipeCreate[] = ingredients
           .filter((ingredient) => ingredient.inventoryId && ingredient.quantity > 0)
           .map((ingredient) => ({
@@ -1021,38 +1057,56 @@ export default function SellerProductsPage() {
           }))
           .filter((ingredient) => Number.isFinite(ingredient.stock_item_id))
 
-        const recipeFlowPromise = (async () => {
-          if (recipePayloads.length > 0) {
-            await Promise.all(
-              recipePayloads.map((payload) => addRecipeIngredient(createdProduct.backendId, payload))
-            )
+        if (recipePayloads.length > 0) {
+          for (const payload of recipePayloads) {
+            const res = await addRecipeIngredient(createdProduct.backendId, payload)
+            const matched = res.bahan.find((b) => b.stock_item_id === payload.stock_item_id)
+            if (matched) {
+              setIngredients((prev) =>
+                prev.map((ing) =>
+                  Number(ing.inventoryId) === payload.stock_item_id
+                    ? { ...ing, recipeId: matched.id, originalInventoryId: String(matched.stock_item_id) }
+                    : ing
+                )
+              )
+            }
           }
+        }
 
-          // Price lock immediately after recipes finish so harga_jual is locked to exact user input
-          if (harga_jual !== null && harga_jual > 0) {
-            await updateProduct(createdProduct.backendId, { harga_jual })
-          }
-        })()
+        // 3. Price lock immediately after recipes finish so harga_jual is locked to exact user input
+        if (harga_jual !== null && harga_jual > 0) {
+          await updateProduct(createdProduct.backendId, { harga_jual })
+        }
 
-        // Image upload promise in parallel
-        const imageUploadPromise = draftImages.length > 0
-          ? uploadProductImages(
+        // 4. Sequential image upload
+        if (draftImages.length > 0) {
+          try {
+            await uploadProductImages(
               createdProduct.backendId,
               draftImages.map((d) => d.file),
               primaryDraftIndex
-            ).catch((imgErr: any) => {
-              console.error('Image upload failed during product creation:', imgErr)
-              const imgMsg = extractApiErrorMessage(imgErr, 'Product created, but image upload failed.')
-              setError(imgMsg)
-              toast.error(imgMsg)
-            })
-          : Promise.resolve(null)
+            )
+            draftImages.forEach((img) => URL.revokeObjectURL(img.previewUrl))
+            setDraftImages([])
+            const fresh = await getProductByBackendId(createdProduct.backendId).catch(() => null)
+            if (fresh?.images) {
+              setExistingImages(fresh.images)
+            }
+          } catch (imgErr: any) {
+            console.error('Image upload failed during product creation:', imgErr)
+            const imgMsg = extractApiErrorMessage(imgErr, 'Product created, but image upload failed.')
+            setError(imgMsg)
+            toast.error(imgMsg)
+            hasImageError = true
+          }
+        }
 
-        await Promise.all([recipeFlowPromise, imageUploadPromise])
-        setSuccess('Product added successfully.')
+        if (!hasImageError) {
+          setSuccess('Product added successfully.')
+        }
       }
 
-      if (!error && isProductCreatedOrUpdated) {
+      if (!hasImageError && isProductCreatedOrUpdated) {
         setIsFormOpen(false)
         setFormData(defaultFormState)
         setFormHpp(0)
@@ -1083,6 +1137,45 @@ export default function SellerProductsPage() {
       const errorMsg = extractApiErrorMessage(err, fallback)
       setError(errorMsg)
       toast.error(errorMsg)
+
+      if (isProductCreatedOrUpdated && targetProductId) {
+        setEditId(targetProductId)
+        fetchProducts()
+
+        getProductByBackendId(targetProductId)
+          .then((fresh) => {
+            if (fresh?.images) setExistingImages(fresh.images)
+          })
+          .catch(() => {})
+
+        try {
+          const recipeSummary = await getProductRecipes(targetProductId)
+          if (recipeSummary?.bahan) {
+            const backendRecipeMap = new Map<number, RecipeOut>()
+            for (const b of recipeSummary.bahan) {
+              backendRecipeMap.set(b.stock_item_id, b)
+            }
+            setIngredients((prev) =>
+              prev.map((ing) => {
+                const stockId = Number(ing.inventoryId)
+                const match = backendRecipeMap.get(stockId)
+                if (match) {
+                  return {
+                    ...ing,
+                    recipeId: match.id,
+                    originalInventoryId: String(match.stock_item_id),
+                    name: ing.name || match.nama_bahan || '',
+                    unit: ing.unit || match.satuan || '',
+                  }
+                }
+                return ing
+              })
+            )
+          }
+        } catch (syncErr) {
+          console.error('Failed to sync recipes after partial product save:', syncErr)
+        }
+      }
     } finally {
       setIsLoading(false)
     }

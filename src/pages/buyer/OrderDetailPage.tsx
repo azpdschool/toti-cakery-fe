@@ -346,20 +346,14 @@ export default function OrderDetailPage() {
         setOrder(data)
         
         const needsPayment = data.paymentStatus === 'unpaid' || (data.paymentStatus === 'partial' && (data.amountDue === undefined || data.amountDue > 0));
-        if (data.status !== 'cancelled' && data.status !== 'cancelled_settlement_expired') {
+        if (needsPayment && data.status !== 'cancelled' && data.status !== 'cancelled_settlement_expired') {
           try {
             const paymentData = await getOrderPaymentStatus(id)
             if (paymentData.payments && paymentData.payments.length > 0) {
               const pendingPayment = paymentData.payments.slice().reverse().find((p: any) => p.payment_status?.toLowerCase() === 'pending');
-              const paidPayment = paymentData.payments.slice().reverse().find((p: any) => {
-                const s = p.payment_status?.toLowerCase();
-                return s === 'success' || s === 'settlement' || s === 'paid';
-              });
 
-              if (needsPayment && pendingPayment && (pendingPayment.qris_url || pendingPayment.va_number)) {
+              if (pendingPayment && (pendingPayment.qris_url || pendingPayment.va_number)) {
                 setPaymentInstructions(pendingPayment);
-              } else if (paidPayment) {
-                setPaymentInstructions(paidPayment);
               } else if (pendingPayment) {
                 setPaymentInstructions(pendingPayment);
               } else {
@@ -671,6 +665,10 @@ export default function OrderDetailPage() {
   const isOrderCancelled =
     order.status === 'cancelled' ||
     order.status === 'cancelled_settlement_expired'
+
+  const needsPayment =
+    order.paymentStatus === 'unpaid' ||
+    (order.paymentStatus === 'partial' && (order.amountDue === undefined || order.amountDue > 0))
 
   const activePaymentAmount = isOrderCancelled
     ? 0
@@ -1143,7 +1141,7 @@ export default function OrderDetailPage() {
 
                 
                 <div className="mt-3 space-y-3">
-                  {!isOrderCancelled && paymentInstructions && (
+                  {!isOrderCancelled && needsPayment && paymentInstructions && (
                     <div className="mb-4 grid gap-4">
                       {countdownStr && (
                         <div className="flex items-center justify-between rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs font-semibold text-amber-900">
