@@ -115,6 +115,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback((token: string, user: User) => {
     invalidateProfileCache()
+    invalidateBuyerProfileCache()
+    invalidateNotificationCache()
+    invalidateWishlistCache()
     localStorage.setItem(TOKEN_KEY, token)
     localStorage.setItem(USER_KEY, JSON.stringify(user))
 
@@ -140,20 +143,91 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [auth.isAuthenticated, auth.user?.role, updateUser])
 
-  // Sync auth state across multiple tabs (e.g., if logged out in another tab)
+  // Sync auth state across multiple tabs (e.g., login, logout, or account switch in another tab)
   useEffect(() => {
     const handleStorage = (e: StorageEvent) => {
-      if (e.key === TOKEN_KEY && !e.newValue) {
+      // Case 1: Token cleared or all localStorage cleared in another tab
+      if ((e.key === TOKEN_KEY && !e.newValue) || (e.key === null && !localStorage.getItem(TOKEN_KEY))) {
+        invalidateBuyerProfileCache()
+        invalidateNotificationCache()
+        invalidateWishlistCache()
+        invalidateProfileCache()
+
         setAuth({
           user: null,
           accessToken: null,
           isAuthenticated: false,
         })
+        return
+      }
+
+      // Case 2: Token updated/replaced in another tab (new login or account switch)
+      if (e.key === TOKEN_KEY && e.newValue) {
+        try {
+          const decoded = jwtDecode(e.newValue)
+          if (decoded.exp && decoded.exp * 1000 > Date.now()) {
+            const storedUser = localStorage.getItem(USER_KEY)
+            let parsedUser: User | null = null
+            if (storedUser) {
+              try {
+                parsedUser = JSON.parse(storedUser) as User
+              } catch {
+                parsedUser = null
+              }
+            }
+
+            // Invalidate caches from previous user session
+            invalidateProfileCache()
+            invalidateBuyerProfileCache()
+            invalidateNotificationCache()
+            invalidateWishlistCache()
+
+            setAuth({
+              user: parsedUser,
+              accessToken: e.newValue,
+              isAuthenticated: true,
+            })
+          } else {
+            logout()
+          }
+        } catch {
+          logout()
+        }
+        return
+      }
+
+      // Case 3: User data updated in another tab
+      if (e.key === USER_KEY) {
+        if (!e.newValue) {
+          if (!localStorage.getItem(TOKEN_KEY)) {
+            setAuth({
+              user: null,
+              accessToken: null,
+              isAuthenticated: false,
+            })
+          }
+        } else {
+          try {
+            const updatedUser = JSON.parse(e.newValue) as User
+            setAuth((prev) => {
+              if (prev.isAuthenticated) {
+                return {
+                  ...prev,
+                  user: updatedUser,
+                }
+              }
+              return prev
+            })
+          } catch {
+            // Ignore malformed JSON
+          }
+        }
       }
     }
+
     window.addEventListener('storage', handleStorage)
     return () => window.removeEventListener('storage', handleStorage)
-  }, [])
+  }, [logout])
 
   // 401 Unauthorized handling
   useEffect(() => {

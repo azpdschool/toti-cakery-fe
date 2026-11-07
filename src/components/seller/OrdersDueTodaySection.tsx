@@ -124,7 +124,7 @@ export function OrdersDueTodaySection({
     setInternalLoading(true);
     setInternalError(false);
     try {
-      const statuses: OrderStatus[] = ['pending', 'waiting_confirmation', 'in_process', 'ready'];
+      const statuses: OrderStatus[] = ['pending', 'in_process', 'ready'];
       const batches = await Promise.all(
         statuses.map((st) => fetchOrdersByStatusWithPagination(st, signal))
       );

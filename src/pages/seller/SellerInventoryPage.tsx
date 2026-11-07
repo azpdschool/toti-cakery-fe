@@ -530,7 +530,9 @@ export default function SellerInventoryPage() {
   const { user } = useAuth();
   const userRole = user?.role as UserRole;
 
-  const canManageInventory = hasPermission(userRole, 'manage_inventory');
+  const canManageInventory =
+    hasPermission(userRole, 'manage_inventory') &&
+    (userRole === 'owner' || userRole === 'admin' || user?.roleLevel === 1 || user?.roleLevel === 2);
 
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [stats, setStats] = useState<InventoryStats | null>(null);
@@ -682,12 +684,14 @@ export default function SellerInventoryPage() {
   };
 
   const openAddModal = () => {
+    if (!canManageInventory) return;
     setModalMode('add');
     setEditingItem(null);
     setShowStockModal(true);
   };
 
   const openEditModal = (item: InventoryItem) => {
+    if (!canManageInventory) return;
     setModalMode('edit');
     setEditingItem(item);
     setShowStockModal(true);
@@ -980,34 +984,36 @@ export default function SellerInventoryPage() {
                           >
                             <History className="h-4 w-4" />
                           </button>
-                          <button
-                            title="Correct stock count"
-                            onClick={() => {
-                              setEditingItem(item);
-                              setShowAdjustmentModal(true);
-                            }}
-                            className="p-1.5 text-orange-600 hover:bg-orange-50 rounded-md transition-colors"
-                            aria-label="Correct stock count"
-                          >
-                            <SlidersHorizontal className="h-4 w-4" />
-                          </button>
-                          <button
-                            title="Edit"
-                            onClick={() => openEditModal(item)}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
-                            aria-label="Edit"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
                           {canManageInventory && (
-                            <button
-                              title="Delete"
-                              onClick={() => setDeleteConfirm(item)}
-                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                              aria-label="Delete"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                            <>
+                              <button
+                                title="Correct stock count"
+                                onClick={() => {
+                                  setEditingItem(item);
+                                  setShowAdjustmentModal(true);
+                                }}
+                                className="p-1.5 text-orange-600 hover:bg-orange-50 rounded-md transition-colors"
+                                aria-label="Correct stock count"
+                              >
+                                <SlidersHorizontal className="h-4 w-4" />
+                              </button>
+                              <button
+                                title="Edit"
+                                onClick={() => openEditModal(item)}
+                                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                                aria-label="Edit"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </button>
+                              <button
+                                title="Delete"
+                                onClick={() => setDeleteConfirm(item)}
+                                className="p-1.5 text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                                aria-label="Delete"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -1083,28 +1089,44 @@ export default function SellerInventoryPage() {
                       </div>
                     </div>
 
-                    {/* Bottom Row: At most 2 primary action buttons */}
+                    {/* Bottom Row: Action buttons */}
                     <div className="flex items-center gap-2 pt-1 border-t border-gray-50">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingItem(item);
-                          setShowAdjustmentModal(true);
-                        }}
-                        className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-[#f8eee5] py-2 text-xs font-semibold text-[#d85b30] hover:bg-[#f2dfce] transition-colors"
-                      >
-                        <SlidersHorizontal className="w-3.5 h-3.5" />
-                        <span>Adjust Stock</span>
-                      </button>
+                      {canManageInventory ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingItem(item);
+                              setShowAdjustmentModal(true);
+                            }}
+                            className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-[#f8eee5] py-2 text-xs font-semibold text-[#d85b30] hover:bg-[#f2dfce] transition-colors"
+                          >
+                            <SlidersHorizontal className="w-3.5 h-3.5" />
+                            <span>Adjust Stock</span>
+                          </button>
 
-                      <button
-                        type="button"
-                        onClick={() => openEditModal(item)}
-                        className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
-                      >
-                        <Edit className="w-3.5 h-3.5" />
-                        <span>Edit</span>
-                      </button>
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(item)}
+                            className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                            <span>Edit</span>
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingItem(item);
+                            setShowMovementModal(true);
+                          }}
+                          className="flex-1 flex items-center justify-center gap-1.5 rounded-lg border border-gray-200 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          <History className="w-3.5 h-3.5" />
+                          <span>View Stock History</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

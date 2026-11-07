@@ -22,7 +22,6 @@ import {
   registerBuyer,
   startWAVerification,
   getWAVerificationStatus,
-  mapBuyerAuthResponseToUser,
 } from '@/api/auth'
 import { InternationalPhoneInput } from '@/components/common/PhoneInput'
 import { formatPhoneNumber } from '@/utils/phone'
@@ -83,7 +82,7 @@ function parseApiError(
 export default function Register() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { login, isAuthenticated, user } = useAuth()
+  const { isAuthenticated, user } = useAuth()
   const { t } = useTranslation()
 
   const rawFrom = (location.state as { from?: string | { pathname?: string } } | null)?.from
@@ -151,11 +150,15 @@ export default function Register() {
     setSuccess(null)
   }
 
-  const goTarget = () => {
+  const redirectToLogin = (registeredEmail: string) => {
     setIsRedirecting(true)
-    redirectTimerRef.current = setTimeout(() => {
-      navigate(redirectTarget, { replace: true })
-    }, 1000)
+    const successMsg = t('auth.register_success')
+    setSuccess(successMsg)
+    toast.success(successMsg)
+    navigate(ROUTES.AUTH_BUYER, {
+      state: { registered: true, email: registeredEmail },
+      replace: true,
+    })
   }
 
   const startStatusPolling = (nonce: string, regData: { name: string; email: string; phone: string; password: string }) => {
@@ -176,18 +179,14 @@ export default function Register() {
           stopPolling()
           setLoading(true)
           try {
-            const response = await registerBuyer({
+            await registerBuyer({
               name: regData.name,
               email: regData.email,
               phone: regData.phone,
               password: regData.password,
               verify_token: res.verify_token,
             })
-            login(response.access_token, mapBuyerAuthResponseToUser(response))
-            const successMsg = t('auth.register_success')
-            setSuccess(successMsg)
-            toast.success(successMsg)
-            goTarget()
+            redirectToLogin(regData.email)
           } catch (err: unknown) {
             const parsed = parseApiError(err, t('auth.error_generic'), t)
             setError(parsed)
@@ -211,6 +210,7 @@ export default function Register() {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (loading || isRedirecting) return
     resetMessage()
 
     const trimmedName = name.trim()
@@ -278,15 +278,11 @@ export default function Register() {
       }
 
       if (startRes.mock_mode && startRes.verify_token) {
-        const response = await registerBuyer({
+        await registerBuyer({
           ...regData,
           verify_token: startRes.verify_token,
         })
-        login(response.access_token, mapBuyerAuthResponseToUser(response))
-        const successMsg = t('auth.register_success')
-        setSuccess(successMsg)
-        toast.success(successMsg)
-        goTarget()
+        redirectToLogin(regData.email)
         return
       }
 
@@ -305,7 +301,7 @@ export default function Register() {
   }
 
   const handleResendWa = async () => {
-    if (resendCooldown > 0 || loading) return
+    if (resendCooldown > 0 || loading || isRedirecting) return
     resetMessage()
     setLoading(true)
     const trimmedPhone = formatPhoneNumber(phone)
@@ -318,15 +314,11 @@ export default function Register() {
         password: password,
       }
       if (startRes.mock_mode && startRes.verify_token) {
-        const response = await registerBuyer({
+        await registerBuyer({
           ...regData,
           verify_token: startRes.verify_token,
         })
-        login(response.access_token, mapBuyerAuthResponseToUser(response))
-        const successMsg = t('auth.register_success')
-        setSuccess(successMsg)
-        toast.success(successMsg)
-        goTarget()
+        redirectToLogin(regData.email)
         return
       }
       setWaNonce(startRes.nonce)
@@ -398,7 +390,7 @@ export default function Register() {
                 <UserIcon className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b7166]" />
                 <input
                   type="text"
-                  disabled={loading}
+                  disabled={loading || isRedirecting}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder={t('auth.name_placeholder')}
@@ -415,7 +407,7 @@ export default function Register() {
                 <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b7166]" />
                 <input
                   type="email"
-                  disabled={loading}
+                  disabled={loading || isRedirecting}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder={t('auth.email_placeholder')}
@@ -428,7 +420,7 @@ export default function Register() {
               label={t('auth.whatsapp_number', 'Nomor WhatsApp')}
               required
               value={phone}
-              disabled={loading}
+              disabled={loading || isRedirecting}
               onChange={setPhone}
               placeholder={t('auth.phone_placeholder')}
             />
@@ -441,7 +433,7 @@ export default function Register() {
                 <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b7166]" />
                 <input
                   type={showPassword ? 'text' : 'password'}
-                  disabled={loading}
+                  disabled={loading || isRedirecting}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={t('auth.password_min_length')}
@@ -449,7 +441,7 @@ export default function Register() {
                 />
                 <button
                   type="button"
-                  disabled={loading}
+                  disabled={loading || isRedirecting}
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166] disabled:opacity-50"
                 >
@@ -466,7 +458,7 @@ export default function Register() {
                 <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b7166]" />
                 <input
                   type={showConfirmPassword ? 'text' : 'password'}
-                  disabled={loading}
+                  disabled={loading || isRedirecting}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder={t('auth.confirm_password_placeholder')}
@@ -474,7 +466,7 @@ export default function Register() {
                 />
                 <button
                   type="button"
-                  disabled={loading}
+                  disabled={loading || isRedirecting}
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166] disabled:opacity-50"
                 >
@@ -485,10 +477,10 @@ export default function Register() {
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || isRedirecting}
               className="mt-2 flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white hover:bg-[#c04e28] disabled:opacity-60 transition"
             >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : t('auth.register_btn')}
+              {loading || isRedirecting ? <Loader2 className="h-4 w-4 animate-spin" /> : t('auth.register_btn')}
             </button>
           </form>
         ) : (

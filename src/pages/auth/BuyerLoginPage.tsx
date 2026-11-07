@@ -107,7 +107,9 @@ export default function BuyerLoginPage() {
   const [showPassword, setShowPassword] = useState(false)
 
   // Form states
-  const [loginEmail, setLoginEmail] = useState('')
+  const [loginEmail, setLoginEmail] = useState(
+    () => (location.state as { email?: string } | null)?.email || '',
+  )
   const [loginPassword, setLoginPassword] = useState('')
   const [phonePasswordNumber, setPhonePasswordNumber] = useState('')
   const [phonePasswordPassword, setPhonePasswordPassword] = useState('')

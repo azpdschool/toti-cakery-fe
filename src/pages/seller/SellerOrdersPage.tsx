@@ -40,8 +40,7 @@ import {
 import { formatDateToLocalYYYYMMDD, getJakartaDateParts } from '@/utils/date';
 
 import { formatRupiah, getActiveProducts, type SimpleProduct } from '@/services/productService';
-import { apiClient } from '@/api/client';
-import type { StockOut } from '@/api/stock';
+import { getStockItems, type StockOut } from '@/api/stock';
 import { downloadInvoice } from '@/services/invoiceService';
 import {
   getOrders,
@@ -135,7 +134,7 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
     let isMounted = true;
     Promise.all([
       getActiveProducts().catch(() => []),
-      apiClient.get<StockOut[]>('/stock/').then(r => r.data).catch(() => []),
+      getStockItems().catch(() => []),
     ]).then(([prods, stock]) => {
       if (isMounted) {
         setAvailableProducts(prods);

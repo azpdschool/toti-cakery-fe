@@ -76,7 +76,9 @@ export default function ProfilePage() {
 
   // Password State
   const [isChangingPassword, setIsChangingPassword] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [passwordData, setPasswordData] = useState({
     current: '',
     new: '',
@@ -432,7 +434,7 @@ export default function ProfilePage() {
                   </label>
                   <div className="relative mt-1">
                     <input
-                      type={showPassword ? 'text' : 'password'}
+                      type={showCurrentPassword ? 'text' : 'password'}
                       value={passwordData.current}
                       onChange={(e) => setPasswordData(prev => ({ ...prev, current: e.target.value }))}
                       placeholder={t('profile.current_password_placeholder')}
@@ -440,10 +442,10 @@ export default function ProfilePage() {
                     />
                     <button
                       type="button"
-                      onClick={() => setShowPassword(prev => !prev)}
+                      onClick={() => setShowCurrentPassword(prev => !prev)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B4A3C] hover:text-[#3A1F16]"
                     >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
                 </div>
@@ -454,12 +456,19 @@ export default function ProfilePage() {
                   </label>
                   <div className="relative mt-1">
                     <input
-                      type={showPassword ? 'text' : 'password'}
+                      type={showNewPassword ? 'text' : 'password'}
                       value={passwordData.new}
                       onChange={(e) => setPasswordData(prev => ({ ...prev, new: e.target.value }))}
                       placeholder={t('profile.new_password_placeholder')}
                       className="w-full rounded-xl border border-[#D0BFAF] bg-white py-2.5 pl-4 pr-12 text-sm text-[#3A1F16] outline-none transition focus:border-[#9B4A2F] focus:ring-2 focus:ring-[#9B4A2F]/20"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPassword(prev => !prev)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B4A3C] hover:text-[#3A1F16]"
+                    >
+                      {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
                   </div>
                 </div>
 
@@ -469,12 +478,19 @@ export default function ProfilePage() {
                   </label>
                   <div className="relative mt-1">
                     <input
-                      type={showPassword ? 'text' : 'password'}
+                      type={showConfirmPassword ? 'text' : 'password'}
                       value={passwordData.confirm}
                       onChange={(e) => setPasswordData(prev => ({ ...prev, confirm: e.target.value }))}
                       placeholder={t('profile.confirm_password_placeholder')}
                       className="w-full rounded-xl border border-[#D0BFAF] bg-white py-2.5 pl-4 pr-12 text-sm text-[#3A1F16] outline-none transition focus:border-[#9B4A2F] focus:ring-2 focus:ring-[#9B4A2F]/20"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(prev => !prev)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B4A3C] hover:text-[#3A1F16]"
+                    >
+                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
                   </div>
                 </div>
 
@@ -500,6 +516,9 @@ export default function ProfilePage() {
                       setIsChangingPassword(false)
                       setPasswordData({ current: '', new: '', confirm: '' })
                       setPasswordError(null)
+                      setShowCurrentPassword(false)
+                      setShowNewPassword(false)
+                      setShowConfirmPassword(false)
                     }}
                     className="inline-flex h-10 items-center justify-center rounded-xl border border-[#D0BFAF] bg-white px-5 text-sm font-bold text-[#3A1F16] transition hover:bg-[#F6EFE6]"
                   >

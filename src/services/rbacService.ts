@@ -34,6 +34,12 @@ export const allPermissions: Permission[] = [
     module: 'Stok',
   },
   {
+    id: 'p4_view',
+    key: 'view_inventory',
+    label: 'Lihat stok & bahan',
+    module: 'Stok',
+  },
+  {
     id: 'p5',
     key: 'add_manual_order',
     label: 'Tambah pesanan manual',
@@ -92,6 +98,7 @@ const rolePermissionMap: Record<SellerRole, string[]> = {
     'view_dashboard',
     'manage_products',
     'view_process_orders',
+    'view_inventory',
     'manage_inventory',
     'add_manual_order',
     'view_financial_reports',
@@ -102,7 +109,7 @@ const rolePermissionMap: Record<SellerRole, string[]> = {
   staff: [
     'view_dashboard',
     'view_process_orders',
-    'manage_inventory',
+    'view_inventory',
     'view_settings',
   ],
 }

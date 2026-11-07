@@ -147,7 +147,7 @@ export default function OrderDetailPage() {
   }
 
   const handlePayRemaining = async () => {
-    if (!order) return;
+    if (!order || order.status === 'cancelled' || order.status === 'cancelled_settlement_expired') return;
     setIsPayingRemaining(true);
     setError(null);
     try {
@@ -667,11 +667,17 @@ export default function OrderDetailPage() {
   const methodInfo = methodMap[order.deliveryMethod] || methodMap.pickup
   const isDelivery = order.deliveryMethod !== 'pickup'
 
-  const activePaymentAmount = paymentInstructions?.jumlah_bayar 
-    ?? paymentInstructions?.amount 
-    ?? ((order.paymentStatus === 'unpaid' && String(order.paymentMethodPreference).toLowerCase() === 'dp')
-      ? Math.round(order.total / 2)
-      : (order.amountDue || 0));
+  const isOrderCancelled =
+    order.status === 'cancelled' ||
+    order.status === 'cancelled_settlement_expired'
+
+  const activePaymentAmount = isOrderCancelled
+    ? 0
+    : paymentInstructions?.jumlah_bayar 
+      ?? paymentInstructions?.amount 
+      ?? ((order.paymentStatus === 'unpaid' && String(order.paymentMethodPreference).toLowerCase() === 'dp')
+        ? Math.round(order.total / 2)
+        : (order.amountDue || 0));
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
@@ -862,33 +868,41 @@ export default function OrderDetailPage() {
                     <span className="text-[#6f5448]">{t('order_detail.status')}</span>
                     <span
                       className={`font-medium capitalize ${
-                        order.paymentStatus === 'paid'
-                          ? 'text-green-600'
-                          : order.paymentStatus === 'partial'
-                            ? 'text-yellow-600'
-                            : order.paymentStatus === 'refunded'
-                              ? 'text-gray-500'
-                              : 'text-red-600'
+                        isOrderCancelled
+                          ? 'text-red-600'
+                          : order.paymentStatus === 'paid'
+                            ? 'text-green-600'
+                            : order.paymentStatus === 'partial'
+                              ? 'text-yellow-600'
+                              : order.paymentStatus === 'refunded'
+                                ? 'text-gray-500'
+                                : 'text-red-600'
                       }`}
                     >
-                      {order.paymentStatus === 'paid'
-                        ? t('order_detail.paid')
-                        : order.paymentStatus === 'partial'
-                          ? t('order_detail.dp_paid')
-                          : order.paymentStatus === 'refunded'
-                            ? t('orders.status_refunded')
-                            : t('order_detail.unpaid')}
+                      {isOrderCancelled
+                        ? (order.status === 'cancelled_settlement_expired'
+                            ? t('orders.status_cancelled_settlement_expired', 'Batas Waktu Pelunasan Berakhir')
+                            : t('orders.status_cancelled', 'Dibatalkan'))
+                        : order.paymentStatus === 'paid'
+                          ? t('order_detail.paid')
+                          : order.paymentStatus === 'partial'
+                            ? t('order_detail.dp_paid')
+                            : order.paymentStatus === 'refunded'
+                              ? t('orders.status_refunded')
+                              : t('order_detail.unpaid')}
                     </span>
                   </div>
 
-                  <div className="flex justify-between border-t border-[#ead8ca] pt-2 font-bold">
-                    <span className="text-[#4b2417]">{t('checkout.due_now')}</span>
-                    <span className="text-red-600">
-                      {formatRupiah(activePaymentAmount)}
-                    </span>
-                  </div>
+                  {!isOrderCancelled && (
+                    <div className="flex justify-between border-t border-[#ead8ca] pt-2 font-bold">
+                      <span className="text-[#4b2417]">{t('checkout.due_now')}</span>
+                      <span className="text-red-600">
+                        {formatRupiah(activePaymentAmount)}
+                      </span>
+                    </div>
+                  )}
                   
-                  <div className="flex justify-between mt-1 text-sm">
+                  <div className={`flex justify-between text-sm ${isOrderCancelled ? 'border-t border-[#ead8ca] pt-2' : 'mt-1'}`}>
                     <span className="text-[#6f5448]">{t('order_detail.total_paid')}</span>
                     <span className="text-[#4b2417] font-medium">
                       {formatRupiah(order.amountPaid || 0)}
@@ -898,7 +912,7 @@ export default function OrderDetailPage() {
                   <div className="flex justify-between mt-1 text-sm">
                     <span className="text-[#6f5448]">{t('order_detail.remaining_bill')}</span>
                     <span className="text-[#4b2417] font-medium">
-                      {formatRupiah(order.amountDue || 0)}
+                      {formatRupiah(isOrderCancelled ? 0 : (order.amountDue || 0))}
                     </span>
                   </div>
                   
@@ -911,7 +925,7 @@ export default function OrderDetailPage() {
                 </div>
 
                 {/* Pembayaran Tagihan (Unpaid / Partial) */}
-                {(order.paymentStatus === 'unpaid' || (order.paymentStatus === 'partial' && order.amountDue !== undefined && order.amountDue > 0)) && !paymentInstructions && (
+                {!isOrderCancelled && (order.paymentStatus === 'unpaid' || (order.paymentStatus === 'partial' && order.amountDue !== undefined && order.amountDue > 0)) && !paymentInstructions && (
                   <div className="mt-4 border-t border-[#ead8ca] pt-4">
                     {!showPayRemaining ? (
                       <button
@@ -1126,7 +1140,7 @@ export default function OrderDetailPage() {
 
                 
                 <div className="mt-3 space-y-3">
-                  {paymentInstructions && (
+                  {!isOrderCancelled && paymentInstructions && (
                     <div className="mb-4 grid gap-4">
                       {countdownStr && (
                         <div className="flex items-center justify-between rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs font-semibold text-amber-900">

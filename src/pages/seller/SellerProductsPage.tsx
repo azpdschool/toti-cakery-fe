@@ -14,7 +14,7 @@ import ImageCropper from '@/components/common/ImageCropper'
 import { useAuth } from '@/hooks/useAuth'
 import { useTranslation } from 'react-i18next'
 import {
-  getAllProducts,
+  getAllProductsInternal,
   updateProduct,
   getProductByBackendId,
   formatRupiah,
@@ -444,7 +444,7 @@ export default function SellerProductsPage() {
 
   const fetchProducts = async () => {
     try {
-      const data = await getAllProducts(false);
+      const data = await getAllProductsInternal(false);
       setProducts(data);
     } catch (err) {
       console.error(err);
@@ -458,7 +458,7 @@ export default function SellerProductsPage() {
       setIsFetching(true);
       try {
         const [data, cats, invOptions] = await Promise.all([
-          getAllProducts(false),
+          getAllProductsInternal(false),
           getBackendCategories(),
           getInventoryOptions().catch(err => {
             console.error('Failed to load inventory options:', err)
@@ -911,9 +911,6 @@ export default function SellerProductsPage() {
         const effectiveCategoryId = formData.category_id ?? (categories.find(c => c.name.toLowerCase() === (formData.kategori || '').toLowerCase())?.id ?? null)
         if (effectiveCategoryId !== (editingProduct?.categoryId ?? null)) {
           updatePayload.category_id = effectiveCategoryId
-        }
-        if (formData.kategori && formData.kategori !== editingProduct?.category) {
-          updatePayload.kategori = formData.kategori
         }
 
         let updatedProduct: SimpleProduct | undefined

@@ -40,7 +40,7 @@ const allMenuItems = [
     path: ROUTES.SELLER_INVENTORY,
     label: 'Inventory',
     icon: Boxes,
-    permission: 'manage_inventory',
+    permission: 'view_inventory',
   },
   {
     path: ROUTES.SELLER_REPORTS,

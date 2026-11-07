@@ -305,12 +305,3 @@ export async function getAllInventoryOptions(): Promise<InventoryOption[]> {
       stock: parseNumber(item.stok_tersedia),
     }));
 }
-
-export async function deductStock(
-  _ingredients: { inventoryId: string; quantity: number }[]
-): Promise<void> {
-  console.warn(
-    'deductStock() tidak dijalankan di FE. Pengurangan stok sebaiknya dilakukan backend saat order confirmed.',
-    _ingredients
-  );
-}

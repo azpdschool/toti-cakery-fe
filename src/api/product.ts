@@ -159,20 +159,34 @@ const activeProductsRequests = new Map<string, Promise<ProductOut[]>>();
 const productByIdCache = new Map<number, CacheEntry<ProductOut>>();
 const productByIdInFlight = new Map<number, Promise<ProductOut>>();
 
+const internalProductsCache = new Map<string, CacheEntry<ProductOut[]>>();
+const activeInternalProductsRequests = new Map<string, Promise<ProductOut[]>>();
+
+const internalProductByIdCache = new Map<number, CacheEntry<ProductOut>>();
+const internalProductByIdInFlight = new Map<number, Promise<ProductOut>>();
+
 export function invalidateProductsCache(): void {
   productsCache.clear();
   activeProductsRequests.clear();
   productByIdCache.clear();
   productByIdInFlight.clear();
+  internalProductsCache.clear();
+  activeInternalProductsRequests.clear();
+  internalProductByIdCache.clear();
+  internalProductByIdInFlight.clear();
 }
 
 export function invalidateProductByIdCache(id?: number): void {
   if (id !== undefined) {
     productByIdCache.delete(id);
     productByIdInFlight.delete(id);
+    internalProductByIdCache.delete(id);
+    internalProductByIdInFlight.delete(id);
   } else {
     productByIdCache.clear();
     productByIdInFlight.clear();
+    internalProductByIdCache.clear();
+    internalProductByIdInFlight.clear();
   }
 }
 
@@ -241,6 +255,72 @@ export async function getProductById(id: number, forceRefresh: boolean = false):
     });
 
   productByIdInFlight.set(id, promise);
+  return promise;
+}
+
+export async function getInternalProducts(
+  onlyActive: boolean = false,
+  kategori?: string,
+  forceRefresh: boolean = false
+): Promise<ProductOut[]> {
+  const key = JSON.stringify({ onlyActive, kategori });
+  const now = Date.now();
+
+  if (!forceRefresh) {
+    const cached = internalProductsCache.get(key);
+    if (cached && now - cached.timestamp < PRODUCT_CACHE_TTL) {
+      return cached.data;
+    }
+    if (activeInternalProductsRequests.has(key)) {
+      return activeInternalProductsRequests.get(key)!;
+    }
+  }
+
+  const params: Record<string, boolean | string> = {
+    only_active: onlyActive,
+  };
+
+  if (kategori) {
+    params.kategori = kategori;
+  }
+
+  const promise = apiClient.get<ProductOut[]>('/products/internal', { params })
+    .then(response => {
+      const data = response.data;
+      internalProductsCache.set(key, { data, timestamp: Date.now() });
+      return data;
+    })
+    .finally(() => {
+      activeInternalProductsRequests.delete(key);
+    });
+
+  activeInternalProductsRequests.set(key, promise);
+  return promise;
+}
+
+export async function getInternalProductById(id: number, forceRefresh: boolean = false): Promise<ProductOut> {
+  const now = Date.now();
+  if (!forceRefresh) {
+    const cached = internalProductByIdCache.get(id);
+    if (cached && now - cached.timestamp < PRODUCT_CACHE_TTL) {
+      return cached.data;
+    }
+    if (internalProductByIdInFlight.has(id)) {
+      return internalProductByIdInFlight.get(id)!;
+    }
+  }
+
+  const promise = apiClient.get<ProductOut>(`/products/internal/${id}`)
+    .then(response => {
+      const data = response.data;
+      internalProductByIdCache.set(id, { data, timestamp: Date.now() });
+      return data;
+    })
+    .finally(() => {
+      internalProductByIdInFlight.delete(id);
+    });
+
+  internalProductByIdInFlight.set(id, promise);
   return promise;
 }
 

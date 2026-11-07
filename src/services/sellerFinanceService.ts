@@ -285,13 +285,3 @@ export async function getFinanceInvoices(startDate?: string, endDate?: string): 
     };
   });
 }
-
-export function exportFinancePdf(): void {
-  // Tidak ada endpoint backend untuk export pdf bulk
-  console.warn('Export PDF belum didukung oleh backend.');
-}
-
-export function exportSingleInvoicePdf(): void {
-  // Tidak ada endpoint backend untuk export pdf
-  console.warn('Export PDF single invoice belum didukung oleh backend.');
-}

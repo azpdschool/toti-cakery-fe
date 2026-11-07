@@ -560,7 +560,9 @@ function mapApiOrder(order: ApiOrder): BuyerOrder {
     serviceFee,
     total,
     amountPaid: (order.amount_paid ?? order.amountPaid) != null ? toNumber(order.amount_paid ?? order.amountPaid) : undefined,
-    amountDue: (order.amount_due ?? order.amountDue) != null ? toNumber(order.amount_due ?? order.amountDue) : undefined,
+    amountDue: (normalizeStatus(order.status ?? order.order_status) === 'cancelled' || normalizeStatus(order.status ?? order.order_status) === 'cancelled_settlement_expired')
+      ? 0
+      : (order.amount_due ?? order.amountDue) != null ? toNumber(order.amount_due ?? order.amountDue) : undefined,
     fulfillmentDate: order.fulfillment_date ?? order.fulfillmentDate,
     fulfillment_date: order.fulfillment_date ?? order.fulfillmentDate,
 
@@ -577,9 +579,13 @@ function mapApiOrder(order: ApiOrder): BuyerOrder {
     fulfillment_overdue_notified_at: order.fulfillment_overdue_notified_at ?? order.fulfillmentOverdueNotifiedAt ?? null,
     fulfillmentOverdueNotifiedAt: order.fulfillment_overdue_notified_at ?? order.fulfillmentOverdueNotifiedAt ?? null,
     invoice: order.invoice ? {
-      status: order.invoice.status,
+      status: (normalizeStatus(order.status ?? order.order_status) === 'cancelled' || normalizeStatus(order.status ?? order.order_status) === 'cancelled_settlement_expired')
+        ? 'cancelled'
+        : order.invoice.status,
       total_tagihan: (order.invoice as any).total_tagihan,
-      sisa_tagihan: (order.invoice as any).sisa_tagihan,
+      sisa_tagihan: (normalizeStatus(order.status ?? order.order_status) === 'cancelled' || normalizeStatus(order.status ?? order.order_status) === 'cancelled_settlement_expired')
+        ? 0
+        : (order.invoice as any).sisa_tagihan,
     } : null,
 
     notes: cleanedNotes,
@@ -675,12 +681,7 @@ export async function getBuyerOrderById(id: string): Promise<BuyerOrder | null> 
     return mapApiOrder(response.data)
   } catch (error: any) {
     if (error?.response?.status === 404) {
-      try {
-        const fallbackRes = await apiClient.get(`/buyer/${id}`)
-        return mapApiOrder(fallbackRes.data)
-      } catch {
-        return null
-      }
+      return null
     }
 
     throw error

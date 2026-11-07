@@ -4,6 +4,8 @@ import { API_BASE_URL } from '@/api/client';
 import {
   createProduct as createProductApi,
   getAllProducts as getAllProductsApi,
+  getInternalProducts,
+  getInternalProductById,
   getProductById,
   setProductPrice,
   updateProduct as updateProductApi,
@@ -352,6 +354,15 @@ export async function getAllProducts(onlyActive: boolean = false): Promise<Simpl
 }
 
 /**
+ * Seller products with full cost/HPP, recipes, and margin calculations.
+ */
+export async function getAllProductsInternal(onlyActive: boolean = false): Promise<SimpleProduct[]> {
+  const products = await getInternalProducts(onlyActive, undefined);
+
+  return products.map(mapProductOutToSimpleProduct);
+}
+
+/**
  * Seller main products.
  * Hanya produk aktif.
  */
@@ -406,6 +417,15 @@ export async function getProductBySlug(
 
 export async function getProductByBackendId(id: number): Promise<Product> {
   const product = await getProductById(id);
+
+  return mapProductOutToProduct(product);
+}
+
+/**
+ * Seller product detail with full cost/HPP, recipes, and margin calculations.
+ */
+export async function getProductInternalById(id: number): Promise<Product> {
+  const product = await getInternalProductById(id);
 
   return mapProductOutToProduct(product);
 }
