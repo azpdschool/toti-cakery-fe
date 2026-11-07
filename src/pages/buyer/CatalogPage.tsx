@@ -10,9 +10,10 @@ import {
 } from 'lucide-react'
 import {
   getAllProductsDetailed,
+  getMasterCategoriesWithCounts,
   type Product,
+  type MasterCategoryOption,
 } from '@/services/productService'
-import { getBackendCategories } from '@/api/product'
 import { useCart } from '@/context/CartContext'
 import { ProductCard } from '@/components/common/ProductCard'
 import { toast } from 'react-hot-toast'
@@ -48,11 +49,7 @@ function formatShortRupiah(value: number): string {
 // ============================================================
 // CATEGORY SCROLLER (same interaction pattern as Home's carousels)
 // ============================================================
-interface CategoryOption {
-  id: number
-  name: string
-  count: number
-}
+type CategoryOption = MasterCategoryOption
 
 function CategoryScroller({
   categories,
@@ -312,28 +309,10 @@ export default function CatalogPage() {
     try {
       const [allProducts, masterCategories] = await Promise.all([
         getAllProductsDetailed(),
-        getBackendCategories(),
+        getMasterCategoriesWithCounts(true),
       ])
       setProducts(allProducts)
-
-      const countMap = new Map<number, number>()
-      for (const p of allProducts) {
-        const catId = p.categoryId
-        if (catId && p.isActive !== false) {
-          countMap.set(catId, (countMap.get(catId) || 0) + 1)
-        }
-      }
-
-      const activeCats: CategoryOption[] = masterCategories
-        .map((cat) => ({
-          id: cat.id,
-          name: cat.name,
-          count: countMap.get(cat.id) || 0,
-        }))
-        .filter((cat) => cat.count > 0)
-        .sort((a, b) => a.name.localeCompare(b.name))
-
-      setCategories(activeCats)
+      setCategories(masterCategories)
     } catch (err: unknown) {
       console.error('Gagal load catalog products:', err)
       const e = err as { response?: { data?: { detail?: unknown } }; message?: string }

@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getProductBySlug, formatRupiah, getProductsByCategory, getAllProductsDetailed } from '@/services/productService'
+import { getProductBySlug, formatRupiah, getProductsByCategoryId, getAllProductsDetailed } from '@/services/productService'
 import { getProductReviewsAPI } from '@/api/review'
 import type { ReviewResponse } from '@/api/review'
 
@@ -65,45 +65,34 @@ export default function ProductDetailPage() {
             .catch(err => console.error("Failed to fetch reviews", err))
             
           // Fetch Recommendations (same category with client-side fallback)
-          getProductsByCategory(data.category)
-            .then(async (catProducts) => {
-              let recs = catProducts.filter(p => p.id !== data.id && p.backendId !== data.backendId && p.slug !== data.slug && p.isActive !== false && p.isAvailable !== false)
-              if (recs.length === 0) {
-                try {
-                  const allProducts = await getAllProductsDetailed()
-                  recs = allProducts.filter((p: Product) => 
-                    p.id !== data.id &&
-                    p.backendId !== data.backendId &&
-                    p.slug !== data.slug &&
-                    p.isActive !== false &&
-                    p.isAvailable !== false &&
-                    p.category && data.category &&
-                    p.category.trim().toLowerCase() === data.category.trim().toLowerCase()
-                  )
-                } catch (e) {
-                  console.error("Failed to fetch fallback recommendations", e)
+          const filterOtherProducts = (list: Product[]) =>
+            list.filter(
+              (p) =>
+                p.id !== data.id &&
+                p.backendId !== data.backendId &&
+                p.slug !== data.slug &&
+                p.isActive !== false &&
+                p.isAvailable !== false
+            )
+
+          const fetchRecommendations = async () => {
+            try {
+              if (data.categoryId) {
+                const catProducts = await getProductsByCategoryId(data.categoryId)
+                const recs = filterOtherProducts(catProducts)
+                if (recs.length > 0) {
+                  setRecommendations(recs)
+                  return
                 }
               }
-              setRecommendations(recs)
-            })
-            .catch(async (err) => {
-              console.error("Failed to fetch recommendations", err)
-              try {
-                const allProducts = await getAllProductsDetailed()
-                const recs = allProducts.filter((p: Product) => 
-                  p.id !== data.id &&
-                  p.backendId !== data.backendId &&
-                  p.slug !== data.slug &&
-                  p.isActive !== false &&
-                  p.isAvailable !== false &&
-                  p.category && data.category &&
-                  p.category.trim().toLowerCase() === data.category.trim().toLowerCase()
-                )
-                setRecommendations(recs)
-              } catch {
-                // ignore error
-              }
-            })
+              const allProducts = await getAllProductsDetailed()
+              setRecommendations(filterOtherProducts(allProducts))
+            } catch (err) {
+              console.error('Failed to fetch recommendations', err)
+            }
+          }
+
+          void fetchRecommendations()
         }
       })
       .catch((err) => setError(err.message))

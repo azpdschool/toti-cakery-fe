@@ -333,6 +333,16 @@ export async function getAllProductsDetailed(forceRefresh: boolean = false): Pro
 }
 
 /**
+ * Mendapatkan produk berdasarkan ID kategori CRUD untuk rekomendasi / related products.
+ */
+export async function getProductsByCategoryId(categoryId: number): Promise<Product[]> {
+  const allProducts = await getAllProductsDetailed();
+  return allProducts.filter(
+    (product) => product.categoryId === categoryId && product.isActive !== false && product.isAvailable !== false
+  );
+}
+
+/**
  * Mendapatkan produk berdasarkan kategori untuk rekomendasi.
  * Documenting backend requirement:
  * The backend needs to support a `limit` parameter or a dedicated `/products/{id}/recommendations`
@@ -443,11 +453,14 @@ export async function getMasterCategoriesWithCounts(onlyActive: boolean = true):
       getAllProductsApi(onlyActive).catch(() => [] as ProductOut[]),
     ]);
 
-    // Active product counts per category using category_id
+    const validCatIds = new Set(backendCats.map((cat) => cat.id));
+
+    // Active product counts per official category using category_id
+    // Products with a null or unlinked category_id are strictly ignored
     const countMap = new Map<number, number>();
     for (const product of products) {
       const catId = product.category_id ?? product.category?.id;
-      if (product.is_active && catId) {
+      if (product.is_active && catId && validCatIds.has(catId)) {
         countMap.set(catId, (countMap.get(catId) || 0) + 1);
       }
     }
