@@ -353,22 +353,72 @@ export default function ProductDetailPage() {
     </div>
   )
 
+  const renderMobileInlineActions = () => (
+    <div className="flex flex-col gap-3">
+      {/* Secondary Actions: Wishlist & Share */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => {
+            if (wishlistIds.has(product.id)) {
+              requestRemoveWishlist(product.id)
+            } else {
+              toggleWishlist(product.id)
+            }
+          }}
+          disabled={wishlistLoading}
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-[#D0BFAF] bg-white px-4 py-2.5 text-sm font-bold text-[#3A1F16] transition hover:bg-[#F6EFE6] disabled:opacity-50 shadow-sm"
+          aria-label={wishlistIds.has(product.id) ? t('product_detail.remove_wishlist') : t('product_detail.add_wishlist')}
+        >
+          <Heart className={`h-4 w-4 ${wishlistIds.has(product.id) ? 'fill-red-500 text-red-500' : ''}`} />
+          {t('product_detail.wishlist')}
+        </button>
+        <button
+          onClick={handleShare}
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-[#D0BFAF] bg-white px-4 py-2.5 text-sm font-bold text-[#3A1F16] transition hover:bg-[#F6EFE6] shadow-sm"
+          aria-label={t('product_detail.share_product')}
+        >
+          <Share2 className="h-4 w-4" />
+          {t('product_detail.share')}
+        </button>
+      </div>
+
+      {/* WA Custom Order Box */}
+      <div className="rounded-xl border border-[#25D366]/30 bg-[#25D366]/5 p-4 flex flex-col items-center text-center">
+        <p className="font-bold text-[#3A1F16]">{t('product_detail.custom_order_title')}</p>
+        <p className="mt-1 text-xs text-[#6B4A3C]">
+          {t('product_detail.custom_order_desc')}
+        </p>
+        <a 
+          href={getWhatsAppUrl(t('product_detail.wa_custom_message'))} 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-white border border-[#25D366] px-4 py-2 text-sm font-bold text-[#25D366] hover:bg-[#25D366]/10 transition shadow-sm"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
+            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
+          </svg>
+          {t('product_detail.chat_with_us')}
+        </a>
+      </div>
+    </div>
+  )
+
   return (
-    <div className="bg-[#F6EFE6] pb-20">
-      <div className="mx-auto max-w-7xl px-4 py-8 lg:px-8">
+    <div className="bg-[#F6EFE6] pb-36 md:pb-20 w-full max-w-full min-w-0 overflow-x-hidden">
+      <div className="mx-auto max-w-7xl px-4 py-4 md:py-8 lg:px-8 w-full max-w-full min-w-0">
         
         {/* TOP HEADER: Title + Section Navigation (Sticky on desktop) */}
-        <div className="static md:sticky md:top-[76px] z-20 mb-4 md:mb-8 border-b border-[#E8DCCB] bg-[#F6EFE6] pt-2 md:pt-4 flex flex-col md:flex-row md:items-end justify-between gap-4">
-          <h1 className="text-xl md:text-2xl font-black text-[#3A1F16] pb-4 line-clamp-2 md:line-clamp-1">
+        <div className="static md:sticky md:top-[76px] z-20 mb-3 md:mb-8 border-b border-[#E8DCCB] bg-[#F6EFE6] pt-1 md:pt-4 flex flex-col md:flex-row md:items-end justify-between gap-2 md:gap-4 w-full max-w-full min-w-0">
+          <h1 className="text-xl md:text-2xl font-black text-[#3A1F16] pb-2 md:pb-4 line-clamp-2 md:line-clamp-1">
             {product.name}
           </h1>
           
-          <nav className="flex items-center gap-8 overflow-x-auto whitespace-nowrap px-1 pb-[-1px]" role="tablist">
+          <nav className="flex items-center gap-6 sm:gap-8 overflow-x-auto whitespace-nowrap w-full max-w-full pb-px scrollbar-none" role="tablist">
             <button
               role="tab"
               aria-selected={activeSection === 'detail-produk'}
               onClick={() => scrollToSection('detail-produk')}
-              className={`pb-4 text-base font-bold transition ${activeSection === 'detail-produk' ? 'border-b-4 border-[#9B4A2F] text-[#9B4A2F]' : 'border-b-4 border-transparent text-[#9C8478] hover:text-[#6B4A3C]'}`}
+              className={`pb-3 md:pb-4 text-sm sm:text-base font-bold transition ${activeSection === 'detail-produk' ? 'border-b-4 border-[#9B4A2F] text-[#9B4A2F]' : 'border-b-4 border-transparent text-[#9C8478] hover:text-[#6B4A3C]'}`}
             >
               {t('product_detail.product_details')}
             </button>
@@ -376,7 +426,7 @@ export default function ProductDetailPage() {
               role="tab"
               aria-selected={activeSection === 'ulasan'}
               onClick={() => scrollToSection('ulasan')}
-              className={`pb-4 text-base font-bold transition ${activeSection === 'ulasan' ? 'border-b-4 border-[#9B4A2F] text-[#9B4A2F]' : 'border-b-4 border-transparent text-[#9C8478] hover:text-[#6B4A3C]'}`}
+              className={`pb-3 md:pb-4 text-sm sm:text-base font-bold transition ${activeSection === 'ulasan' ? 'border-b-4 border-[#9B4A2F] text-[#9B4A2F]' : 'border-b-4 border-transparent text-[#9C8478] hover:text-[#6B4A3C]'}`}
             >
               {t('product_detail.reviews')}
             </button>
@@ -384,7 +434,7 @@ export default function ProductDetailPage() {
               role="tab"
               aria-selected={activeSection === 'rekomendasi'}
               onClick={() => scrollToSection('rekomendasi')}
-              className={`pb-4 text-base font-bold transition ${activeSection === 'rekomendasi' ? 'border-b-4 border-[#9B4A2F] text-[#9B4A2F]' : 'border-b-4 border-transparent text-[#9C8478] hover:text-[#6B4A3C]'}`}
+              className={`pb-3 md:pb-4 text-sm sm:text-base font-bold transition ${activeSection === 'rekomendasi' ? 'border-b-4 border-[#9B4A2F] text-[#9B4A2F]' : 'border-b-4 border-transparent text-[#9C8478] hover:text-[#6B4A3C]'}`}
             >
               {t('product_detail.recommended_nav')}
             </button>
@@ -392,23 +442,22 @@ export default function ProductDetailPage() {
         </div>
 
         {/* LAYOUT: Main Content (Left) + Purchase Panel (Right) */}
-        <div className="grid gap-8 lg:grid-cols-12 items-start">
+        <div className="grid gap-6 md:gap-8 lg:grid-cols-12 items-start w-full max-w-full min-w-0">
           
           {/* LEFT: MAIN CONTENT AREA */}
-          <div className="lg:col-span-8 flex flex-col gap-8">
+          <div className="lg:col-span-8 flex flex-col gap-6 md:gap-8 w-full max-w-full min-w-0">
             
             {/* DETAIL PRODUK = PRODUCT HERO (Image + Info + Description) */}
-            {/* Increased scroll-mt to account for new taller sticky header */}
-            <section id="detail-produk" className="scroll-mt-[180px] rounded-2xl border border-[#EAD8CA] bg-white p-4 sm:p-6 md:p-8 shadow-sm">
-              <div className="md:flex gap-8 items-start">
+            <section id="detail-produk" className="scroll-mt-20 md:scroll-mt-[180px] rounded-2xl border border-[#EAD8CA] bg-white p-4 sm:p-6 md:p-8 shadow-sm w-full max-w-full min-w-0 overflow-hidden">
+              <div className="flex flex-col md:flex-row gap-4 md:gap-8 items-start w-full max-w-full min-w-0">
                 {/* Product Image Gallery */}
-                <div className="w-full md:w-[45%] shrink-0 flex flex-col gap-3">
+                <div className="w-full md:w-[45%] shrink-0 flex flex-col gap-2.5 max-w-full min-w-0">
                   {/* Main Image Container */}
-                  <div className="relative group overflow-hidden rounded-2xl bg-white shadow-sm border border-[#E8DCCB] aspect-square">
+                  <div className="relative group overflow-hidden rounded-xl md:rounded-2xl bg-white shadow-sm border border-[#E8DCCB] w-full h-52 sm:h-64 md:h-auto md:aspect-square max-h-[210px] sm:max-h-[260px] md:max-h-[380px] shrink-0">
                     <img
                       src={currentGalleryImage?.imageUrl || product.image}
                       alt={product.name}
-                      className="h-full w-full object-cover transition-all duration-200"
+                      className="h-full w-full max-h-full object-cover object-center block transition-all duration-200"
                       onError={(e) => {
                         (e.target as HTMLImageElement).src = product.image
                       }}
@@ -420,20 +469,20 @@ export default function ProductDetailPage() {
                         <button
                           type="button"
                           onClick={handlePrevImage}
-                          className="absolute left-2.5 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-white/85 text-[#3A1F16] shadow-md backdrop-blur transition hover:bg-white hover:scale-110 active:scale-95 z-10"
+                          className="absolute left-2.5 top-1/2 -translate-y-1/2 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-white/85 text-[#3A1F16] shadow-md backdrop-blur transition hover:bg-white hover:scale-110 active:scale-95 z-10"
                           aria-label={t('products.prev_image', 'Foto Sebelumnya')}
                           title={t('products.prev_image', 'Foto Sebelumnya')}
                         >
-                          <ChevronLeft className="h-5 w-5" />
+                          <ChevronLeft className="h-4 w-4 sm:h-5 sm:w-5" />
                         </button>
                         <button
                           type="button"
                           onClick={handleNextImage}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-white/85 text-[#3A1F16] shadow-md backdrop-blur transition hover:bg-white hover:scale-110 active:scale-95 z-10"
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-white/85 text-[#3A1F16] shadow-md backdrop-blur transition hover:bg-white hover:scale-110 active:scale-95 z-10"
                           aria-label={t('products.next_image', 'Foto Selanjutnya')}
                           title={t('products.next_image', 'Foto Selanjutnya')}
                         >
-                          <ChevronRight className="h-5 w-5" />
+                          <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5" />
                         </button>
                       </>
                     )}
@@ -443,14 +492,14 @@ export default function ProductDetailPage() {
                   {galleryImages.length > 0 && (
                     <div
                       ref={thumbnailStripRef}
-                      className="flex gap-2.5 overflow-x-auto p-2 scrollbar-none snap-x snap-mandatory focus:outline-none max-w-full w-full"
+                      className="flex gap-2 sm:gap-2.5 overflow-x-auto p-1 sm:p-2 scrollbar-none snap-x snap-mandatory focus:outline-none max-w-full w-full min-w-0"
                     >
                       {galleryImages.map((img, idx) => (
                         <button
                           key={img.id !== -1 ? img.id : `thumb-${idx}`}
                           type="button"
                           onClick={() => setSelectedImageIndex(idx)}
-                          className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-white border-2 transition-all snap-start ${
+                          className={`relative h-12 w-12 sm:h-16 sm:w-16 shrink-0 overflow-hidden rounded-lg sm:rounded-xl bg-white border-2 transition-all snap-start ${
                             selectedImageIndex === idx
                               ? 'border-[#9B4A2F] ring-2 ring-[#9B4A2F]/30 scale-105 shadow-sm'
                               : 'border-[#E8DCCB] opacity-70 hover:opacity-100 hover:border-[#9B4A2F]/60'
@@ -468,9 +517,7 @@ export default function ProductDetailPage() {
                 </div>
 
                 {/* Product Info & Description */}
-                <div className="w-full md:w-[55%] mt-6 md:mt-0 flex flex-col gap-4">
-                  {/* Product title was moved to Top Header */}
-                  
+                <div className="w-full md:w-[55%] mt-2 md:mt-0 flex flex-col gap-3 md:gap-4 min-w-0 max-w-full">
                   <div className="flex flex-wrap items-center gap-3 text-sm text-[#6B4A3C]">
                     {product.rating > 0 && (
                       <div className="flex items-center gap-1 font-semibold">
@@ -505,9 +552,9 @@ export default function ProductDetailPage() {
                     </p>
                   </div>
 
-                  {/* MOBILE ONLY: Render Purchase Panel inside Hero */}
+                  {/* MOBILE ONLY: Render Secondary Actions & WA Box (Sticky bottom handles Add to Cart) */}
                   <div className="mt-4 lg:hidden">
-                    {renderPurchasePanel()}
+                    {renderMobileInlineActions()}
                   </div>
 
                   {/* Full Description Integrated into Product Info */}
@@ -527,7 +574,7 @@ export default function ProductDetailPage() {
             </section>
 
             {/* ULASAN */}
-            <section id="ulasan" className="scroll-mt-[180px] rounded-2xl border border-[#EAD8CA] bg-white p-4 sm:p-6 md:p-8 shadow-sm">
+            <section id="ulasan" className="scroll-mt-20 md:scroll-mt-[180px] rounded-2xl border border-[#EAD8CA] bg-white p-4 sm:p-6 md:p-8 shadow-sm">
               <h2 className="text-xl font-black text-[#3A1F16] mb-4">{t('product_detail.reviews')}</h2>
               
               <div className="mb-6 flex items-center gap-4">
@@ -582,15 +629,15 @@ export default function ProductDetailPage() {
             </section>
 
             {/* REKOMENDASI */}
-            <section id="rekomendasi" className="scroll-mt-[180px] rounded-2xl border border-[#EAD8CA] bg-white p-4 sm:p-6 md:p-8 shadow-sm">
+            <section id="rekomendasi" className="scroll-mt-20 md:scroll-mt-[180px] rounded-2xl border border-[#EAD8CA] bg-white p-4 sm:p-6 md:p-8 shadow-sm">
               <h2 className="text-xl font-black text-[#3A1F16] mb-4">{t('product_detail.recommended')}</h2>
               
               {recommendations.length === 0 ? (
                 <p className="text-sm text-[#9C8478]">{t('product_detail.no_recommendations')}</p>
               ) : (
-                <div className="flex gap-4 overflow-x-auto pb-4 pt-1 snap-x snap-mandatory focus:outline-none scrollbar-thin">
+                <div className="flex gap-3 sm:gap-4 overflow-x-auto pb-4 pt-1 snap-x snap-mandatory focus:outline-none scrollbar-thin w-full max-w-full min-w-0">
                   {recommendations.map(rec => (
-                    <div key={rec.id} className="w-[240px] sm:w-[260px] md:w-[280px] shrink-0 snap-start">
+                    <div key={rec.id} className="w-[200px] sm:w-[240px] md:w-[260px] shrink-0 snap-start">
                       <ProductCard
                         product={rec}
                         onAddToCart={(p, q) => {
@@ -627,19 +674,19 @@ export default function ProductDetailPage() {
       </div>
 
       {/* Mobile Sticky Bottom Action Bar */}
-      <div className="fixed bottom-[60px] inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-[#EAD8CA] px-4 py-2.5 lg:hidden flex items-center justify-between gap-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
-        <div className="flex flex-col min-w-0">
+      <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-[#EAD8CA] px-3 py-2 sm:px-4 sm:py-2.5 lg:hidden flex items-center justify-between gap-2 sm:gap-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
+        <div className="flex flex-col min-w-0 shrink-0">
           <span className="text-[10px] font-medium text-[#6B4A3C] uppercase tracking-wide">
             {t('product_detail.subtotal', 'Total')}
           </span>
-          <span className="text-sm font-black text-[#3A1F16] truncate">
+          <span className="text-sm font-black text-[#3A1F16] truncate max-w-[90px] sm:max-w-none">
             {formatRupiah(subtotal)}
           </span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Stepper */}
-          <div className="flex items-center rounded-lg border border-[#D0BFAF] bg-[#FAF5EF] p-0.5">
+          <div className="flex items-center rounded-lg border border-[#D0BFAF] bg-[#FAF5EF] p-0.5 shrink-0">
             <button
               type="button"
               onClick={() => setQuantity((q) => Math.max(minOrder, q - step))}
@@ -649,7 +696,7 @@ export default function ProductDetailPage() {
             >
               -
             </button>
-            <span className="w-6 text-center text-xs font-bold text-[#3A1F16]">{quantity}</span>
+            <span className="w-5 sm:w-6 text-center text-xs font-bold text-[#3A1F16]">{quantity}</span>
             <button
               type="button"
               onClick={() => setQuantity((q) => Math.min(maxQty, q + step))}
@@ -665,10 +712,12 @@ export default function ProductDetailPage() {
             type="button"
             onClick={handleAddToCart}
             disabled={!isPurchasable}
-            className="flex items-center gap-1.5 rounded-lg bg-[#9B4A2F] px-3.5 py-2 text-xs font-black text-white shadow-sm transition hover:bg-[#7E3A24] disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="flex items-center justify-center gap-1.5 rounded-lg bg-[#9B4A2F] px-3 py-2 sm:px-3.5 text-xs font-black text-white shadow-sm transition hover:bg-[#7E3A24] disabled:bg-gray-400 disabled:cursor-not-allowed whitespace-nowrap min-w-0"
           >
-            <ShoppingCart className="h-3.5 w-3.5" />
-            <span>{isPurchasable ? t('product_detail.add_to_cart', 'Tambah ke Keranjang') : (badgeText || t('product_detail.unavailable', 'Stok Habis'))}</span>
+            <ShoppingCart className="h-3.5 w-3.5 shrink-0" />
+            <span className="truncate max-w-[130px] sm:max-w-none">
+              {isPurchasable ? t('product_detail.add_to_cart', 'Tambah Keranjang') : (badgeText || t('product_detail.unavailable', 'Stok Habis'))}
+            </span>
           </button>
         </div>
       </div>

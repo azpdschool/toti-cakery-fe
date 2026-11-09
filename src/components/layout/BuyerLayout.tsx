@@ -6,10 +6,10 @@ import { BuyerBottomNav } from '@/components/layout/BuyerBottomNav'
 
 export function BuyerLayout() {
   return (
-    <div className="flex min-h-screen flex-col bg-[#F6EFE6] pb-20 md:pb-0">
+    <div className="flex min-h-screen flex-col bg-[#F6EFE6] pb-20 md:pb-0 w-full max-w-full overflow-x-hidden">
       <BuyerNavbar />
 
-      <main className="flex-1">
+      <main className="flex-1 w-full max-w-full min-w-0">
         <Outlet />
       </main>
 

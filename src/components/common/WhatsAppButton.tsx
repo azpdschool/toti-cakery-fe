@@ -1,9 +1,14 @@
+import { useLocation } from 'react-router-dom'
 import { useWhatsApp } from '@/context/WhatsAppContext'
 import { useTranslation } from 'react-i18next'
 
 export function WhatsAppButton() {
   const { whatsappUrl } = useWhatsApp()
   const { t } = useTranslation()
+  const location = useLocation()
+
+  // On product detail routes, mobile already has sticky action bar and dedicated WA custom order card
+  const isProductDetailPage = location.pathname.startsWith('/catalog/') || location.pathname.startsWith('/products/')
 
   return (
     <a
@@ -12,7 +17,9 @@ export function WhatsAppButton() {
       rel="noopener noreferrer"
       aria-label={t('whatsapp.chat')}
       title={t('whatsapp.chat')}
-      className="fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-30 flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition-all duration-300 hover:scale-110 hover:bg-[#1EBE57] hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-[#25D366]/40"
+      className={`fixed bottom-20 right-4 sm:bottom-6 sm:right-6 z-30 ${
+        isProductDetailPage ? 'hidden lg:flex' : 'flex'
+      } h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition-all duration-300 hover:scale-110 hover:bg-[#1EBE57] hover:shadow-xl focus:outline-none focus:ring-4 focus:ring-[#25D366]/40`}
     >
       <svg
         xmlns="http://www.w3.org/2000/svg"
