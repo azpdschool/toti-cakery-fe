@@ -19,7 +19,7 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<Product | null>(null)
   const [reviews, setReviews] = useState<ReviewResponse[]>([])
   const [recommendations, setRecommendations] = useState<Product[]>([])
-  const [selectedReviewLightBoxUrl, setSelectedReviewLightBoxUrl] = useState<string | null>(null)
+  const [lightboxImage, setLightboxImage] = useState<{ url: string; alt?: string } | null>(null)
   
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -28,13 +28,28 @@ export default function ProductDetailPage() {
   // Gallery state
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const thumbnailStripRef = useRef<HTMLDivElement>(null)
+  const stickyHeaderRef = useRef<HTMLDivElement>(null)
 
   const [activeSection, setActiveSection] = useState('detail-produk')
   const { addItem } = useCart()
   const { t, i18n } = useTranslation()
   const { wishlistIds, toggleWishlist, requestRemoveWishlist, loading: wishlistLoading } = useWishlist()
 
-  const observerRef = useRef<IntersectionObserver | null>(null)
+  const isManualScrollRef = useRef(false)
+  const manualScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    if (!lightboxImage) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLightboxImage(null)
+    }
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.body.style.overflow = ''
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [lightboxImage])
 
   useEffect(() => {
     if (!slug) return
@@ -107,53 +122,71 @@ export default function ProductDetailPage() {
     }
   }, [selectedImageIndex])
 
-  useEffect(() => {
-    if (loading || !product) return
-    
-    // Navbar height is 76px, sticky header is ~100px.
-    // Margin is adjusted so scroll spy accurately tracks which section is currently main in view.
-    const options = {
-      root: null,
-      rootMargin: '-220px 0px -50% 0px',
-      threshold: 0
-    }
-
-    const handleIntersect = (entries: IntersectionObserverEntry[]) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          setActiveSection(entry.target.id)
-        }
-      })
-    }
-
-    observerRef.current = new IntersectionObserver(handleIntersect, options)
-    
-    const sections = ['detail-produk', 'ulasan', 'rekomendasi']
-    sections.forEach(id => {
-      const el = document.getElementById(id)
-      if (el) observerRef.current?.observe(el)
-    })
-
-    return () => {
-      if (observerRef.current) {
-        observerRef.current.disconnect()
-      }
-    }
-  }, [loading, product])
-
   const scrollToSection = (id: string) => {
     const el = document.getElementById(id)
     if (el) {
-      // Offset for sticky navbar (76px) + sticky top header height (~104px) = 180px
-      const headerOffset = 180 
+      isManualScrollRef.current = true
+      if (manualScrollTimeoutRef.current) clearTimeout(manualScrollTimeoutRef.current)
+      setActiveSection(id)
+
+      // Calculate total sticky offset: Navbar (77px) + sticky header height + breathing room
+      const headerOffset = stickyHeaderRef.current
+        ? 77 + stickyHeaderRef.current.offsetHeight + 16
+        : 180
       const elementPosition = el.getBoundingClientRect().top
       const offsetPosition = elementPosition + window.scrollY - headerOffset
       window.scrollTo({
         top: offsetPosition,
         behavior: 'smooth'
       })
+
+      manualScrollTimeoutRef.current = setTimeout(() => {
+        isManualScrollRef.current = false
+      }, 800)
     }
   }
+
+  useEffect(() => {
+    if (loading || !product) return
+
+    const sections = ['detail-produk', 'ulasan', 'rekomendasi']
+
+    const handleScroll = () => {
+      if (isManualScrollRef.current) return
+
+      // Bottom-of-page edge case: if user scrolls to bottom, force highlight rekomendasi
+      const isAtBottom = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 60
+      if (isAtBottom) {
+        setActiveSection('rekomendasi')
+        return
+      }
+
+      // Detection line: Navbar (77px) + sticky header height + buffer
+      const headerOffset = stickyHeaderRef.current
+        ? 77 + stickyHeaderRef.current.offsetHeight + 24
+        : 190
+
+      let currentSection = sections[0]
+      for (const sectionId of sections) {
+        const el = document.getElementById(sectionId)
+        if (el) {
+          const top = el.getBoundingClientRect().top
+          if (top <= headerOffset) {
+            currentSection = sectionId
+          }
+        }
+      }
+      setActiveSection(currentSection)
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      if (manualScrollTimeoutRef.current) {
+        clearTimeout(manualScrollTimeoutRef.current)
+      }
+    }
+  }, [loading, product])
 
   const handleShare = async () => {
     const shareData = {
@@ -253,6 +286,10 @@ export default function ProductDetailPage() {
     <div className="flex flex-col gap-4">
       {/* Action Box */}
       <div className="rounded-xl border border-[#D0BFAF] bg-white p-5 shadow-sm">
+        <div className="mb-4 pb-3 border-b border-[#F6EFE6]">
+          <span className="text-xs font-semibold text-[#6B4A3C]">{t('product_detail.price', 'Harga')}</span>
+          <p className="text-2xl font-black text-[#3A1F16]">{formatRupiah(variant.price)}</p>
+        </div>
         <h3 className="font-bold text-[#3A1F16] mb-4">{t('product_detail.quantity')}</h3>
         
         <div className="flex items-center gap-3">
@@ -404,21 +441,26 @@ export default function ProductDetailPage() {
   )
 
   return (
-    <div className="bg-[#F6EFE6] pb-36 md:pb-20 w-full max-w-full min-w-0 overflow-x-hidden">
+    <div className="bg-[#F6EFE6] pb-32 sm:pb-16 w-full max-w-full min-w-0 overflow-x-clip">
       <div className="mx-auto max-w-7xl px-4 py-4 md:py-8 lg:px-8 w-full max-w-full min-w-0">
         
-        {/* TOP HEADER: Title + Section Navigation (Sticky on desktop) */}
-        <div className="static md:sticky md:top-[76px] z-20 mb-3 md:mb-8 border-b border-[#E8DCCB] bg-[#F6EFE6] pt-1 md:pt-4 flex flex-col md:flex-row md:items-end justify-between gap-2 md:gap-4 w-full max-w-full min-w-0">
-          <h1 className="text-xl md:text-2xl font-black text-[#3A1F16] pb-2 md:pb-4 line-clamp-2 md:line-clamp-1">
-            {product.name}
-          </h1>
-          
+        {/* UNIFIED STICKY HEADER: PRODUCT TITLE + SECTION NAVIGATION TABS */}
+        <div 
+          ref={stickyHeaderRef}
+          className="sticky top-[77px] z-20 mb-4 md:mb-8 bg-[#F6EFE6]/95 backdrop-blur-sm border-b border-[#E8DCCB] -mx-4 px-4 w-[calc(100%+2rem)] max-w-none sm:mx-0 sm:px-0 sm:w-full sm:max-w-full py-2 md:py-3 min-w-0"
+        >
+          <div className="mb-2 md:mb-3 w-full max-w-full min-w-0">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-[#3A1F16] leading-tight">
+              {product.name}
+            </h1>
+          </div>
+
           <nav className="flex items-center gap-6 sm:gap-8 overflow-x-auto whitespace-nowrap w-full max-w-full pb-px scrollbar-none" role="tablist">
             <button
               role="tab"
               aria-selected={activeSection === 'detail-produk'}
               onClick={() => scrollToSection('detail-produk')}
-              className={`pb-3 md:pb-4 text-sm sm:text-base font-bold transition ${activeSection === 'detail-produk' ? 'border-b-4 border-[#9B4A2F] text-[#9B4A2F]' : 'border-b-4 border-transparent text-[#9C8478] hover:text-[#6B4A3C]'}`}
+              className={`pb-2 md:pb-2.5 text-sm sm:text-base font-bold transition border-b-2 ${activeSection === 'detail-produk' ? 'border-[#9B4A2F] text-[#9B4A2F]' : 'border-transparent text-[#9C8478] hover:text-[#6B4A3C]'}`}
             >
               {t('product_detail.product_details')}
             </button>
@@ -426,7 +468,7 @@ export default function ProductDetailPage() {
               role="tab"
               aria-selected={activeSection === 'ulasan'}
               onClick={() => scrollToSection('ulasan')}
-              className={`pb-3 md:pb-4 text-sm sm:text-base font-bold transition ${activeSection === 'ulasan' ? 'border-b-4 border-[#9B4A2F] text-[#9B4A2F]' : 'border-b-4 border-transparent text-[#9C8478] hover:text-[#6B4A3C]'}`}
+              className={`pb-2 md:pb-2.5 text-sm sm:text-base font-bold transition border-b-2 ${activeSection === 'ulasan' ? 'border-[#9B4A2F] text-[#9B4A2F]' : 'border-transparent text-[#9C8478] hover:text-[#6B4A3C]'}`}
             >
               {t('product_detail.reviews')}
             </button>
@@ -434,7 +476,7 @@ export default function ProductDetailPage() {
               role="tab"
               aria-selected={activeSection === 'rekomendasi'}
               onClick={() => scrollToSection('rekomendasi')}
-              className={`pb-3 md:pb-4 text-sm sm:text-base font-bold transition ${activeSection === 'rekomendasi' ? 'border-b-4 border-[#9B4A2F] text-[#9B4A2F]' : 'border-b-4 border-transparent text-[#9C8478] hover:text-[#6B4A3C]'}`}
+              className={`pb-2 md:pb-2.5 text-sm sm:text-base font-bold transition border-b-2 ${activeSection === 'rekomendasi' ? 'border-[#9B4A2F] text-[#9B4A2F]' : 'border-transparent text-[#9C8478] hover:text-[#6B4A3C]'}`}
             >
               {t('product_detail.recommended_nav')}
             </button>
@@ -442,22 +484,30 @@ export default function ProductDetailPage() {
         </div>
 
         {/* LAYOUT: Main Content (Left) + Purchase Panel (Right) */}
-        <div className="grid gap-6 md:gap-8 lg:grid-cols-12 items-start w-full max-w-full min-w-0">
+        <div className="grid gap-6 md:gap-8 sm:grid-cols-12 items-start w-full max-w-full min-w-0">
           
           {/* LEFT: MAIN CONTENT AREA */}
-          <div className="lg:col-span-8 flex flex-col gap-6 md:gap-8 w-full max-w-full min-w-0">
+          <div className="sm:col-span-7 md:col-span-7 lg:col-span-8 flex flex-col gap-6 md:gap-8 w-full max-w-full min-w-0">
             
             {/* DETAIL PRODUK = PRODUCT HERO (Image + Info + Description) */}
-            <section id="detail-produk" className="scroll-mt-20 md:scroll-mt-[180px] rounded-2xl border border-[#EAD8CA] bg-white p-4 sm:p-6 md:p-8 shadow-sm w-full max-w-full min-w-0 overflow-hidden">
-              <div className="flex flex-col md:flex-row gap-4 md:gap-8 items-start w-full max-w-full min-w-0">
+            <section id="detail-produk" className="scroll-mt-[190px] rounded-2xl border border-[#EAD8CA] bg-white p-4 sm:p-6 md:p-8 shadow-sm w-full max-w-full min-w-0 overflow-hidden">
+              <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start w-full max-w-full min-w-0">
                 {/* Product Image Gallery */}
-                <div className="w-full md:w-[45%] shrink-0 flex flex-col gap-2.5 max-w-full min-w-0">
+                <div className="w-full lg:w-[45%] shrink-0 flex flex-col gap-2.5 max-w-full min-w-0">
                   {/* Main Image Container */}
-                  <div className="relative group overflow-hidden rounded-xl md:rounded-2xl bg-white shadow-sm border border-[#E8DCCB] w-full h-52 sm:h-64 md:h-auto md:aspect-square max-h-[210px] sm:max-h-[260px] md:max-h-[380px] shrink-0">
+                  <div
+                    onClick={() =>
+                      setLightboxImage({
+                        url: currentGalleryImage?.imageUrl || product.image,
+                        alt: product.name,
+                      })
+                    }
+                    className="relative group overflow-hidden rounded-xl md:rounded-2xl bg-black shadow-sm border border-[#E8DCCB] w-full aspect-square shrink-0 flex items-center justify-center max-w-full min-w-0 cursor-zoom-in"
+                  >
                     <img
                       src={currentGalleryImage?.imageUrl || product.image}
                       alt={product.name}
-                      className="h-full w-full max-h-full object-cover object-center block transition-all duration-200"
+                      className="h-full w-full object-contain object-center block transition-all duration-200 group-hover:scale-105"
                       onError={(e) => {
                         (e.target as HTMLImageElement).src = product.image
                       }}
@@ -468,7 +518,10 @@ export default function ProductDetailPage() {
                       <>
                         <button
                           type="button"
-                          onClick={handlePrevImage}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handlePrevImage()
+                          }}
                           className="absolute left-2.5 top-1/2 -translate-y-1/2 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-white/85 text-[#3A1F16] shadow-md backdrop-blur transition hover:bg-white hover:scale-110 active:scale-95 z-10"
                           aria-label={t('products.prev_image', 'Foto Sebelumnya')}
                           title={t('products.prev_image', 'Foto Sebelumnya')}
@@ -477,7 +530,10 @@ export default function ProductDetailPage() {
                         </button>
                         <button
                           type="button"
-                          onClick={handleNextImage}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleNextImage()
+                          }}
                           className="absolute right-2.5 top-1/2 -translate-y-1/2 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-full bg-white/85 text-[#3A1F16] shadow-md backdrop-blur transition hover:bg-white hover:scale-110 active:scale-95 z-10"
                           aria-label={t('products.next_image', 'Foto Selanjutnya')}
                           title={t('products.next_image', 'Foto Selanjutnya')}
@@ -517,7 +573,7 @@ export default function ProductDetailPage() {
                 </div>
 
                 {/* Product Info & Description */}
-                <div className="w-full md:w-[55%] mt-2 md:mt-0 flex flex-col gap-3 md:gap-4 min-w-0 max-w-full">
+                <div className="w-full lg:w-[55%] mt-4 lg:mt-0 flex flex-col gap-3 md:gap-4 min-w-0 max-w-full">
                   <div className="flex flex-wrap items-center gap-3 text-sm text-[#6B4A3C]">
                     {product.rating > 0 && (
                       <div className="flex items-center gap-1 font-semibold">
@@ -553,7 +609,7 @@ export default function ProductDetailPage() {
                   </div>
 
                   {/* MOBILE ONLY: Render Secondary Actions & WA Box (Sticky bottom handles Add to Cart) */}
-                  <div className="mt-4 lg:hidden">
+                  <div className="mt-4 sm:hidden">
                     {renderMobileInlineActions()}
                   </div>
 
@@ -574,7 +630,7 @@ export default function ProductDetailPage() {
             </section>
 
             {/* ULASAN */}
-            <section id="ulasan" className="scroll-mt-20 md:scroll-mt-[180px] rounded-2xl border border-[#EAD8CA] bg-white p-4 sm:p-6 md:p-8 shadow-sm">
+            <section id="ulasan" className="scroll-mt-[190px] rounded-2xl border border-[#EAD8CA] bg-white p-4 sm:p-6 md:p-8 shadow-sm">
               <h2 className="text-xl font-black text-[#3A1F16] mb-4">{t('product_detail.reviews')}</h2>
               
               <div className="mb-6 flex items-center gap-4">
@@ -614,8 +670,8 @@ export default function ProductDetailPage() {
                             <button
                               key={img.id}
                               type="button"
-                              onClick={() => setSelectedReviewLightBoxUrl(img.image_url)}
-                              className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-[#E8DCCB] bg-white transition hover:opacity-90 snap-start focus:outline-none"
+                              onClick={() => setLightboxImage({ url: img.image_url, alt: 'Foto ulasan pelanggan' })}
+                              className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-[#E8DCCB] bg-white transition hover:opacity-90 snap-start focus:outline-none cursor-zoom-in"
                             >
                               <img src={img.image_url} alt="Ulasan pelanggan" className="h-full w-full object-cover" />
                             </button>
@@ -629,7 +685,7 @@ export default function ProductDetailPage() {
             </section>
 
             {/* REKOMENDASI */}
-            <section id="rekomendasi" className="scroll-mt-20 md:scroll-mt-[180px] rounded-2xl border border-[#EAD8CA] bg-white p-4 sm:p-6 md:p-8 shadow-sm">
+            <section id="rekomendasi" className="scroll-mt-[190px] rounded-2xl border border-[#EAD8CA] bg-white p-4 sm:p-6 md:p-8 shadow-sm">
               <h2 className="text-xl font-black text-[#3A1F16] mb-4">{t('product_detail.recommended')}</h2>
               
               {recommendations.length === 0 ? (
@@ -665,8 +721,8 @@ export default function ProductDetailPage() {
             
           </div>
           
-          {/* RIGHT: PURCHASE PANEL (STICKY ON DESKTOP) */}
-          <div className="hidden lg:flex lg:col-span-4 sticky top-[180px] z-10 flex-col gap-4">
+          {/* RIGHT: PURCHASE PANEL (STICKY ON TABLET & DESKTOP) */}
+          <div className="hidden sm:flex sm:col-span-5 md:col-span-5 lg:col-span-4 sticky top-[190px] z-10 flex-col gap-4">
             {renderPurchasePanel()}
           </div>
           
@@ -674,7 +730,7 @@ export default function ProductDetailPage() {
       </div>
 
       {/* Mobile Sticky Bottom Action Bar */}
-      <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-[#EAD8CA] px-3 py-2 sm:px-4 sm:py-2.5 lg:hidden flex items-center justify-between gap-2 sm:gap-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
+      <div className="fixed bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))] inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-[#EAD8CA] px-3 py-2 sm:px-4 sm:py-2.5 max-sm:flex hidden sm:hidden items-center justify-between gap-2 sm:gap-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
         <div className="flex flex-col min-w-0 shrink-0">
           <span className="text-[10px] font-medium text-[#6B4A3C] uppercase tracking-wide">
             {t('product_detail.subtotal', 'Total')}
@@ -723,16 +779,27 @@ export default function ProductDetailPage() {
       </div>
 
       {/* Lightbox Modal */}
-      {selectedReviewLightBoxUrl && (
+      {lightboxImage && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-          onClick={() => setSelectedReviewLightBoxUrl(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm transition-opacity"
+          onClick={() => setLightboxImage(null)}
+          role="dialog"
+          aria-modal="true"
         >
-          <div className="relative max-w-3xl max-h-[90vh]">
-            <img src={selectedReviewLightBoxUrl} alt="Enlarged review photo" className="max-w-full max-h-[85vh] rounded-lg object-contain" />
+          <div
+            className="relative max-w-4xl max-h-[90vh] flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={lightboxImage.url}
+              alt={lightboxImage.alt || 'Enlarged photo'}
+              className="max-w-full max-h-[85vh] rounded-xl object-contain shadow-2xl"
+            />
             <button
-              onClick={() => setSelectedReviewLightBoxUrl(null)}
-              className="absolute top-4 right-4 sm:-top-10 sm:right-0 text-white hover:text-gray-300 focus:outline-none"
+              type="button"
+              onClick={() => setLightboxImage(null)}
+              className="absolute -top-12 right-0 sm:-top-10 text-white/80 hover:text-white p-2 rounded-full hover:bg-white/10 transition focus:outline-none"
+              aria-label="Tutup"
             >
               <X className="h-7 w-7" />
             </button>

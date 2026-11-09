@@ -386,14 +386,17 @@ export default function CatalogPage() {
 
   if (loading) {
     return (
-      <div className="bg-white pb-10">
-        <section className="mx-auto max-w-7xl px-4 pt-5 lg:px-8">
-          <div className="h-40 w-full animate-pulse rounded-xl bg-gray-200" />
+      <div className="bg-[#F6EFE6] pb-10">
+        <section className="mx-auto max-w-7xl px-4 pt-6 lg:px-8">
+          <div className="h-11 w-full animate-pulse rounded-full bg-stone-200" />
+        </section>
+        <section className="mx-auto max-w-7xl px-4 pt-4 lg:px-8">
+          <div className="h-11 w-full animate-pulse rounded-xl bg-stone-200" />
         </section>
         <section className="mx-auto max-w-7xl px-4 pt-6 lg:px-8">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="h-80 animate-pulse rounded-xl bg-gray-100 p-4" />
+              <div key={i} className="h-80 animate-pulse rounded-xl bg-stone-200/70 p-4" />
             ))}
           </div>
         </section>
@@ -421,30 +424,6 @@ export default function CatalogPage() {
 
   return (
     <div className="bg-[#F6EFE6] pb-10">
-      {/* HERO — same layout & colors as Home's hero */}
-      <section className="mx-auto max-w-7xl px-4 pt-5 lg:px-8">
-        <div className="relative overflow-hidden rounded-xl bg-white shadow-md ring-1 ring-[#D0BFAF]/60">
-          <div
-            className="absolute inset-0 hidden md:block"
-            style={{
-              backgroundImage:
-                "url('https://res.cloudinary.com/mrje22up/image/upload/v1790318610/SaveClip.App_625018501_18282534043303493_4772642156586750637_n_2.jpg')",
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-            }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-white via-white/85 to-transparent" />
-          <div className="relative z-10 max-w-2xl px-8 py-10 lg:px-12 lg:py-16">
-            <h1 className="max-w-xl text-4xl font-black leading-tight tracking-tight text-[#3A1F16] md:text-5xl lg:text-6xl">
-              {t('catalog.title')}
-            </h1>
-            <p className="mt-5 max-w-md text-base leading-7 text-[#6B4A3C]">
-              {t('catalog.subtitle')}
-            </p>
-          </div>
-        </div>
-      </section>
-
       {/* CATEGORY SCROLLER */}
       <section className="mx-auto max-w-7xl px-4 pt-6 lg:px-8">
         <CategoryScroller
