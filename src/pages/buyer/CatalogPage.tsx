@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next'
 import {
   ChevronLeft,
   ChevronRight,
-  Search,
   SlidersHorizontal,
   X,
 } from 'lucide-react'
@@ -86,7 +85,7 @@ function CategoryScroller({
   }
 
   return (
-    <div className="relative group">
+    <div className="relative group min-w-0 flex-1">
       {canLeft && (
         <button
           type="button"
@@ -102,7 +101,7 @@ function CategoryScroller({
           type="button"
           onClick={() => scrollBy(220)}
           aria-label={t('common.next')}
-          className="absolute right-0 top-1/2 -translate-y-1/2 -mr-3 hidden sm:flex h-8 w-8 items-center justify-center rounded-full border border-[#EAD8CA] bg-white text-[#6B4A3C] shadow-md z-10 opacity-0 transition-opacity hover:text-[#9B4A2F] group-hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-[#9B4A2F]/30"
+          className="absolute right-0 top-1/2 -translate-y-1/2 -mr-1 hidden sm:flex h-8 w-8 items-center justify-center rounded-full border border-[#EAD8CA] bg-white text-[#6B4A3C] shadow-md z-10 opacity-0 transition-opacity hover:text-[#9B4A2F] group-hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-[#9B4A2F]/30"
         >
           <ChevronRight className="h-4 w-4" />
         </button>
@@ -143,34 +142,6 @@ function CategoryScroller({
           </button>
         ))}
       </div>
-    </div>
-  )
-}
-
-// ============================================================
-// SEARCH BAR (compact, icon-first)
-// ============================================================
-function SearchBar({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const { t } = useTranslation()
-  return (
-    <div className="relative flex h-11 flex-1 items-center rounded-xl border border-[#D0BFAF] bg-white px-3.5 focus-within:border-[#9B4A2F] focus-within:ring-2 focus-within:ring-[#9B4A2F]/20">
-      <Search className="h-4 w-4 shrink-0 text-[#9C8478]" />
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={t('catalog.search_placeholder')}
-        className="w-full bg-transparent px-2.5 text-sm text-[#3A1F16] outline-none placeholder:text-[#9C8478]"
-      />
-      {value && (
-        <button
-          type="button"
-          onClick={() => onChange('')}
-          className="shrink-0 rounded-full p-1 text-[#9C8478] hover:bg-[#E8DCCB]"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      )}
     </div>
   )
 }
@@ -359,12 +330,13 @@ export default function CatalogPage() {
     [categories, selectedCategoryId]
   )
 
-  const hasActiveFilters = Boolean(selectedCategoryId !== null || priceMin || priceMax)
+  const hasActiveFilters = Boolean(selectedCategoryId !== null || priceMin || priceMax || searchQuery)
 
   const clearAllFilters = () => {
     setSelectedCategoryId(null)
     setPriceMin('')
     setPriceMax('')
+    setSearchQuery('')
   }
 
   const handleAddToCart = (product: Product, quantity: number) => {
@@ -388,10 +360,10 @@ export default function CatalogPage() {
     return (
       <div className="bg-[#F6EFE6] pb-10">
         <section className="mx-auto max-w-7xl px-4 pt-6 lg:px-8">
-          <div className="h-11 w-full animate-pulse rounded-full bg-stone-200" />
-        </section>
-        <section className="mx-auto max-w-7xl px-4 pt-4 lg:px-8">
-          <div className="h-11 w-full animate-pulse rounded-xl bg-stone-200" />
+          <div className="flex items-center justify-between gap-3">
+            <div className="h-11 flex-1 animate-pulse rounded-full bg-stone-200" />
+            <div className="h-11 w-11 shrink-0 animate-pulse rounded-xl bg-stone-200" />
+          </div>
         </section>
         <section className="mx-auto max-w-7xl px-4 pt-6 lg:px-8">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -424,20 +396,15 @@ export default function CatalogPage() {
 
   return (
     <div className="bg-[#F6EFE6] pb-10">
-      {/* CATEGORY SCROLLER */}
+      {/* CATEGORIES & FILTER ROW: Category chips (left) + Filter Button (right) */}
       <section className="mx-auto max-w-7xl px-4 pt-6 lg:px-8">
-        <CategoryScroller
-          categories={categories}
-          totalCount={totalCount}
-          selectedId={selectedCategoryId}
-          onSelect={setSelectedCategoryId}
-        />
-      </section>
-
-      {/* TOOLBAR: search + price filter */}
-      <section className="mx-auto max-w-7xl px-4 pt-4 lg:px-8">
-        <div className="flex items-center gap-3">
-          <SearchBar value={searchQuery} onChange={setSearchQuery} />
+        <div className="flex items-center justify-between gap-3">
+          <CategoryScroller
+            categories={categories}
+            totalCount={totalCount}
+            selectedId={selectedCategoryId}
+            onSelect={setSelectedCategoryId}
+          />
           <PriceFilterButton
             min={priceMin}
             max={priceMax}
@@ -455,10 +422,28 @@ export default function CatalogPage() {
         {/* ACTIVE FILTER CHIPS */}
         {hasActiveFilters && (
           <div className="mt-3 flex flex-wrap items-center gap-2">
+            {searchQuery && (
+              <span className="flex items-center gap-1.5 rounded-full border border-[#D0BFAF] bg-white px-3 py-1.5 text-xs font-bold text-[#9B4A2F]">
+                "{searchQuery}"
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  aria-label={t('catalog.clear_filter', 'Hapus filter')}
+                  className="text-[#6B4A3C] hover:text-[#3A1F16]"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </span>
+            )}
             {selectedCategoryObj && (
               <span className="flex items-center gap-1.5 rounded-full border border-[#D0BFAF] bg-white px-3 py-1.5 text-xs font-bold text-[#9B4A2F]">
                 {selectedCategoryObj.name}
-                <button type="button" onClick={() => setSelectedCategoryId(null)} className="text-[#6B4A3C] hover:text-[#3A1F16]">
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategoryId(null)}
+                  aria-label={t('catalog.clear_filter', 'Hapus filter')}
+                  className="text-[#6B4A3C] hover:text-[#3A1F16]"
+                >
                   <X className="h-3.5 w-3.5" />
                 </button>
               </span>
@@ -474,6 +459,7 @@ export default function CatalogPage() {
                     setPriceMin('')
                     setPriceMax('')
                   }}
+                  aria-label={t('catalog.clear_filter', 'Hapus filter')}
                   className="text-[#6B4A3C] hover:text-[#3A1F16]"
                 >
                   <X className="h-3.5 w-3.5" />
