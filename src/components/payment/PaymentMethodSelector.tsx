@@ -15,10 +15,10 @@ export function PaymentMethodSelector({ selectedMethod, onSelect, disabled }: Pa
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-bold text-[#4b2417]">{t('checkout.payment_method')}</h3>
+        <h3 className="text-sm font-bold text-toti-ink">{t('checkout.payment_method')}</h3>
         {isSandbox && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800 border border-amber-300">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+          <span className="inline-flex items-center gap-1 rounded-full text-toti-brick-hover bg-toti-honey/20 ring-1 ring-inset ring-toti-warning/30 px-2.5 py-0.5 text-xs font-semibold">
+            <span className="h-1.5 w-1.5 rounded-full bg-toti-warning animate-pulse" />
             {t('checkout.sandbox_badge', 'Mode Simulasi')}
           </span>
         )}
@@ -31,17 +31,17 @@ export function PaymentMethodSelector({ selectedMethod, onSelect, disabled }: Pa
           onClick={() => onSelect('qris')}
           className={`flex flex-col items-start gap-2 rounded-xl border-2 p-4 text-left transition ${
             selectedMethod === 'qris'
-              ? 'border-[#d85b30] bg-[#d85b30]/5 shadow-sm'
-              : 'border-[#ead8ca] bg-white hover:border-[#d0bfaf]'
+              ? 'border-toti-brick bg-toti-brick/5 shadow-sm'
+              : 'border-toti-beige bg-white hover:border-toti-divider'
           } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           <div className="flex items-center gap-2">
-            <QrCode className={`h-5 w-5 ${selectedMethod === 'qris' ? 'text-[#d85b30]' : 'text-[#6f5448]'}`} />
-            <span className={`font-bold ${selectedMethod === 'qris' ? 'text-[#d85b30]' : 'text-[#4b2417]'}`}>
+            <QrCode className={`h-5 w-5 ${selectedMethod === 'qris' ? 'text-toti-brick' : 'text-toti-secondary'}`} />
+            <span className={`font-bold ${selectedMethod === 'qris' ? 'text-toti-brick' : 'text-toti-ink'}`}>
               {t('checkout.qris')}
             </span>
           </div>
-          <span className="text-xs text-[#6f5448]">{t('checkout.qris_desc')}</span>
+          <span className="text-xs text-toti-secondary">{t('checkout.qris_desc')}</span>
         </button>
 
         <button
@@ -50,17 +50,17 @@ export function PaymentMethodSelector({ selectedMethod, onSelect, disabled }: Pa
           onClick={() => onSelect('bank_transfer')}
           className={`flex flex-col items-start gap-2 rounded-xl border-2 p-4 text-left transition ${
             selectedMethod === 'bank_transfer'
-              ? 'border-[#d85b30] bg-[#d85b30]/5 shadow-sm'
-              : 'border-[#ead8ca] bg-white hover:border-[#d0bfaf]'
+              ? 'border-toti-brick bg-toti-brick/5 shadow-sm'
+              : 'border-toti-beige bg-white hover:border-toti-divider'
           } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           <div className="flex items-center gap-2">
-            <Building className={`h-5 w-5 ${selectedMethod === 'bank_transfer' ? 'text-[#d85b30]' : 'text-[#6f5448]'}`} />
-            <span className={`font-bold ${selectedMethod === 'bank_transfer' ? 'text-[#d85b30]' : 'text-[#4b2417]'}`}>
+            <Building className={`h-5 w-5 ${selectedMethod === 'bank_transfer' ? 'text-toti-brick' : 'text-toti-secondary'}`} />
+            <span className={`font-bold ${selectedMethod === 'bank_transfer' ? 'text-toti-brick' : 'text-toti-ink'}`}>
               {t('checkout.bca_va')}
             </span>
           </div>
-          <span className="text-xs text-[#6f5448]">{t('checkout.bca_va_desc')}</span>
+          <span className="text-xs text-toti-secondary">{t('checkout.bca_va_desc')}</span>
         </button>
       </div>
     </div>

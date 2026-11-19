@@ -28,7 +28,7 @@ export function BuyerFooter() {
   }
 
   return (
-    <footer className="hidden md:block mt-10 border-t border-toti-divider bg-white">
+    <footer className="relative z-10 hidden md:block mt-10 border-t border-toti-divider bg-white">
       <div className="mx-auto max-w-7xl px-6 py-10 lg:px-8">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-5">
           <div>

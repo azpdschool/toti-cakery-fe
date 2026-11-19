@@ -11,25 +11,25 @@ export function PaymentStatusHeader({ status, isPolling }: PaymentStatusHeaderPr
 
   const normalizedStatus = status.toLowerCase();
 
-  let icon = <Clock className="h-5 w-5 text-yellow-600" />;
-  let color = 'bg-yellow-50 text-yellow-800 border-yellow-200';
+  let icon = <Clock className="h-5 w-5 text-toti-warning" />;
+  let color = 'text-toti-brick-hover bg-toti-honey/20 ring-1 ring-inset ring-toti-warning/30 border-transparent';
   let label = t('checkout.waiting_for_payment');
 
   if (normalizedStatus === 'paid' || normalizedStatus === 'success') {
-    icon = <CheckCircle className="h-5 w-5 text-green-600" />;
-    color = 'bg-green-50 text-green-800 border-green-200';
+    icon = <CheckCircle className="h-5 w-5 text-toti-success" />;
+    color = 'text-toti-ink bg-toti-success/20 ring-1 ring-inset ring-toti-success/30 border-transparent';
     label = t('checkout.payment_successful');
   } else if (normalizedStatus === 'processing' || normalizedStatus === 'partial') {
-    icon = <RefreshCw className="h-5 w-5 text-blue-600 animate-spin" />;
-    color = 'bg-blue-50 text-blue-800 border-blue-200';
+    icon = <RefreshCw className="h-5 w-5 text-toti-secondary animate-spin" />;
+    color = 'text-toti-secondary bg-toti-alt ring-1 ring-inset ring-toti-divider/40 border-transparent';
     label = t('checkout.payment_processing');
   } else if (normalizedStatus === 'failed' || normalizedStatus === 'expired') {
-    icon = <XCircle className="h-5 w-5 text-red-600" />;
-    color = 'bg-red-50 text-red-800 border-red-200';
+    icon = <XCircle className="h-5 w-5 text-toti-error" />;
+    color = 'text-toti-error bg-toti-error/15 ring-1 ring-inset ring-toti-error/25 border-transparent';
     label = t('checkout.payment_failed');
   } else if (normalizedStatus === 'refunded') {
-    icon = <XCircle className="h-5 w-5 text-gray-600" />;
-    color = 'bg-gray-50 text-gray-800 border-gray-200';
+    icon = <XCircle className="h-5 w-5 text-toti-error" />;
+    color = 'text-toti-error bg-toti-error/15 ring-1 ring-inset ring-toti-error/25 border-transparent';
     label = t('checkout.refunded');
   }
 

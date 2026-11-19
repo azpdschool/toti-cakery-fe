@@ -17,15 +17,15 @@ export function PaymentInstructions({ method, qrisUrl }: PaymentInstructionsProp
     return (
       <div className="space-y-4">
         <SandboxTutorialBox method="qris" qrisUrl={qrisUrl} />
-        <div className="rounded-2xl border border-[#ead8ca] bg-white overflow-hidden shadow-sm">
-        <div className="bg-[#f8f4f0] p-4 border-b border-[#ead8ca]">
-          <h3 className="font-bold text-[#4b2417]">{t('checkout.how_to_pay')}</h3>
+        <div className="rounded-2xl border border-toti-divider bg-white overflow-hidden shadow-sm">
+        <div className="bg-toti-cream p-4 border-b border-toti-divider">
+          <h3 className="font-bold text-toti-ink">{t('checkout.how_to_pay')}</h3>
         </div>
         <div className="p-4">
-          <ol className="list-decimal list-inside space-y-3 text-sm text-[#6f5448]">
+          <ol className="list-decimal list-inside space-y-3 text-sm text-toti-secondary">
             {Array.isArray(steps) && steps.map((step, idx) => (
               <li key={idx} className="pl-1">
-                <span className="text-[#4b2417] font-medium">{step}</span>
+                <span className="text-toti-ink font-medium">{step}</span>
               </li>
             ))}
           </ol>
@@ -44,27 +44,27 @@ export function PaymentInstructions({ method, qrisUrl }: PaymentInstructionsProp
   return (
     <div className="space-y-4">
       <SandboxTutorialBox method="bank_transfer" qrisUrl={qrisUrl} />
-      <div className="rounded-2xl border border-[#ead8ca] bg-white overflow-hidden shadow-sm">
-        <div className="bg-[#f8f4f0] p-4 border-b border-[#ead8ca]">
-          <h3 className="font-bold text-[#4b2417]">{t('checkout.how_to_pay')}</h3>
+      <div className="rounded-2xl border border-toti-divider bg-white overflow-hidden shadow-sm">
+        <div className="bg-toti-cream p-4 border-b border-toti-divider">
+          <h3 className="font-bold text-toti-ink">{t('checkout.how_to_pay')}</h3>
         </div>
         
-        <div className="divide-y divide-[#ead8ca]">
+        <div className="divide-y divide-toti-beige">
         {sections.map((section) => {
           const isOpen = openSection === section.id;
           return (
             <div key={section.id}>
               <button
                 onClick={() => setOpenSection(isOpen ? null : section.id)}
-                className="w-full flex items-center justify-between p-4 bg-white hover:bg-gray-50 transition text-left focus:outline-none"
+                className="w-full flex items-center justify-between p-4 bg-white hover:bg-toti-cream/50 transition text-left focus:outline-none"
               >
-                <span className="font-semibold text-[#4b2417]">{section.title}</span>
-                {isOpen ? <ChevronUp className="h-5 w-5 text-[#d85b30]" /> : <ChevronDown className="h-5 w-5 text-[#6f5448]" />}
+                <span className="font-semibold text-toti-ink">{section.title}</span>
+                {isOpen ? <ChevronUp className="h-5 w-5 text-toti-brick" /> : <ChevronDown className="h-5 w-5 text-toti-secondary" />}
               </button>
               
               {isOpen && (
                 <div className="px-4 pb-4 pt-1 bg-white">
-                  <ol className="list-decimal list-inside space-y-2 text-sm text-[#6f5448]">
+                  <ol className="list-decimal list-inside space-y-2 text-sm text-toti-secondary">
                     {Array.isArray(section.steps) && section.steps.map((step, idx) => (
                       <li key={idx} className="pl-1 leading-relaxed">
                         <span>{step}</span>

@@ -96,7 +96,7 @@ export function PhotoLightboxModal({
               <button
                 type="button"
                 onClick={handlePrev}
-                className="absolute left-2 sm:-left-6 top-1/2 -translate-y-1/2 flex items-center justify-center min-h-[44px] min-w-[44px] rounded-full bg-black/60 sm:bg-white/90 text-white sm:text-[#3A1F16] shadow-lg backdrop-blur-sm transition hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:focus-visible:ring-[#9B4A2F] cursor-pointer z-10"
+                className="absolute left-2 sm:-left-6 top-1/2 -translate-y-1/2 flex items-center justify-center min-h-[44px] min-w-[44px] rounded-full bg-black/60 sm:bg-white/90 text-white sm:text-toti-ink shadow-lg backdrop-blur-sm transition hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:focus-visible:ring-toti-brick cursor-pointer z-10"
                 aria-label="Foto sebelumnya"
                 title="Foto sebelumnya"
               >
@@ -105,7 +105,7 @@ export function PhotoLightboxModal({
               <button
                 type="button"
                 onClick={handleNext}
-                className="absolute right-2 sm:-right-6 top-1/2 -translate-y-1/2 flex items-center justify-center min-h-[44px] min-w-[44px] rounded-full bg-black/60 sm:bg-white/90 text-white sm:text-[#3A1F16] shadow-lg backdrop-blur-sm transition hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:focus-visible:ring-[#9B4A2F] cursor-pointer z-10"
+                className="absolute right-2 sm:-right-6 top-1/2 -translate-y-1/2 flex items-center justify-center min-h-[44px] min-w-[44px] rounded-full bg-black/60 sm:bg-white/90 text-white sm:text-toti-ink shadow-lg backdrop-blur-sm transition hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white sm:focus-visible:ring-toti-brick cursor-pointer z-10"
                 aria-label="Foto selanjutnya"
                 title="Foto selanjutnya"
               >

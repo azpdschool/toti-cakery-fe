@@ -233,10 +233,10 @@ export default function ProfilePage() {
     <div className="mx-auto max-w-6xl px-4 py-8">
       {/* Page Header (Full Width) */}
       <div className="mb-6">
-        <h1 className="text-2xl font-black text-[#3A1F16]">
+        <h1 className="text-2xl font-black text-toti-ink">
           {t('profile.title')}
         </h1>
-        <p className="mt-1 text-sm text-[#6B4A3C]">
+        <p className="mt-1 text-sm text-toti-secondary">
           {t('profile.subtitle')}
         </p>
       </div>
@@ -246,9 +246,9 @@ export default function ProfilePage() {
         {/* LEFT SIDEBAR: Identity & Quick Navigation */}
         <aside className="space-y-6">
           {/* Identity Card */}
-          <div className="rounded-2xl border border-[#D0BFAF] bg-white p-6 shadow-sm flex flex-col items-center text-center">
+          <div className="rounded-2xl border border-toti-divider bg-white p-6 shadow-sm flex flex-col items-center text-center">
             <div className="relative">
-              <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-[#F6EFE6] text-3xl font-black text-[#9B4A2F] border-2 border-[#EAD8CA]">
+              <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-toti-cream text-3xl font-black text-toti-brick border-2 border-toti-beige">
                 {user.avatar_url && !profileImgError ? (
                   <img
                     src={user.avatar_url}
@@ -264,7 +264,7 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={handleAvatarClick}
-                className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-[#9B4A2F] text-white shadow-sm transition hover:bg-[#7E3A24]"
+                className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-toti-brick text-white shadow-sm transition hover:bg-toti-brick-hover"
                 aria-label={t('profile.change_avatar_title')}
                 title={t('profile.change_avatar_title')}
               >
@@ -280,51 +280,51 @@ export default function ProfilePage() {
               />
             </div>
 
-            <h2 className="mt-4 text-lg font-bold text-[#3A1F16]">
+            <h2 className="mt-4 text-lg font-bold text-toti-ink">
               {user.name || t('profile.buyer')}
             </h2>
 
-            <p className="mt-0.5 text-xs text-[#6B4A3C]">
+            <p className="mt-0.5 text-xs text-toti-secondary">
               {user.email || user.phone || '-'}
             </p>
 
-            <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-green-50 px-3 py-1 text-xs font-semibold text-green-700 border border-green-200">
-              <CheckCircle className="h-3.5 w-3.5" />
+            <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-toti-success/20 px-3 py-1 text-xs font-semibold text-toti-ink border border-toti-success/30">
+              <CheckCircle className="h-3.5 w-3.5 text-toti-success" />
               {t('profile.active')}
             </div>
           </div>
 
           {/* Quick Navigation Card */}
-          <div className="rounded-2xl border border-[#D0BFAF] bg-white p-4 shadow-sm space-y-1">
+          <div className="rounded-2xl border border-toti-divider bg-white p-4 shadow-sm space-y-1">
             <Link
               to={ROUTES.HOME}
-              className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold text-[#6B4A3C] transition hover:bg-[#F6EFE6] hover:text-[#3A1F16]"
+              className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold text-toti-secondary transition hover:bg-toti-cream hover:text-toti-ink"
             >
-              <Home className="h-4 w-4 text-[#9B4A2F]" />
+              <Home className="h-4 w-4 text-toti-brick" />
               {t('profile.home')}
             </Link>
 
             <Link
               to={ROUTES.ORDERS}
-              className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold text-[#6B4A3C] transition hover:bg-[#F6EFE6] hover:text-[#3A1F16]"
+              className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold text-toti-secondary transition hover:bg-toti-cream hover:text-toti-ink"
             >
-              <ShoppingBag className="h-4 w-4 text-[#9B4A2F]" />
+              <ShoppingBag className="h-4 w-4 text-toti-brick" />
               {t('profile.my_orders')}
             </Link>
 
             <Link
               to={ROUTES.WISHLIST}
-              className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold text-[#6B4A3C] transition hover:bg-[#F6EFE6] hover:text-[#3A1F16]"
+              className="flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold text-toti-secondary transition hover:bg-toti-cream hover:text-toti-ink"
             >
-              <Heart className="h-4 w-4 text-[#9B4A2F]" />
+              <Heart className="h-4 w-4 text-toti-brick" />
               {t('profile.wishlist')}
             </Link>
 
-            <div className="pt-2 border-t border-[#EAD8CA] mt-2">
+            <div className="pt-2 border-t border-toti-beige mt-2">
               <button
                 type="button"
                 onClick={handleLogout}
-                className="flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-left text-sm font-semibold text-red-600 transition hover:bg-red-50"
+                className="flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-left text-sm font-semibold text-toti-error transition hover:bg-toti-error/15"
               >
                 <LogOut className="h-4 w-4" />
                 {t('profile.logout')}
@@ -337,39 +337,39 @@ export default function ProfilePage() {
         <main className="space-y-6">
 
           {/* Personal Information Card */}
-          <section className="rounded-2xl border border-[#D0BFAF] bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-bold text-[#3A1F16] mb-4 border-b border-[#EAD8CA] pb-3">
+          <section className="rounded-2xl border border-toti-divider bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-toti-ink mb-4 border-b border-toti-beige pb-3">
               {t('profile.profile_info')}
             </h2>
 
             <div className="grid gap-4 md:grid-cols-2">
               {/* Name */}
-              <div className="rounded-xl border border-[#EAD8CA] bg-[#F6EFE6]/40 p-4">
-                <div className="mb-1.5 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#6B4A3C]">
-                  <User className="h-3.5 w-3.5 text-[#9B4A2F]" />
+              <div className="rounded-xl border border-toti-beige bg-toti-cream/40 p-4">
+                <div className="mb-1.5 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-toti-secondary">
+                  <User className="h-3.5 w-3.5 text-toti-brick" />
                   {t('profile.name')}
                 </div>
-                <p className="text-sm font-semibold text-[#3A1F16]">
+                <p className="text-sm font-semibold text-toti-ink">
                   {user.name || '-'}
                 </p>
               </div>
 
               {/* Email */}
-              <div className="rounded-xl border border-[#EAD8CA] bg-[#F6EFE6]/40 p-4">
-                <div className="mb-1.5 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#6B4A3C]">
-                  <Mail className="h-3.5 w-3.5 text-[#9B4A2F]" />
+              <div className="rounded-xl border border-toti-beige bg-toti-cream/40 p-4">
+                <div className="mb-1.5 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-toti-secondary">
+                  <Mail className="h-3.5 w-3.5 text-toti-brick" />
                   {t('profile.email')}
                 </div>
-                <p className="break-all text-sm font-semibold text-[#3A1F16]">
+                <p className="break-all text-sm font-semibold text-toti-ink">
                   {user.email || '-'}
                 </p>
               </div>
 
               {/* WhatsApp Number */}
-              <div className="rounded-xl border border-[#EAD8CA] bg-[#F6EFE6]/40 p-4 md:col-span-2">
+              <div className="rounded-xl border border-toti-beige bg-toti-cream/40 p-4 md:col-span-2">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#6B4A3C]">
-                    <Phone className="h-3.5 w-3.5 text-[#9B4A2F]" />
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-toti-secondary">
+                    <Phone className="h-3.5 w-3.5 text-toti-brick" />
                     {t('profile.phone')}
                   </div>
                   <button
@@ -381,12 +381,12 @@ export default function ProfilePage() {
                       setPhoneSuccess(null)
                       setIsPhoneModalOpen(true)
                     }}
-                    className="text-xs font-bold text-[#9B4A2F] hover:text-[#7E3A24] hover:underline"
+                    className="text-xs font-bold text-toti-brick hover:text-toti-brick-hover hover:underline"
                   >
                     {t('profile.change')}
                   </button>
                 </div>
-                <p className="mt-1 text-sm font-semibold text-[#3A1F16]">
+                <p className="mt-1 text-sm font-semibold text-toti-ink">
                   {user.phone || '-'}
                 </p>
               </div>
@@ -394,25 +394,25 @@ export default function ProfilePage() {
           </section>
 
           {/* Account Security Card */}
-          <section className="rounded-2xl border border-[#D0BFAF] bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-bold text-[#3A1F16] mb-1">
+          <section className="rounded-2xl border border-toti-divider bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-toti-ink mb-1">
               {t('profile.account_security')}
             </h2>
 
-            <p className="text-xs text-[#6B4A3C] mb-4">
+            <p className="text-xs text-toti-secondary mb-4">
               {t('profile.change_password')}
             </p>
 
             {passwordError && (
-              <div className="mb-4 flex items-center gap-2 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-                <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
+              <div className="mb-4 flex items-center gap-2 rounded-lg bg-toti-error/15 border border-toti-error/30 px-4 py-3 text-sm text-toti-error">
+                <AlertCircle className="h-4 w-4 shrink-0 text-toti-error" />
                 {passwordError}
               </div>
             )}
 
             {passwordSuccess && (
-              <div className="mb-4 flex items-center gap-2 rounded-lg bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700">
-                <CheckCircle className="h-4 w-4 shrink-0 text-green-500" />
+              <div className="mb-4 flex items-center gap-2 rounded-lg bg-toti-success/20 border border-toti-success/30 px-4 py-3 text-sm text-toti-ink">
+                <CheckCircle className="h-4 w-4 shrink-0 text-toti-success" />
                 {passwordSuccess}
               </div>
             )}
@@ -421,16 +421,16 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() => setIsChangingPassword(true)}
-                className="inline-flex h-10 items-center justify-center rounded-xl bg-[#9B4A2F] px-5 text-sm font-bold text-white transition hover:bg-[#7E3A24]"
+                className="toti-btn-primary h-10"
               >
                 <Lock className="mr-2 h-4 w-4" />
                 {t('profile.change_password')}
               </button>
             ) : (
-              <form onSubmit={handleSavePassword} noValidate className="max-w-md space-y-4 border-t border-[#EAD8CA] pt-4">
+              <form onSubmit={handleSavePassword} noValidate className="max-w-md space-y-4 border-t border-toti-beige pt-4">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[#3A1F16]">
-                    {t('profile.current_password')} <span className="text-red-500 ml-0.5">*</span>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-toti-ink">
+                    {t('profile.current_password')} <span className="text-toti-error ml-0.5">*</span>
                   </label>
                   <div className="relative mt-1">
                     <input
@@ -438,12 +438,12 @@ export default function ProfilePage() {
                       value={passwordData.current}
                       onChange={(e) => setPasswordData(prev => ({ ...prev, current: e.target.value }))}
                       placeholder={t('profile.current_password_placeholder')}
-                      className="w-full rounded-xl border border-[#D0BFAF] bg-white py-2.5 pl-4 pr-12 text-sm text-[#3A1F16] outline-none transition focus:border-[#9B4A2F] focus:ring-2 focus:ring-[#9B4A2F]/20"
+                      className="w-full rounded-xl border border-toti-divider bg-white py-2.5 pl-4 pr-12 text-sm text-toti-ink outline-none transition focus:border-toti-brick focus:ring-2 focus:ring-toti-brick/20"
                     />
                     <button
                       type="button"
                       onClick={() => setShowCurrentPassword(prev => !prev)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B4A3C] hover:text-[#3A1F16]"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-toti-secondary hover:text-toti-ink"
                     >
                       {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -451,8 +451,8 @@ export default function ProfilePage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[#3A1F16]">
-                    {t('profile.new_password')} <span className="text-red-500 ml-0.5">*</span>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-toti-ink">
+                    {t('profile.new_password')} <span className="text-toti-error ml-0.5">*</span>
                   </label>
                   <div className="relative mt-1">
                     <input
@@ -460,12 +460,12 @@ export default function ProfilePage() {
                       value={passwordData.new}
                       onChange={(e) => setPasswordData(prev => ({ ...prev, new: e.target.value }))}
                       placeholder={t('profile.new_password_placeholder')}
-                      className="w-full rounded-xl border border-[#D0BFAF] bg-white py-2.5 pl-4 pr-12 text-sm text-[#3A1F16] outline-none transition focus:border-[#9B4A2F] focus:ring-2 focus:ring-[#9B4A2F]/20"
+                      className="w-full rounded-xl border border-toti-divider bg-white py-2.5 pl-4 pr-12 text-sm text-toti-ink outline-none transition focus:border-toti-brick focus:ring-2 focus:ring-toti-brick/20"
                     />
                     <button
                       type="button"
                       onClick={() => setShowNewPassword(prev => !prev)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B4A3C] hover:text-[#3A1F16]"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-toti-secondary hover:text-toti-ink"
                     >
                       {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -473,8 +473,8 @@ export default function ProfilePage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-[#3A1F16]">
-                    {t('profile.confirm_password')} <span className="text-red-500 ml-0.5">*</span>
+                  <label className="block text-xs font-bold uppercase tracking-wider text-toti-ink">
+                    {t('profile.confirm_password')} <span className="text-toti-error ml-0.5">*</span>
                   </label>
                   <div className="relative mt-1">
                     <input
@@ -482,12 +482,12 @@ export default function ProfilePage() {
                       value={passwordData.confirm}
                       onChange={(e) => setPasswordData(prev => ({ ...prev, confirm: e.target.value }))}
                       placeholder={t('profile.confirm_password_placeholder')}
-                      className="w-full rounded-xl border border-[#D0BFAF] bg-white py-2.5 pl-4 pr-12 text-sm text-[#3A1F16] outline-none transition focus:border-[#9B4A2F] focus:ring-2 focus:ring-[#9B4A2F]/20"
+                      className="w-full rounded-xl border border-toti-divider bg-white py-2.5 pl-4 pr-12 text-sm text-toti-ink outline-none transition focus:border-toti-brick focus:ring-2 focus:ring-toti-brick/20"
                     />
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(prev => !prev)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B4A3C] hover:text-[#3A1F16]"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-toti-secondary hover:text-toti-ink"
                     >
                       {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -498,7 +498,7 @@ export default function ProfilePage() {
                   <button
                     type="submit"
                     disabled={passwordLoading}
-                    className="inline-flex h-10 items-center justify-center rounded-xl bg-[#9B4A2F] px-5 text-sm font-bold text-white transition hover:bg-[#7E3A24] disabled:opacity-60"
+                    className="toti-btn-primary h-10 disabled:opacity-60"
                   >
                     {passwordLoading ? (
                       <>
@@ -520,7 +520,7 @@ export default function ProfilePage() {
                       setShowNewPassword(false)
                       setShowConfirmPassword(false)
                     }}
-                    className="inline-flex h-10 items-center justify-center rounded-xl border border-[#D0BFAF] bg-white px-5 text-sm font-bold text-[#3A1F16] transition hover:bg-[#F6EFE6]"
+                    className="toti-btn-secondary h-10"
                   >
                     {t('profile.cancel')}
                   </button>
@@ -535,29 +535,29 @@ export default function ProfilePage() {
       {isPhoneModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-4 sm:p-6 shadow-xl max-h-[90dvh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-[#ead8ca] pb-3">
-              <h3 className="text-lg font-black text-[#4b2417]">
+            <div className="flex items-center justify-between border-b border-toti-beige pb-3">
+              <h3 className="text-lg font-black text-toti-ink">
                 {t('profile.change_phone_modal_title')}
               </h3>
               <button
                 type="button"
                 onClick={() => setIsPhoneModalOpen(false)}
-                className="rounded-full p-1 text-[#8b7166] hover:bg-gray-100 transition"
+                className="rounded-full p-1 text-toti-muted hover:bg-toti-alt transition"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
 
             {phoneError && (
-              <div className="mt-4 flex items-center gap-2 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">
+              <div className="mt-4 flex items-center gap-2 rounded-lg bg-toti-error/15 border border-toti-error/30 px-4 py-3 text-sm text-toti-error">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 {phoneError}
               </div>
             )}
 
             {phoneSuccess && (
-              <div className="mt-4 flex items-center gap-2 rounded-lg bg-green-50 px-4 py-3 text-sm text-green-600">
-                <CheckCircle className="h-4 w-4 shrink-0" />
+              <div className="mt-4 flex items-center gap-2 rounded-lg bg-toti-success/20 border border-toti-success/30 px-4 py-3 text-sm text-toti-ink">
+                <CheckCircle className="h-4 w-4 shrink-0 text-toti-success" />
                 {phoneSuccess}
               </div>
             )}
@@ -571,13 +571,13 @@ export default function ProfilePage() {
                 required
                 error={phoneError}
               />
-              <p className="text-xs text-[#8b7166]">
+              <p className="text-xs text-toti-muted">
                 {t('profile.phone_helper')}
               </p>
 
               <div>
-                <label className="block text-sm font-semibold text-[#4b2417] mb-1">
-                  {t('profile.current_password')} <span className="text-red-500 ml-0.5">*</span>
+                <label className="block text-sm font-semibold text-toti-ink mb-1">
+                  {t('profile.current_password')} <span className="text-toti-error ml-0.5">*</span>
                 </label>
                 <div className="relative">
                   <input
@@ -585,31 +585,31 @@ export default function ProfilePage() {
                     value={phoneCurrentPassword}
                     onChange={(e) => setPhoneCurrentPassword(e.target.value)}
                     placeholder={t('profile.current_password_placeholder')}
-                    className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-2.5 pl-4 pr-10 text-sm text-[#4b2417] outline-none transition focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40"
+                    className="w-full rounded-xl border border-toti-divider bg-white/70 py-2.5 pl-4 pr-10 text-sm text-toti-ink outline-none transition focus:border-toti-brick focus:ring-2 focus:ring-toti-brick/20"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPhoneCurrentPassword(prev => !prev)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166]"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-toti-muted"
                   >
                     {showPhoneCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2 border-t border-gray-100 pt-4 mt-2">
+              <div className="flex justify-end gap-2 border-t border-toti-beige pt-4 mt-2">
                 <button
                   type="button"
                   onClick={() => setIsPhoneModalOpen(false)}
-                  className="rounded-xl border border-[#d0bfaf] px-4 py-2.5 text-sm font-bold text-[#4b2417] hover:bg-[#fff4ed] transition"
+                  className="toti-btn-secondary h-10"
                 >
                   {t('profile.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={phoneLoading}
-                  className="inline-flex items-center justify-center rounded-xl bg-[#d85b30] px-5 py-2.5 text-sm font-black text-white hover:bg-[#c04e28] disabled:opacity-60 transition"
+                  className="toti-btn-primary h-10 disabled:opacity-60"
                 >
                   {phoneLoading ? (
                     <>

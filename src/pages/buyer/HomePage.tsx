@@ -30,6 +30,7 @@ import {
   type StoreCustomizationData,
 } from '@/services/storeCustomizationService'
 import { PhotoLightboxModal } from '@/components/common/PhotoLightboxModal'
+import { ScrollReveal } from '@/components/common/ScrollMotion'
 
 const DEFAULT_HERO_IMAGE = DEFAULT_STORE_CUSTOMIZATION.hero_image_url!
 const DEFAULT_MAPS_URL = DEFAULT_STORE_CUSTOMIZATION.maps_embed_url!
@@ -436,68 +437,75 @@ export default function HomePage() {
   }
 
   return (
-    <div className="pb-12 space-y-8 sm:space-y-10 lg:space-y-12">
-      {/* 1. HERO SECTION (Seamless, edge-to-edge borderless split Hero) */}
-      <section className="w-full overflow-hidden border-b border-[#E6D5C6]/70">
-        <div className="grid w-full grid-cols-1 md:grid-cols-12 md:min-h-[500px] md:h-[calc(82svh-77px)] lg:max-h-[640px]">
-          {/* Left Text Column */}
-          <div className="md:col-span-5 order-2 md:order-1 flex flex-col justify-center bg-transparent px-5 py-8 sm:px-8 md:py-12 md:pl-[max(1.5rem,calc((100vw-80rem)/2+2rem))] md:pr-10 lg:pr-12">
-            <div className="max-w-lg pr-14 sm:pr-0">
-              <h1 className="font-display text-4xl md:text-5xl font-black tracking-tight text-toti-ink whitespace-pre-line leading-tight">
-                {heroTitle}
-              </h1>
-              <p className="mt-4 sm:mt-5 text-base sm:text-lg leading-relaxed text-toti-secondary max-w-[60ch] whitespace-pre-line font-sans">
-                {heroSubtitle}
-              </p>
-              <div className="mt-6 sm:mt-8 flex flex-wrap items-center gap-3 sm:gap-4">
-                <Link
-                  to={ROUTES.CATALOG}
-                  className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-toti-brick px-6 py-2.5 text-sm sm:text-base font-semibold text-white transition-colors duration-150 hover:bg-toti-brick-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-brick focus-visible:ring-offset-2 cursor-pointer w-full sm:w-auto text-center"
-                >
-                  {t('home.view_products', 'Lihat produk')}
-                </Link>
-                <button
-                  type="button"
-                  onClick={scrollToTestimonials}
-                  className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-toti-honey px-6 py-2.5 text-sm sm:text-base font-semibold text-toti-ink transition-colors duration-150 hover:bg-toti-honey-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-honey focus-visible:ring-offset-2 cursor-pointer w-full sm:w-auto text-center"
-                >
-                  {t('home.read_reviews', 'Baca ulasan')}
-                </button>
-              </div>
+    <div className="relative isolate min-h-screen">
+      <div className="relative z-10 pb-12 space-y-8 sm:space-y-10 lg:space-y-12 bg-transparent">
+        {/* 1. HERO SECTION (Seamless, edge-to-edge borderless split Hero) */}
+        <section className="w-full overflow-hidden border-b border-toti-beige/70 bg-transparent">
+          <div className="grid w-full grid-cols-1 md:grid-cols-12 md:min-h-[440px] md:h-[calc(72svh-77px)] lg:max-h-[540px]">
+            {/* Left Text Column */}
+            <div className="md:col-span-5 order-2 md:order-1 relative overflow-hidden flex flex-col justify-center bg-transparent px-5 py-8 sm:px-8 md:py-12 md:pl-[max(1.5rem,calc((100vw-80rem)/2+2rem))] md:pr-10 lg:pr-12">
+              <ScrollReveal direction="up" distance={20} className="relative z-10 max-w-lg pr-14 sm:pr-0">
+                <h1 className="font-display text-4xl md:text-5xl font-black tracking-tight text-toti-ink whitespace-pre-line leading-tight">
+                  {heroTitle}
+                </h1>
+                <p className="mt-4 sm:mt-5 text-base sm:text-lg leading-relaxed text-toti-secondary max-w-[60ch] whitespace-pre-line font-sans">
+                  {heroSubtitle}
+                </p>
+                <div className="mt-6 sm:mt-8 flex flex-wrap items-center gap-3 sm:gap-4">
+                  <Link
+                    to={ROUTES.CATALOG}
+                    className="toti-btn-primary min-h-[44px] px-6 py-2.5 text-sm sm:text-base cursor-pointer w-full sm:w-auto text-center"
+                  >
+                    {t('home.view_products', 'Lihat produk')}
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={scrollToTestimonials}
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-toti-honey px-6 py-2.5 text-sm sm:text-base font-semibold text-toti-ink transition-colors duration-150 hover:bg-toti-honey-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-honey focus-visible:ring-offset-2 cursor-pointer w-full sm:w-auto text-center"
+                  >
+                    {t('home.read_reviews', 'Baca ulasan')}
+                  </button>
+                </div>
+              </ScrollReveal>
             </div>
-          </div>
 
-          {/* Right Photo Column */}
-          <div
-            className="md:col-span-7 order-1 md:order-2 relative w-full h-[36svh] min-h-[220px] max-h-[320px] md:h-auto md:min-h-full md:max-h-none overflow-hidden bg-[#EFE4D8]"
-            onMouseEnter={() => setIsHeroPaused(true)}
-            onMouseLeave={() => setIsHeroPaused(false)}
-            onFocusCapture={() => setIsHeroPaused(true)}
-            onBlurCapture={(e) => {
-              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
-                setIsHeroPaused(false)
-              }
-            }}
-          >
-            {heroSlides.map((url, idx) => {
-              const isActive = idx === currentSlide
-              const isSingle = heroSlides.length === 1
-              const slideAlt = isSingle
-                ? t('home.hero_image_alt', cleanHeroTitle || 'Aneka kue lezat dan cake spesial Toti Cakery')
-                : `${cleanHeroTitle || 'Toti Cakery'} — ${t('home.hero_slide_indicator', {
-                    current: idx + 1,
-                    total: heroSlides.length,
-                    defaultValue: `Slide ${idx + 1} dari ${heroSlides.length}`,
-                  })}`
-
-              return (
+            {/* Right Photo Column */}
+            <div className="md:col-span-7 order-1 md:order-2 relative w-full h-[36svh] min-h-[240px] max-h-[340px] md:h-full md:max-h-none md:p-6 lg:p-8 flex items-center justify-center bg-transparent">
+              <div
+                className="relative w-full h-full min-h-[240px] md:min-h-[380px] rounded-2xl md:rounded-3xl overflow-hidden bg-toti-alt shadow-[0_20px_50px_-15px_rgba(58,31,22,0.18)] ring-1 ring-toti-divider/50 group"
+                onMouseEnter={() => setIsHeroPaused(true)}
+                onMouseLeave={() => setIsHeroPaused(false)}
+                onFocusCapture={() => setIsHeroPaused(true)}
+                onBlurCapture={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                    setIsHeroPaused(false)
+                  }
+                }}
+              >
+                {/* Subtle Desktop Left-Edge Blend Seam */}
                 <div
-                  key={url + idx}
-                  className={`absolute inset-0 w-full h-full ${
-                    prefersReducedMotion
-                      ? isActive
-                        ? 'opacity-100 z-10'
-                        : 'opacity-0 z-0 pointer-events-none'
+                  aria-hidden="true"
+                  className="hidden md:block absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-toti-cream/45 to-transparent pointer-events-none z-10"
+                />
+                {heroSlides.map((url, idx) => {
+                  const isActive = idx === currentSlide
+                  const isSingle = heroSlides.length === 1
+                  const slideAlt = isSingle
+                    ? t('home.hero_image_alt', cleanHeroTitle || 'Aneka kue lezat dan cake spesial Toti Cakery')
+                    : `${cleanHeroTitle || 'Toti Cakery'} — ${t('home.hero_slide_indicator', {
+                        current: idx + 1,
+                        total: heroSlides.length,
+                        defaultValue: `Slide ${idx + 1} dari ${heroSlides.length}`,
+                      })}`
+
+                  return (
+                    <div
+                      key={url + idx}
+                      className={`absolute inset-0 w-full h-full ${
+                        prefersReducedMotion
+                          ? isActive
+                            ? 'opacity-100 z-10'
+                            : 'opacity-0 z-0 pointer-events-none'
                       : `transition-opacity duration-700 ease-in-out ${
                           isActive ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
                         }`
@@ -510,7 +518,7 @@ export default function HomePage() {
                     fetchPriority={idx === 0 ? 'high' : 'auto'}
                     loading={idx === 0 ? 'eager' : 'lazy'}
                     decoding="async"
-                    className="h-full w-full object-cover object-center"
+                    className="h-full w-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.03] motion-reduce:transform-none"
                   />
                 </div>
               )
@@ -525,7 +533,7 @@ export default function HomePage() {
                   onClick={() =>
                     setCurrentSlide((prev) => (prev - 1 + heroSlides.length) % heroSlides.length)
                   }
-                  className="absolute left-3 top-1/2 -translate-y-1/2 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-xs transition hover:bg-black/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition hover:bg-black/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                   aria-label={t('home.hero_prev_slide', 'Slide sebelumnya')}
                 >
                   <ChevronLeft className="h-5 w-5" />
@@ -535,14 +543,14 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={() => setCurrentSlide((prev) => (prev + 1) % heroSlides.length)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-xs transition hover:bg-black/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition hover:bg-black/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                   aria-label={t('home.hero_next_slide', 'Slide berikutnya')}
                 >
                   <ChevronRight className="h-5 w-5" />
                 </button>
 
                 {/* Dot Indicators */}
-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 rounded-full bg-black/30 px-2.5 py-1 backdrop-blur-xs">
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 rounded-full bg-black/30 px-2.5 py-1 backdrop-blur-sm">
                   {heroSlides.map((_, dotIdx) => (
                     <button
                       key={dotIdx}
@@ -561,12 +569,13 @@ export default function HomePage() {
                 </div>
               </>
             )}
-          </div>
+              </div>
+            </div>
         </div>
       </section>
 
       {/* 2. SEMUA PRODUK (Boxless, open layout matching Testimoni Pelanggan) */}
-      <section id="our-products" className="mx-auto max-w-7xl px-4 pt-10 md:pt-14 lg:px-8 scroll-mt-24">
+      <section id="our-products" className="mx-auto max-w-7xl px-4 pt-5 md:pt-8 lg:px-8 scroll-mt-24 bg-transparent">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="font-display text-2xl md:text-[32px] md:leading-[40px] font-semibold text-toti-ink">
             {t('home.our_products')}
@@ -580,7 +589,7 @@ export default function HomePage() {
         </div>
 
         {products.length === 0 ? (
-          <div className="rounded-2xl bg-white border border-[#E6D5C6]/80 p-8 text-center shadow-xs">
+          <div className="rounded-2xl bg-white/95 backdrop-blur-sm border border-toti-beige p-8 text-center shadow-sm">
             <p className="text-center text-sm sm:text-base text-toti-secondary font-sans">
               {t('catalog.not_found_desc', 'Belum ada produk aktif yang tersedia.')}
             </p>
@@ -592,7 +601,7 @@ export default function HomePage() {
                 type="button"
                 onClick={scrollProductLeft}
                 aria-label={t('common.prev')}
-                className="absolute left-0 top-1/2 -translate-y-1/2 -ml-4 hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-md border border-[#E6D5C6]/80 text-toti-secondary hover:text-toti-brick hover:border-toti-brick z-10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-brick cursor-pointer"
+                className="absolute left-0 top-1/2 -translate-y-1/2 -ml-4 hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-md border border-toti-beige text-toti-secondary hover:text-toti-brick hover:border-toti-brick z-10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-brick cursor-pointer"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
@@ -602,7 +611,7 @@ export default function HomePage() {
                 type="button"
                 onClick={scrollProductRight}
                 aria-label={t('common.next')}
-                className="absolute right-0 top-1/2 -translate-y-1/2 -mr-4 hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-md border border-[#E6D5C6]/80 text-toti-secondary hover:text-toti-brick hover:border-toti-brick z-10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-brick cursor-pointer"
+                className="absolute right-0 top-1/2 -translate-y-1/2 -mr-4 hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-md border border-toti-beige text-toti-secondary hover:text-toti-brick hover:border-toti-brick z-10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-brick cursor-pointer"
               >
                 <ChevronRight className="h-5 w-5" />
               </button>
@@ -611,7 +620,7 @@ export default function HomePage() {
             <div
               ref={productScrollRef}
               onScroll={updateProductScrollButtons}
-              className="flex gap-5 overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth px-1 -mx-1 py-1"
+              className="flex gap-5 overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth px-1 -mx-1 py-2.5 -my-1.5"
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
             >
               {products.map((product) => {
@@ -626,7 +635,7 @@ export default function HomePage() {
                 return (
                   <article
                     key={product.id}
-                    className="snap-start shrink-0 w-[220px] overflow-hidden bg-white rounded-2xl border border-[#E6D5C6]/80 shadow-sm transition hover:-translate-y-1 hover:shadow-md flex flex-col justify-between"
+                    className="snap-start shrink-0 w-[220px] overflow-hidden bg-white/95 backdrop-blur-sm rounded-2xl border border-toti-beige shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_8px_20px_rgba(58,31,22,0.08)] flex flex-col justify-between"
                   >
                     <Link to={`/catalog/${product.slug}`} tabIndex={-1} aria-hidden="true">
                       <div className="aspect-square w-full overflow-hidden bg-toti-alt">
@@ -676,32 +685,34 @@ export default function HomePage() {
                       {/* Bottom Area: Quantity selector (only when purchasable) + Action Button */}
                       <div className="mt-auto pt-3">
                         {isPurchasable && (
-                          <div className="mb-2.5 flex items-center gap-1 sm:gap-2">
-                            <button
-                              type="button"
-                              onClick={(e) => handleDecrementProductQty(product, e)}
-                              disabled={currentQty <= minOrder}
-                              className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded border border-[#D0BFAF] text-[#3A1F16] hover:bg-[#E8DCCB] disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
-                              aria-label={t('product_detail.decrease_qty', 'Kurangi jumlah')}
-                              title={t('product_detail.decrease_qty', 'Kurangi jumlah')}
-                            >
-                              <Minus className="h-3 w-3" />
-                            </button>
-                            <span className="w-5 sm:w-6 text-center text-xs sm:text-sm font-semibold text-[#3A1F16]">
-                              {currentQty}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={(e) => handleIncrementProductQty(product, e)}
-                              disabled={currentQty >= maxQty}
-                              className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded border border-[#D0BFAF] text-[#3A1F16] hover:bg-[#E8DCCB] disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
-                              aria-label={t('product_detail.increase_qty', 'Tambah jumlah')}
-                              title={t('product_detail.increase_qty', 'Tambah jumlah')}
-                            >
-                              <Plus className="h-3 w-3" />
-                            </button>
+                          <div className="mb-2.5 flex items-center gap-1.5">
+                            <div className="toti-stepper">
+                              <button
+                                type="button"
+                                onClick={(e) => handleDecrementProductQty(product, e)}
+                                disabled={currentQty <= minOrder}
+                                className="toti-stepper-btn"
+                                aria-label={t('product_detail.decrease_qty', 'Kurangi jumlah')}
+                                title={t('product_detail.decrease_qty', 'Kurangi jumlah')}
+                              >
+                                <Minus className="h-3 w-3" />
+                              </button>
+                              <span className="w-6 text-center text-xs sm:text-sm font-semibold text-toti-ink select-none">
+                                {currentQty}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => handleIncrementProductQty(product, e)}
+                                disabled={currentQty >= maxQty}
+                                className="toti-stepper-btn"
+                                aria-label={t('product_detail.increase_qty', 'Tambah jumlah')}
+                                title={t('product_detail.increase_qty', 'Tambah jumlah')}
+                              >
+                                <Plus className="h-3 w-3" />
+                              </button>
+                            </div>
                             {minOrder > 1 && (
-                              <span className="hidden sm:inline ml-1 text-[10px] text-[#9C8478]">
+                              <span className="hidden sm:inline text-[10px] text-toti-muted">
                                 min {minOrder}
                               </span>
                             )}
@@ -716,10 +727,10 @@ export default function HomePage() {
                             handleAddToCart(product, currentQty)
                           }}
                           disabled={!isPurchasable}
-                          className={`flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border text-xs font-semibold transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-brick focus-visible:ring-offset-1 active:scale-[0.98] ${
+                          className={`flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl text-xs font-semibold transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-brick focus-visible:ring-offset-1 active:scale-[0.98] ${
                             !isPurchasable
-                              ? 'bg-toti-disabled border-toti-disabled text-toti-secondary/80 cursor-not-allowed active:scale-100'
-                              : 'border-toti-brick text-toti-brick bg-transparent hover:bg-toti-brick-hover hover:text-white hover:border-toti-brick-hover'
+                              ? 'bg-toti-disabled border border-toti-disabled text-toti-secondary/80 cursor-not-allowed active:scale-100'
+                              : 'bg-toti-brick text-white hover:bg-toti-brick-hover shadow-sm hover:shadow'
                           }`}
                         >
                           {isPurchasable && <ShoppingCart className="h-4 w-4 shrink-0" />}
@@ -742,7 +753,7 @@ export default function HomePage() {
       </section>
 
       {/* 3. TESTIMONI (Directly on Cream Background; cards are White with border toti-beige) */}
-      <section id="testimonials-section" className="mx-auto max-w-7xl px-4 lg:px-8 scroll-mt-24">
+      <section id="testimonials-section" className="mx-auto max-w-7xl px-4 lg:px-8 scroll-mt-24 bg-transparent">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="font-display text-2xl md:text-[32px] md:leading-[40px] font-semibold text-toti-ink">
             {t('home.testimonials_title')}
@@ -757,11 +768,11 @@ export default function HomePage() {
         </div>
 
         {reviews.length === 0 ? (
-          <div className="rounded-2xl bg-toti-card border border-toti-beige p-8 text-center shadow-xs">
+          <div className="rounded-2xl bg-toti-card/95 backdrop-blur-sm border border-toti-beige p-8 text-center shadow-sm">
             <p className="text-sm sm:text-base text-toti-secondary font-sans">{t('home.no_testimonials')}</p>
           </div>
         ) : (
-          <div className="relative">
+          <ScrollReveal direction="up" delay={80} className="relative">
             {canScrollReviewLeft && (
               <button
                 type="button"
@@ -786,14 +797,20 @@ export default function HomePage() {
             <div
               ref={reviewScrollRef}
               onScroll={updateReviewScrollButtons}
-              className="flex gap-5 overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth px-1 -mx-1"
+              className="flex gap-5 overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth px-1 -mx-1 py-2.5 -my-1.5"
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
             >
               {reviews.map((review) => (
                 <article
                   key={review.id ? `rev-${review.id}` : review.productId + review.customerName}
-                  className="snap-start shrink-0 w-[280px] sm:w-[300px] rounded-2xl bg-toti-card border border-toti-beige p-5 flex flex-col justify-between shadow-xs transition hover:shadow-sm"
+                  className="relative snap-start shrink-0 w-[280px] sm:w-[300px] rounded-2xl bg-toti-card/95 backdrop-blur-sm border border-toti-beige p-5 flex flex-col justify-between shadow-[0_2px_8px_rgba(58,31,22,0.04)] hover:shadow-[0_8px_20px_rgba(155,74,47,0.08)] hover:-translate-y-0.5 transition-all duration-200"
                 >
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none select-none absolute top-3 right-4 font-serif text-4xl leading-none text-toti-honey/50"
+                  >
+                    “
+                  </span>
                   <div className="space-y-3">
                     <div>
                       <p
@@ -885,75 +902,102 @@ export default function HomePage() {
                 </article>
               ))}
             </div>
-          </div>
+          </ScrollReveal>
         )}
       </section>
 
       {/* 4. TENTANG KAMI & PETA (Section wrapper = toti-alt; store address box = toti-card) */}
-      <section id="our-store" className="mx-auto max-w-7xl px-4 lg:px-8 scroll-mt-24">
-        <div className="rounded-2xl bg-toti-alt p-6 sm:p-8 lg:p-10 shadow-sm border border-toti-beige">
-          <div className="grid gap-8 lg:grid-cols-[1fr_1.35fr] lg:items-center">
-            {/* Map Embed (Prevent mobile scroll trap) */}
+      <section id="our-store" className="mx-auto max-w-7xl px-4 lg:px-8 scroll-mt-24 bg-transparent">
+        <ScrollReveal direction="up" distance={24}>
+          <div className="relative overflow-hidden rounded-2xl bg-toti-alt/85 backdrop-blur-sm p-6 sm:p-8 lg:p-10 shadow-sm border border-toti-beige">
+            {/* Subtle Corner Wave Motif */}
             <div
-              className="relative overflow-hidden rounded-xl h-60 sm:h-72 lg:h-full lg:min-h-[280px] border border-toti-beige bg-toti-card"
-              onClick={() => setIsMapActive(true)}
+              aria-hidden="true"
+              className="pointer-events-none select-none absolute bottom-0 right-0 w-64 sm:w-80 opacity-35"
             >
-              <iframe
-                src={renderedMapsUrl}
-                width="100%"
-                height="100%"
-                style={{ border: 0 }}
-                allowFullScreen
-                loading="lazy"
-                scrolling="yes"
-                referrerPolicy="strict-origin-when-cross-origin"
-                className={`w-full h-full ${!isMapActive ? 'pointer-events-none md:pointer-events-auto' : 'pointer-events-auto'}`}
-                title={t('home.map_title')}
-              />
-              {!isMapActive && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/10 backdrop-blur-[1px] md:hidden cursor-pointer">
-                  <span className="rounded-full bg-toti-card/95 px-4 py-2 text-xs font-semibold text-toti-ink shadow-sm border border-toti-beige">
-                    {t('home.tap_to_interact_map', 'Ketuk peta untuk menggeser')}
-                  </span>
-                </div>
-              )}
+              <svg
+                viewBox="0 0 600 400"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-full h-auto"
+              >
+                <path
+                  d="M0 400C110 370 170 290 280 305C390 320 440 210 600 160V400H0Z"
+                  fill="url(#home-about-wave-grad)"
+                />
+                <defs>
+                  <linearGradient id="home-about-wave-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#C6A48F" />
+                    <stop offset="100%" stopColor="#E0A04E" />
+                  </linearGradient>
+                </defs>
+              </svg>
             </div>
 
-            {/* About & Store Information */}
-            <div>
-              <div className="max-w-2xl">
-                <h2 className="font-display text-2xl md:text-[32px] md:leading-[40px] font-semibold text-toti-ink whitespace-pre-line">
-                  {aboutTitle}
-                </h2>
-                <p className="mt-3 text-base leading-relaxed text-toti-secondary max-w-[60ch] whitespace-pre-line font-sans">
-                  {aboutDescription}
-                </p>
-
-                {storeAddress && (
-                  <div className="mt-5 space-y-3">
-                    <div className="flex items-start gap-3 rounded-xl bg-toti-card p-4 text-sm text-toti-ink border border-toti-beige shadow-xs">
-                      <MapPin className="h-5 w-5 shrink-0 text-toti-brick mt-0.5" />
-                      <span className="whitespace-pre-line font-medium leading-relaxed text-toti-ink">
-                        {storeAddress}
-                      </span>
-                    </div>
-
-                    <a
-                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(storeAddress)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-toti-honey px-5 py-2.5 text-sm font-semibold text-toti-ink transition-colors duration-150 hover:bg-toti-honey-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-honey focus-visible:ring-offset-2 cursor-pointer w-full sm:w-auto"
-                    >
-                      <ExternalLink className="h-4 w-4 text-toti-ink" />
-                      <span>{t('home.open_in_google_maps', 'Buka di Google Maps')}</span>
-                    </a>
+            <div className="relative z-10 grid gap-8 lg:grid-cols-[1fr_1.35fr] lg:items-center">
+              {/* Map Embed (Prevent mobile scroll trap) */}
+              <div
+                className="relative overflow-hidden rounded-xl h-60 sm:h-72 lg:h-full lg:min-h-[280px] border border-toti-beige bg-toti-card shadow-md ring-1 ring-toti-beige/80"
+                onClick={() => setIsMapActive(true)}
+              >
+                <iframe
+                  src={renderedMapsUrl}
+                  width="100%"
+                  height="100%"
+                  style={{ border: 0 }}
+                  allowFullScreen
+                  loading="lazy"
+                  scrolling="yes"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  className={`w-full h-full ${!isMapActive ? 'pointer-events-none md:pointer-events-auto' : 'pointer-events-auto'}`}
+                  title={t('home.map_title')}
+                />
+                {!isMapActive && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/10 backdrop-blur-[1px] md:hidden cursor-pointer">
+                    <span className="rounded-full bg-toti-card/95 px-4 py-2 text-xs font-semibold text-toti-ink shadow-sm border border-toti-beige">
+                      {t('home.tap_to_interact_map', 'Ketuk peta untuk menggeser')}
+                    </span>
                   </div>
                 )}
               </div>
+
+              {/* About & Store Information */}
+              <div>
+                <div className="max-w-2xl">
+                  <h2 className="font-display text-2xl md:text-[32px] md:leading-[40px] font-semibold text-toti-ink whitespace-pre-line">
+                    {aboutTitle}
+                  </h2>
+                  <p className="mt-3 text-base leading-relaxed text-toti-secondary max-w-[60ch] whitespace-pre-line font-sans">
+                    {aboutDescription}
+                  </p>
+
+                  {storeAddress && (
+                    <div className="mt-5 space-y-3">
+                      <div className="flex items-start gap-3 rounded-xl bg-toti-card p-4 text-sm text-toti-ink border border-toti-beige shadow-sm">
+                        <MapPin className="h-5 w-5 shrink-0 text-toti-brick mt-0.5" />
+                        <span className="whitespace-pre-line font-medium leading-relaxed text-toti-ink">
+                          {storeAddress}
+                        </span>
+                      </div>
+
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(storeAddress)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-toti-honey px-5 py-2.5 text-sm font-semibold text-toti-ink transition-colors duration-150 hover:bg-toti-honey-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-honey focus-visible:ring-offset-2 cursor-pointer w-full sm:w-auto"
+                      >
+                        <ExternalLink className="h-4 w-4 text-toti-ink" />
+                        <span>{t('home.open_in_google_maps', 'Buka di Google Maps')}</span>
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        </ScrollReveal>
       </section>
+      </div>
 
       {/* 5. ALL REVIEWS MODAL */}
       {isAllReviewsModalOpen && (
@@ -997,7 +1041,7 @@ export default function HomePage() {
                   onClick={() => setModalRatingFilter('all')}
                   className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer ${
                     modalRatingFilter === 'all'
-                      ? 'bg-toti-brick text-white border-toti-brick shadow-xs'
+                      ? 'bg-toti-brick text-white border-toti-brick shadow-sm'
                       : 'bg-white text-toti-ink border-toti-divider hover:border-toti-brick'
                   }`}
                 >
@@ -1009,7 +1053,7 @@ export default function HomePage() {
                   onClick={() => setModalRatingFilter('with-photos')}
                   className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer ${
                     modalRatingFilter === 'with-photos'
-                      ? 'bg-toti-brick text-white border-toti-brick shadow-xs'
+                      ? 'bg-toti-brick text-white border-toti-brick shadow-sm'
                       : 'bg-white text-toti-ink border-toti-divider hover:border-toti-brick'
                   }`}
                 >
@@ -1023,7 +1067,7 @@ export default function HomePage() {
                     onClick={() => setModalRatingFilter(star)}
                     className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer ${
                       modalRatingFilter === star
-                        ? 'bg-toti-brick text-white border-toti-brick shadow-xs'
+                        ? 'bg-toti-brick text-white border-toti-brick shadow-sm'
                         : 'bg-white text-toti-ink border-toti-divider hover:border-toti-brick'
                     }`}
                   >
@@ -1089,7 +1133,7 @@ export default function HomePage() {
                           </span>
                           <div className="flex text-toti-honey text-xs sm:text-sm">
                             {'★'.repeat(Math.round(item.rating))}
-                            <span className="text-gray-300">{'★'.repeat(5 - Math.round(item.rating))}</span>
+                            <span className="text-toti-disabled">{'★'.repeat(5 - Math.round(item.rating))}</span>
                           </div>
                         </div>
                         {item.created_at && (

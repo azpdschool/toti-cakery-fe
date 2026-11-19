@@ -34,42 +34,42 @@ const getStatusMap = (
   pending: {
     label: t('orders.status_pending', 'Menunggu'),
     icon: Clock,
-    color: 'text-yellow-700 bg-yellow-100 ring-yellow-600/20',
+    color: 'text-toti-brick-hover bg-toti-honey/20 ring-toti-warning/30',
   },
   processed: {
     label: t('orders.status_processed', 'Diproses'),
     icon: Package,
-    color: 'text-blue-700 bg-blue-100 ring-blue-600/20',
+    color: 'text-toti-secondary bg-toti-alt ring-toti-divider/40',
   },
   shipped: {
     label: t('orders.status_shipped', 'Dikirim'),
     icon: Truck,
-    color: 'text-purple-700 bg-purple-100 ring-purple-600/20',
+    color: 'text-toti-cocoa bg-toti-beige ring-toti-divider/40',
   },
   completed: {
     label: t('orders.status_completed', 'Selesai'),
     icon: CheckCircle,
-    color: 'text-green-700 bg-green-100 ring-green-600/20',
+    color: 'text-toti-ink bg-toti-success/20 ring-toti-success/30',
   },
   ready: {
     label: t('orders.status_ready', 'Siap'),
     icon: CheckCircle,
-    color: 'text-teal-700 bg-teal-100 ring-teal-600/20',
+    color: 'text-toti-ink bg-toti-success/20 ring-toti-success/30',
   },
   cancelled: {
     label: t('orders.status_cancelled', 'Dibatalkan'),
     icon: XCircle,
-    color: 'text-red-700 bg-red-100 ring-red-600/20',
+    color: 'text-toti-error bg-toti-error/15 ring-toti-error/25',
   },
   refunded: {
     label: t('orders.status_refunded', 'Dikembalikan'),
     icon: XCircle,
-    color: 'text-red-700 bg-red-100 ring-red-600/20',
+    color: 'text-toti-error bg-toti-error/15 ring-toti-error/25',
   },
   cancelled_settlement_expired: {
     label: t('orders.status_cancelled_settlement_expired', 'Batas Waktu Pelunasan Berakhir'),
     icon: XCircle,
-    color: 'text-red-700 bg-red-100 ring-red-600/20',
+    color: 'text-toti-error bg-toti-error/15 ring-toti-error/25',
   },
 })
 
@@ -201,7 +201,7 @@ export default function OrdersPage() {
 
     if (status === 'cancelled_settlement_expired' || order.rawStatus === 'cancelled_settlement_expired') {
       return (
-        <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black ring-1 ring-inset text-red-700 bg-red-100 ring-red-600/20">
+        <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black ring-1 ring-inset text-toti-error bg-toti-error/15 ring-toti-error/25">
           <XCircle className="h-3.5 w-3.5" />
           {t('orders.status_cancelled_settlement_expired', i18n.language === 'en' ? 'Settlement Expired' : 'Batas Waktu Pelunasan Berakhir')}
         </span>
@@ -210,7 +210,7 @@ export default function OrdersPage() {
 
     if (status === 'cancelled') {
       return (
-        <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black ring-1 ring-inset text-red-700 bg-red-100 ring-red-600/20">
+        <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black ring-1 ring-inset text-toti-error bg-toti-error/15 ring-toti-error/25">
           <XCircle className="h-3.5 w-3.5" />
           {t('orders.status_cancelled', 'Dibatalkan')}
         </span>
@@ -219,7 +219,7 @@ export default function OrdersPage() {
 
     if (status === 'refunded') {
       return (
-        <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black ring-1 ring-inset text-red-700 bg-red-100 ring-red-600/20">
+        <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black ring-1 ring-inset text-toti-error bg-toti-error/15 ring-toti-error/25">
           <XCircle className="h-3.5 w-3.5" />
           {t('orders.status_refunded', 'Dikembalikan')}
         </span>
@@ -228,7 +228,7 @@ export default function OrdersPage() {
 
     if (invStatus === 'unpaid') {
       return (
-        <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black ring-1 ring-inset text-amber-800 bg-amber-100 ring-amber-600/20">
+        <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black ring-1 ring-inset text-toti-brick-hover bg-toti-honey/20 ring-toti-warning/30">
           <Clock className="h-3.5 w-3.5" />
           {t('orders.status_waiting_payment', i18n.language === 'en' ? 'Waiting for payment' : 'Menunggu pembayaran')}
         </span>
@@ -237,7 +237,7 @@ export default function OrdersPage() {
 
     if ((invStatus === 'partial' || invStatus === 'paid') && status === 'pending') {
       return (
-        <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black ring-1 ring-inset text-blue-800 bg-blue-100 ring-blue-600/20">
+        <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black ring-1 ring-inset text-toti-brick-hover bg-toti-honey/20 ring-toti-warning/30">
           <Clock className="h-3.5 w-3.5" />
           {t('orders.status_waiting_confirmation', i18n.language === 'en' ? 'Waiting for seller confirmation' : 'Menunggu konfirmasi seller')}
         </span>
@@ -271,8 +271,8 @@ export default function OrdersPage() {
     const label = t(labelKey)
 
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-[#D0BFAF] bg-white px-2.5 py-0.5 text-xs font-bold text-[#6B4A3C]">
-        <info.icon className="h-3.5 w-3.5 text-[#9C8478]" />
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-toti-divider bg-white px-2.5 py-0.5 text-xs font-bold text-toti-secondary">
+        <info.icon className="h-3.5 w-3.5 text-toti-muted" />
         {label}
       </span>
     )
@@ -288,15 +288,15 @@ export default function OrdersPage() {
         <div className="mx-auto max-w-5xl px-4 py-8 lg:px-8">
           <div className="mb-6 flex justify-between">
             <div className="space-y-3">
-              <div className="h-8 w-40 animate-pulse rounded-lg bg-gray-200" />
-              <div className="h-4 w-64 animate-pulse rounded-lg bg-gray-200" />
+              <div className="h-8 w-40 animate-pulse rounded-lg bg-toti-alt" />
+              <div className="h-4 w-64 animate-pulse rounded-lg bg-toti-alt" />
             </div>
-            <div className="h-10 w-32 animate-pulse rounded-xl bg-gray-200" />
+            <div className="h-10 w-32 animate-pulse rounded-xl bg-toti-alt" />
           </div>
-          <div className="h-16 w-full animate-pulse rounded-xl bg-gray-200" />
+          <div className="h-16 w-full animate-pulse rounded-xl bg-toti-alt" />
           <div className="mt-6 space-y-4">
              {[1,2,3].map(i => (
-                <div key={i} className="h-56 w-full animate-pulse rounded-2xl bg-gray-200" />
+                <div key={i} className="h-56 w-full animate-pulse rounded-2xl bg-toti-alt" />
              ))}
           </div>
         </div>
@@ -309,40 +309,40 @@ export default function OrdersPage() {
       <div className="mx-auto max-w-5xl px-4 py-8 lg:px-8">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-3xl font-black text-[#3A1F16] tracking-tight">
+            <h1 className="text-3xl font-black text-toti-ink tracking-tight">
               {t('orders.my_orders')}
             </h1>
-            <p className="mt-2 text-sm text-[#6B4A3C]">
+            <p className="mt-2 text-sm text-toti-secondary">
               {t('orders.subtitle')}
             </p>
           </div>
 
           <Link
             to={ROUTES.CATALOG}
-            className="flex items-center gap-2 rounded-xl bg-[#9B4A2F] px-6 py-2.5 text-sm font-bold text-white transition hover:bg-[#7E3A24] shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#9B4A2F]/30"
+            className="toti-btn-primary"
           >
             <ShoppingBag className="h-4 w-4" />
             {t('orders.shop_again')}
           </Link>
         </div>
 
-        <div className="mb-8 rounded-xl bg-white p-4 text-sm font-medium text-[#6B4A3C] shadow-sm ring-1 ring-[#EAD8CA]">
+        <div className="mb-8 rounded-xl bg-white p-4 text-sm font-medium text-toti-secondary shadow-sm ring-1 ring-toti-beige">
           {t('orders.logged_in_as')}{' '}
-          <span className="font-black text-[#3A1F16]">
+          <span className="font-black text-toti-ink">
             {user.name || user.email || 'Buyer'}
           </span>
         </div>
 
         {/* Toolbar */}
         <div className="flex flex-col sm:flex-row items-center gap-3">
-          <div className="relative flex h-11 w-full sm:flex-1 min-w-[200px] items-center rounded-xl border border-[#D0BFAF] bg-white px-3.5 focus-within:border-[#9B4A2F] focus-within:ring-2 focus-within:ring-[#9B4A2F]/20 shadow-sm transition">
-            <Search className="h-4 w-4 shrink-0 text-[#9C8478]" />
+          <div className="relative flex h-11 w-full sm:flex-1 min-w-[200px] items-center rounded-xl border border-toti-divider bg-white px-3.5 focus-within:border-toti-brick focus-within:ring-2 focus-within:ring-toti-brick/20 shadow-sm transition">
+            <Search className="h-4 w-4 shrink-0 text-toti-muted" />
             <input
               type="text"
               placeholder={t('orders.search')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-transparent px-2.5 text-sm text-[#3A1F16] outline-none placeholder:text-[#9C8478]"
+              className="w-full bg-transparent px-2.5 text-sm text-toti-ink outline-none placeholder:text-toti-muted"
             />
           </div>
 
@@ -350,7 +350,7 @@ export default function OrdersPage() {
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="h-11 w-full sm:w-auto appearance-none rounded-xl border border-[#D0BFAF] bg-white pl-4 pr-10 text-sm font-bold text-[#3A1F16] outline-none focus:border-[#9B4A2F] focus:ring-2 focus:ring-[#9B4A2F]/20 shadow-sm transition"
+              className="h-11 w-full sm:w-auto appearance-none rounded-xl border border-toti-divider bg-white pl-4 pr-10 text-sm font-bold text-toti-ink outline-none focus:border-toti-brick focus:ring-2 focus:ring-toti-brick/20 shadow-sm transition"
             >
               <option value="all">{t('orders.all_status')}</option>
               <option value="pending">{t('orders.status_pending')}</option>
@@ -366,12 +366,12 @@ export default function OrdersPage() {
         </div>
 
         {error && (
-          <div className="mt-6 flex flex-col items-center justify-center rounded-xl border border-red-200 bg-red-50 p-8 text-center shadow-sm">
-            <p className="text-lg font-black text-red-700">❌ {error}</p>
+          <div className="mt-6 flex flex-col items-center justify-center rounded-xl border border-toti-error/30 bg-toti-error/15 p-8 text-center shadow-sm">
+            <p className="text-lg font-black text-toti-error">❌ {error}</p>
             <button
               type="button"
               onClick={() => loadOrders(true)}
-              className="mt-4 flex items-center gap-2 rounded-xl bg-red-600 px-6 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 shadow"
+              className="mt-4 toti-btn-primary"
             >
               <RefreshCw className="h-4 w-4" />
               {t('common.retry', 'Coba Lagi')}
@@ -382,17 +382,17 @@ export default function OrdersPage() {
         {/* Order List */}
         <div className="mt-8 space-y-4">
           {!error && filteredOrders.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-2xl bg-white p-12 text-center shadow-sm ring-1 ring-[#EAD8CA]">
-              <Package className="mx-auto h-16 w-16 text-[#D0BFAF]" />
-              <h2 className="mt-5 text-xl font-black text-[#3A1F16]">
+            <div className="flex flex-col items-center justify-center rounded-2xl bg-white p-12 text-center shadow-sm ring-1 ring-toti-beige">
+              <Package className="mx-auto h-16 w-16 text-toti-divider" />
+              <h2 className="mt-5 text-xl font-black text-toti-ink">
                 {t('orders.empty')}
               </h2>
-              <p className="mt-2 max-w-md text-sm text-[#6B4A3C] leading-relaxed">
+              <p className="mt-2 max-w-md text-sm text-toti-secondary leading-relaxed">
                 {t('orders.empty_desc')}
               </p>
               <Link
                 to={ROUTES.CATALOG}
-                className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#9B4A2F] px-8 py-3 text-sm font-bold text-white transition hover:bg-[#7E3A24] shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#9B4A2F]/30"
+                className="mt-6 toti-btn-primary px-8 py-3"
               >
                 <ShoppingBag className="h-4 w-4" />
                 {t('cart.view_products')}
@@ -410,7 +410,7 @@ export default function OrdersPage() {
                 <div
                   key={order.id}
                   onClick={() => navigate(`/orders/${order.id}`)}
-                className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-[#EAD8CA] transition hover:shadow-md hover:-translate-y-0.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#9B4A2F]/30"
+                className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-toti-beige transition hover:shadow-md hover:-translate-y-0.5 cursor-pointer focus:outline-none focus:ring-2 focus:ring-toti-brick/30"
                 role="button"
                 tabIndex={0}
                 onKeyDown={(e) => {
@@ -419,20 +419,20 @@ export default function OrdersPage() {
                   }
                 }}
               >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 border-b border-[#EAD8CA] bg-[#F6EFE6]/50 px-3.5 py-3 sm:px-5 sm:py-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 border-b border-toti-beige bg-toti-cream/50 px-3.5 py-3 sm:px-5 sm:py-4">
                   <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-                    <span className="text-sm font-black text-[#3A1F16] tracking-wide">
+                    <span className="text-sm font-black text-toti-ink tracking-wide">
                       {order.orderNumber}
                     </span>
 
-                    <span className="text-xs font-semibold text-[#6B4A3C]">
+                    <span className="text-xs font-semibold text-toti-secondary">
                       {order.date} · {order.time}
                     </span>
 
                     {getMethodBadge(order.deliveryMethod)}
 
                     {(order.fulfillmentDate || order.fulfillment_date) && (
-                      <span className="text-xs font-semibold text-[#8b7166]">
+                      <span className="text-xs font-semibold text-toti-muted">
                         {i18n.language === 'en' ? 'Fulfillment' : 'Pemenuhan'}:{' '}
                         {new Date(order.fulfillment_date || order.fulfillmentDate!).toLocaleDateString(
                           i18n.language === 'en' ? 'en-US' : 'id-ID',
@@ -445,7 +445,7 @@ export default function OrdersPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     {getStatusBadge(order)}
                     {isBuyerOrderOverdue(order) && (
-                      <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-black bg-rose-100 text-rose-700 ring-1 ring-inset ring-rose-600/20">
+                      <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-black bg-toti-error/15 text-toti-error ring-1 ring-inset ring-toti-error/25">
                         {i18n.language === 'en' ? 'Overdue' : 'Terlambat'}
                       </span>
                     )}
@@ -455,7 +455,7 @@ export default function OrdersPage() {
                 <div className="p-5">
                   <div className="space-y-4">
                     {order.items.length === 0 ? (
-                      <p className="text-sm text-[#6B4A3C]">
+                      <p className="text-sm text-toti-secondary">
                         {t('orders.item_unavailable', 'Item pesanan tidak tersedia.')}
                       </p>
                     ) : (
@@ -465,18 +465,18 @@ export default function OrdersPage() {
                           className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-sm"
                         >
                           <div className="flex items-center gap-2.5">
-                            <span className="font-black text-[#3A1F16]">
+                            <span className="font-black text-toti-ink">
                               {item.productName}
                             </span>
-                            <span className="rounded-md bg-[#F6EFE6] px-2 py-0.5 text-[11px] font-bold text-[#6B4A3C] uppercase tracking-wide">
+                            <span className="rounded-md bg-toti-cream px-2 py-0.5 text-[11px] font-bold text-toti-secondary uppercase tracking-wide">
                               {item.variantName}
                             </span>
-                            <span className="text-xs font-black text-[#9C8478]">
+                            <span className="text-xs font-black text-toti-muted">
                               x{item.quantity}
                             </span>
                           </div>
 
-                          <span className="font-black text-[#3A1F16]">
+                          <span className="font-black text-toti-ink">
                             {formatRupiah(item.subtotal)}
                           </span>
                         </div>
@@ -484,14 +484,14 @@ export default function OrdersPage() {
                     )}
                   </div>
 
-                  <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-[#EAD8CA] pt-5">
+                  <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-toti-beige pt-5">
                     <div className="flex items-baseline gap-2">
-                      <span className="text-sm font-bold text-[#6B4A3C] uppercase tracking-wide">{t('orders.total', 'Total')}</span>
-                      <span className={`text-lg font-black ${isCancelled ? 'line-through text-gray-400' : 'text-[#9B4A2F]'}`}>
+                      <span className="text-sm font-bold text-toti-secondary uppercase tracking-wide">{t('orders.total', 'Total')}</span>
+                      <span className={`text-lg font-black ${isCancelled ? 'line-through text-toti-muted' : 'text-toti-brick'}`}>
                         {formatRupiah(order.total)}
                       </span>
                       {!isCancelled && order.paymentStatus === 'partial' && (
-                        <span className="ml-2 rounded-full bg-yellow-100 px-2.5 py-0.5 text-[11px] font-black uppercase text-yellow-800 ring-1 ring-inset ring-yellow-600/20">
+                        <span className="ml-2 rounded-full bg-toti-honey/20 px-2.5 py-0.5 text-[11px] font-black uppercase text-toti-brick-hover ring-1 ring-inset ring-toti-warning/30">
                           DP
                         </span>
                       )}
@@ -500,16 +500,16 @@ export default function OrdersPage() {
                     <button
                       onClick={(e) => handleDownloadInvoice(e, order.id)}
                       disabled={downloadingId === order.id}
-                      className="flex items-center gap-1.5 rounded-xl border border-[#D0BFAF] bg-white px-5 py-2 text-sm font-bold text-[#3A1F16] transition hover:bg-[#F6EFE6] focus:outline-none focus:ring-2 focus:ring-[#D0BFAF]/50 disabled:opacity-50"
+                      className="toti-btn-secondary h-9 px-3.5 text-xs"
                     >
                       {downloadingId === order.id ? (
                         <>
-                          <Loader2 className="h-4 w-4 animate-spin text-[#9C8478]" />
+                          <Loader2 className="h-4 w-4 animate-spin text-toti-muted" />
                           {t('orders.download_invoice')}
                         </>
                       ) : (
                         <>
-                          <Download className="h-4 w-4 text-[#9C8478]" />
+                          <Download className="h-4 w-4 text-toti-muted" />
                           {t('orders.download_invoice')}
                         </>
                       )}

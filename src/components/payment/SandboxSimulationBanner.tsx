@@ -19,19 +19,19 @@ export function SandboxInlineAction({ method, qrisUrl }: SandboxProps) {
   }
 
   return (
-    <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50/90 p-3.5 text-left text-xs shadow-xs">
+    <div className="mb-4 rounded-xl border border-transparent bg-toti-honey/20 ring-1 ring-inset ring-toti-warning/30 p-3.5 text-left text-xs shadow-xs">
       <div className="flex items-start gap-2.5">
-        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-toti-warning" />
         <div className="flex-1 space-y-1.5">
           <div className="flex items-center justify-between gap-2">
-            <p className="font-bold text-amber-900">
+            <p className="font-bold text-toti-ink">
               {t('checkout.sandbox_inline_title', 'Simulasi Pembayaran (Uang Mainan)')}
             </p>
-            <span className="rounded bg-amber-200/80 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-amber-900">
+            <span className="rounded bg-toti-honey/30 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-toti-brick-hover">
               Sandbox
             </span>
           </div>
-          <p className="text-amber-800 leading-relaxed text-[11px]">
+          <p className="text-toti-brick-hover leading-relaxed text-[11px]">
             {method === 'bank_transfer'
               ? t(
                   'checkout.sandbox_inline_va_desc',
@@ -47,7 +47,7 @@ export function SandboxInlineAction({ method, qrisUrl }: SandboxProps) {
               href={MIDTRANS_SIMULATOR_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-600 px-2.5 py-1 text-xs font-bold text-white transition hover:bg-amber-700 shadow-xs"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-toti-brick px-2.5 py-1 text-xs font-bold text-white transition hover:bg-toti-brick-hover shadow-xs"
             >
               <span>{t('checkout.sandbox_open_simulator', 'Buka Simulator')}</span>
               <ExternalLink className="h-3 w-3" />
@@ -70,22 +70,22 @@ export function SandboxTutorialBox({ method, qrisUrl }: SandboxProps) {
   }
 
   return (
-    <div className="mb-4 overflow-hidden rounded-2xl border-2 border-amber-300 bg-amber-50/90 shadow-sm">
-      <div className="flex items-center justify-between border-b border-amber-200 bg-amber-100/70 px-4 py-2.5">
+    <div className="mb-4 overflow-hidden rounded-2xl border border-transparent bg-toti-honey/20 ring-1 ring-inset ring-toti-warning/30 shadow-sm">
+      <div className="flex items-center justify-between border-b border-toti-warning/20 bg-toti-honey/30 px-4 py-2.5">
         <div className="flex items-center gap-2">
-          <Terminal className="h-4 w-4 text-amber-800" />
-          <h4 className="font-bold text-amber-950 text-xs sm:text-sm">
+          <Terminal className="h-4 w-4 text-toti-brick-hover" />
+          <h4 className="font-bold text-toti-ink text-xs sm:text-sm">
             {t('checkout.sandbox_tutorial_title', 'Panduan Simulasi Pembayaran (Midtrans Sandbox)')}
           </h4>
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-900">
+        <span className="inline-flex items-center gap-1 rounded-full bg-toti-honey/40 px-2 py-0.5 text-[10px] font-bold text-toti-brick-hover">
           <HelpCircle className="h-3 w-3" />
           {t('checkout.sandbox_badge', 'Mode Simulasi')}
         </span>
       </div>
 
-      <div className="p-4 text-xs text-amber-950 space-y-3">
-        <p className="text-amber-900 leading-relaxed font-medium">
+      <div className="p-4 text-xs text-toti-ink space-y-3">
+        <p className="text-toti-brick-hover leading-relaxed font-medium">
           {t(
             'checkout.sandbox_tutorial_intro',
             'Ikuti 4 langkah mudah berikut untuk mensimulasikan pembayaran tanpa uang asli:'
@@ -95,7 +95,7 @@ export function SandboxTutorialBox({ method, qrisUrl }: SandboxProps) {
         {method === 'bank_transfer' ? (
           <ol className="space-y-2 list-none">
             <li className="flex items-start gap-2.5">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-200 font-bold text-[11px] text-amber-900">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-toti-honey/40 font-bold text-[11px] text-toti-brick-hover">
                 1
               </span>
               <span className="leading-snug">
@@ -103,7 +103,7 @@ export function SandboxTutorialBox({ method, qrisUrl }: SandboxProps) {
               </span>
             </li>
             <li className="flex items-start gap-2.5">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-200 font-bold text-[11px] text-amber-900">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-toti-honey/40 font-bold text-[11px] text-toti-brick-hover">
                 2
               </span>
               <span className="leading-snug">
@@ -112,7 +112,7 @@ export function SandboxTutorialBox({ method, qrisUrl }: SandboxProps) {
                   href={MIDTRANS_SIMULATOR_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-0.5 font-bold text-amber-900 underline underline-offset-2 hover:text-amber-700"
+                  className="inline-flex items-center gap-0.5 font-bold text-toti-brick underline underline-offset-2 hover:text-toti-brick-hover"
                 >
                   Midtrans Sandbox Simulator
                   <ExternalLink className="h-3 w-3 inline" />
@@ -121,7 +121,7 @@ export function SandboxTutorialBox({ method, qrisUrl }: SandboxProps) {
               </span>
             </li>
             <li className="flex items-start gap-2.5">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-200 font-bold text-[11px] text-amber-900">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-toti-honey/40 font-bold text-[11px] text-toti-brick-hover">
                 3
               </span>
               <span className="leading-snug">
@@ -132,7 +132,7 @@ export function SandboxTutorialBox({ method, qrisUrl }: SandboxProps) {
               </span>
             </li>
             <li className="flex items-start gap-2.5">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-200 font-bold text-[11px] text-amber-900">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-toti-honey/40 font-bold text-[11px] text-toti-brick-hover">
                 4
               </span>
               <span className="leading-snug">
@@ -146,7 +146,7 @@ export function SandboxTutorialBox({ method, qrisUrl }: SandboxProps) {
         ) : (
           <ol className="space-y-2 list-none">
             <li className="flex items-start gap-2.5">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-200 font-bold text-[11px] text-amber-900">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-toti-honey/40 font-bold text-[11px] text-toti-brick-hover">
                 1
               </span>
               <span className="leading-snug">
@@ -157,7 +157,7 @@ export function SandboxTutorialBox({ method, qrisUrl }: SandboxProps) {
               </span>
             </li>
             <li className="flex items-start gap-2.5">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-200 font-bold text-[11px] text-amber-900">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-toti-honey/40 font-bold text-[11px] text-toti-brick-hover">
                 2
               </span>
               <span className="leading-snug">
@@ -166,7 +166,7 @@ export function SandboxTutorialBox({ method, qrisUrl }: SandboxProps) {
                   href={MIDTRANS_SIMULATOR_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-0.5 font-bold text-amber-900 underline underline-offset-2 hover:text-amber-700"
+                  className="inline-flex items-center gap-0.5 font-bold text-toti-brick underline underline-offset-2 hover:text-toti-brick-hover"
                 >
                   Midtrans Sandbox Simulator
                   <ExternalLink className="h-3 w-3 inline" />
@@ -175,7 +175,7 @@ export function SandboxTutorialBox({ method, qrisUrl }: SandboxProps) {
               </span>
             </li>
             <li className="flex items-start gap-2.5">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-200 font-bold text-[11px] text-amber-900">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-toti-honey/40 font-bold text-[11px] text-toti-brick-hover">
                 3
               </span>
               <span className="leading-snug">
@@ -186,7 +186,7 @@ export function SandboxTutorialBox({ method, qrisUrl }: SandboxProps) {
               </span>
             </li>
             <li className="flex items-start gap-2.5">
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-200 font-bold text-[11px] text-amber-900">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-toti-honey/40 font-bold text-[11px] text-toti-brick-hover">
                 4
               </span>
               <span className="leading-snug">
@@ -204,7 +204,7 @@ export function SandboxTutorialBox({ method, qrisUrl }: SandboxProps) {
             href={MIDTRANS_SIMULATOR_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-amber-600 py-2.5 text-xs font-bold text-white transition hover:bg-amber-700 shadow-xs"
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-toti-brick py-2.5 text-xs font-bold text-white transition hover:bg-toti-brick-hover shadow-xs"
           >
             <span>{t('checkout.sandbox_open_simulator', 'Buka Midtrans Sandbox Simulator')}</span>
             <ExternalLink className="h-3.5 w-3.5" />

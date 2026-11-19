@@ -276,7 +276,7 @@ export function PublicSearchDropdown({
     <div ref={containerRef} className={`relative w-full ${className}`}>
       {/* Search Input Bar */}
       <div className="relative w-full">
-        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6B4A3C]" />
+        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-toti-secondary" />
 
         <input
           ref={inputRef}
@@ -290,7 +290,7 @@ export function PublicSearchDropdown({
           onFocus={() => setIsOpen(true)}
           onKeyDown={handleKeyDown}
           placeholder={placeholder || t('search.placeholder', 'Cari dessert favorit kamu...')}
-          className="h-10 w-full rounded-full border border-[#D0BFAF] bg-white/90 pl-10 pr-9 text-base md:text-xs font-medium text-[#3A1F16] outline-none placeholder:text-[#9C8478] focus:border-[#9B4A2F] focus:bg-white focus:ring-2 focus:ring-[#9B4A2F]/25"
+          className="h-10 w-full rounded-full border border-toti-divider bg-white/90 pl-10 pr-9 text-base md:text-xs font-medium text-toti-ink outline-none placeholder:text-toti-muted focus:border-toti-brick focus:bg-white focus:ring-2 focus:ring-toti-brick/25"
           aria-label={t('search.placeholder', 'Cari dessert favorit kamu...')}
           aria-expanded={showDropdown}
           aria-haspopup="listbox"
@@ -298,14 +298,14 @@ export function PublicSearchDropdown({
         />
 
         {isLoading ? (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9B4A2F]">
+          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-toti-brick">
             <Loader2 className="h-4 w-4 animate-spin" />
           </div>
         ) : query ? (
           <button
             type="button"
             onClick={handleClear}
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-[#9C8478] hover:bg-[#EFE4D6] hover:text-[#3A1F16]"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-toti-muted hover:bg-toti-alt hover:text-toti-ink"
             aria-label="Clear search"
           >
             <X className="h-3.5 w-3.5" />
@@ -315,27 +315,27 @@ export function PublicSearchDropdown({
 
       {/* Floating Dropdown */}
       {showDropdown && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[75vh] overflow-y-auto rounded-2xl border border-[#D0BFAF] bg-white p-2 shadow-2xl animate-in fade-in-0 zoom-in-95">
+        <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[75vh] overflow-y-auto rounded-2xl border border-toti-divider bg-white p-2 shadow-2xl animate-in fade-in-0 zoom-in-95">
           {/* Rate Limit Exceeded State */}
           {isRateLimited ? (
-            <div className="flex items-start gap-3 rounded-xl bg-amber-50 p-4 text-[#7A4B1A]">
-              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+            <div className="flex items-start gap-3 rounded-xl bg-toti-honey/20 ring-1 ring-inset ring-toti-warning/30 p-4 text-toti-brick-hover">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-toti-warning" />
               <div className="text-xs">
-                <p className="font-semibold text-amber-900">
+                <p className="font-semibold text-toti-ink">
                   {t('search.rate_limited', 'Terlalu banyak permintaan. Silakan tunggu beberapa saat.')}
                 </p>
-                <p className="mt-1 text-amber-700">
+                <p className="mt-1 text-toti-secondary">
                   {t('search.rate_limit_exceeded', 'Batas pencarian tercapai (maks. 30/menit). Mohon istirahat sejenak sebelum mencari lagi.')}
                 </p>
               </div>
             </div>
           ) : errorMessage ? (
-            <div className="p-4 text-center text-xs text-red-600">
+            <div className="p-4 text-center text-xs text-toti-error">
               {errorMessage}
             </div>
           ) : trimmedQuery.length === 1 ? (
             /* Min Length Hint */
-            <div className="p-4 text-center text-xs text-[#9C8478]">
+            <div className="p-4 text-center text-xs text-toti-muted">
               {t('search.min_length_hint', 'Ketik minimal 2 karakter...')}
             </div>
           ) : isLoading && !results ? (
@@ -348,7 +348,7 @@ export function PublicSearchDropdown({
           ) : !hasAnyResults ? (
             /* No Results Found */
             <div className="p-5 text-center">
-              <p className="text-xs font-semibold text-[#3A1F16]">
+              <p className="text-xs font-semibold text-toti-ink">
                 {t('search.no_results', {
                   query: trimmedQuery,
                   defaultValue: `Tidak ada hasil untuk "${trimmedQuery}"`,
@@ -357,7 +357,7 @@ export function PublicSearchDropdown({
               <button
                 type="button"
                 onClick={handleViewAllInCatalog}
-                className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[#F6EFE6] px-3.5 py-1.5 text-xs font-semibold text-[#9B4A2F] transition-colors hover:bg-[#EAD8CA]"
+                className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-toti-cream px-3.5 py-1.5 text-xs font-semibold text-toti-brick transition-colors hover:bg-toti-beige"
               >
                 <span>{t('catalog.all_products', 'Lihat Semua Produk')}</span>
                 <ChevronRight className="h-3.5 w-3.5" />
@@ -369,8 +369,8 @@ export function PublicSearchDropdown({
               {/* 1. Products Section */}
               {hasProducts && (
                 <div>
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#9C8478]">
-                    <Package className="h-3.5 w-3.5 text-[#9B4A2F]" />
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-toti-muted">
+                    <Package className="h-3.5 w-3.5 text-toti-brick" />
                     <span>{t('search.section_products', 'Produk')}</span>
                   </div>
 
@@ -388,17 +388,17 @@ export function PublicSearchDropdown({
                           onMouseEnter={() => setHighlightedIndex(itemIndex)}
                           onClick={() => handleSelectProduct(product)}
                           className={`flex w-full items-center gap-3 rounded-xl p-2 text-left transition-colors focus:outline-none ${
-                            isHighlighted ? 'bg-[#F6EFE6] ring-1 ring-[#9B4A2F]/40' : 'hover:bg-[#F6EFE6]'
+                            isHighlighted ? 'bg-toti-cream ring-1 ring-toti-brick/40' : 'hover:bg-toti-cream'
                           }`}
                         >
                           <img
                             src={resolveProductImage(product.image_url)}
                             alt={product.nama_produk}
-                            className="h-11 w-11 shrink-0 rounded-lg object-cover ring-1 ring-[#D0BFAF]/60"
+                            className="h-11 w-11 shrink-0 rounded-lg object-cover ring-1 ring-toti-divider/60"
                             loading="lazy"
                           />
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-xs font-bold text-[#3A1F16]">
+                            <p className="truncate text-xs font-bold text-toti-ink">
                               {product.nama_produk}
                             </p>
                             {(() => {
@@ -406,23 +406,23 @@ export function PublicSearchDropdown({
                                 ? (product.deskripsi_en || product.deskripsi_id || product.deskripsi)
                                 : (product.deskripsi_id || product.deskripsi);
                               return desc ? (
-                                <p className="truncate text-[10px] text-[#6B4A3C]/80 mt-0.5" title={desc}>
+                                <p className="truncate text-[10px] text-toti-secondary/80 mt-0.5" title={desc}>
                                   {desc}
                                 </p>
                               ) : null;
                             })()}
                             <div className="mt-0.5 flex items-center gap-2 text-[11px]">
                               {product.kategori && (
-                                <span className="rounded bg-[#EFE4D6] px-1.5 py-0.5 text-[10px] font-medium text-[#6B4A3C]">
+                                <span className="rounded bg-toti-alt px-1.5 py-0.5 text-[10px] font-medium text-toti-secondary">
                                   {product.kategori}
                                 </span>
                               )}
-                              <span className="font-semibold text-[#9B4A2F]">
+                              <span className="font-semibold text-toti-brick">
                                 {formatRupiah(product.harga_jual)}
                               </span>
                             </div>
                           </div>
-                          <ChevronRight className="h-4 w-4 shrink-0 text-[#9C8478] opacity-60" />
+                          <ChevronRight className="h-4 w-4 shrink-0 text-toti-muted opacity-60" />
                         </button>
                       )
                     })}
@@ -432,9 +432,9 @@ export function PublicSearchDropdown({
 
               {/* 2. FAQs Section */}
               {hasFaqs && (
-                <div className={hasProducts ? 'border-t border-[#EFE4D6] pt-2' : ''}>
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#9C8478]">
-                    <HelpCircle className="h-3.5 w-3.5 text-[#9B4A2F]" />
+                <div className={hasProducts ? 'border-t border-toti-alt pt-2' : ''}>
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-toti-muted">
+                    <HelpCircle className="h-3.5 w-3.5 text-toti-brick" />
                     <span>{t('search.section_faqs', 'Pertanyaan Umum (FAQ)')}</span>
                   </div>
 
@@ -455,18 +455,18 @@ export function PublicSearchDropdown({
                           onMouseEnter={() => setHighlightedIndex(itemIndex)}
                           onClick={() => handleSelectFaq(faq)}
                           className={`flex w-full items-start gap-2.5 rounded-xl p-2.5 text-left transition-colors focus:outline-none ${
-                            isHighlighted ? 'bg-[#F6EFE6] ring-1 ring-[#9B4A2F]/40' : 'hover:bg-[#F6EFE6]'
+                            isHighlighted ? 'bg-toti-cream ring-1 ring-toti-brick/40' : 'hover:bg-toti-cream'
                           }`}
                         >
                           <div className="min-w-0 flex-1">
-                            <p className="text-xs font-semibold text-[#3A1F16]">
+                            <p className="text-xs font-semibold text-toti-ink">
                               {question}
                             </p>
-                            <p className="mt-0.5 line-clamp-1 text-[11px] text-[#6B4A3C]">
+                            <p className="mt-0.5 line-clamp-1 text-[11px] text-toti-secondary">
                               {answer}
                             </p>
                           </div>
-                          <ChevronRight className="mt-1 h-3.5 w-3.5 shrink-0 text-[#9C8478] opacity-60" />
+                          <ChevronRight className="mt-1 h-3.5 w-3.5 shrink-0 text-toti-muted opacity-60" />
                         </button>
                       )
                     })}
@@ -476,8 +476,8 @@ export function PublicSearchDropdown({
 
               {/* 3. Store Info Section */}
               {hasStoreInfo && (
-                <div className={hasProducts || hasFaqs ? 'border-t border-[#EFE4D6] pt-2' : ''}>
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#9C8478]">
+                <div className={hasProducts || hasFaqs ? 'border-t border-toti-alt pt-2' : ''}>
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-toti-muted">
                     <MessageCircle className="h-3.5 w-3.5 text-[#25D366]" />
                     <span>{t('search.section_store_info', 'Informasi Toko')}</span>
                   </div>
@@ -501,16 +501,16 @@ export function PublicSearchDropdown({
                         >
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
-                              <span className="text-xs font-bold text-[#1E3A24]">
+                              <span className="text-xs font-bold text-toti-ink">
                                 {info.title}
                               </span>
                               {whatsappNumberDisplay && (
-                                <span className="rounded-full bg-[#25D366]/20 px-2 py-0.5 text-[10px] font-semibold text-[#1E3A24]">
+                                <span className="rounded-full bg-[#25D366]/20 px-2 py-0.5 text-[10px] font-semibold text-toti-ink">
                                   {whatsappNumberDisplay}
                                 </span>
                               )}
                             </div>
-                            <p className="mt-0.5 text-[11px] text-[#2F5E38]">
+                            <p className="mt-0.5 text-[11px] text-toti-secondary">
                               {info.description}
                             </p>
                           </div>
@@ -529,7 +529,7 @@ export function PublicSearchDropdown({
               )}
 
               {/* Footer: View All In Catalog */}
-              <div className="border-t border-[#EFE4D6] pt-2">
+              <div className="border-t border-toti-alt pt-2">
                 {(() => {
                   const viewAllIndex = navItems.findIndex((item) => item.type === 'view_all')
                   const isViewAllHighlighted = highlightedIndex === viewAllIndex
@@ -541,8 +541,8 @@ export function PublicSearchDropdown({
                       type="button"
                       onMouseEnter={() => setHighlightedIndex(viewAllIndex)}
                       onClick={handleViewAllInCatalog}
-                      className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-semibold text-[#9B4A2F] transition-colors ${
-                        isViewAllHighlighted ? 'bg-[#F6EFE6] ring-1 ring-[#9B4A2F]/40' : 'hover:bg-[#F6EFE6]'
+                      className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-semibold text-toti-brick transition-colors ${
+                        isViewAllHighlighted ? 'bg-toti-cream ring-1 ring-toti-brick/40' : 'hover:bg-toti-cream'
                       }`}
                     >
                       <span>

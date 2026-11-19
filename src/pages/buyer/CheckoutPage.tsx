@@ -339,7 +339,7 @@ export default function CheckoutPage() {
                 <button
                   onClick={handlePayment}
                   disabled={isLoading}
-                  className="mt-6 flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white transition hover:bg-[#c04e28] disabled:opacity-60"
+                  className="mt-6 toti-btn-primary w-full h-12 disabled:opacity-60"
                 >
                   {isLoading ? (
                     <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t('checkout.processing')}</>
@@ -604,7 +604,7 @@ export default function CheckoutPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="mt-6 flex h-14 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white transition hover:bg-[#c04e28] disabled:opacity-60 shadow-md shadow-[#d85b30]/20"
+              className="mt-6 toti-btn-primary w-full h-12 disabled:opacity-60"
             >
               {isLoading ? (
                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {t('checkout.processing')}</>

@@ -33,33 +33,33 @@ export function QrisPaymentCard({ qrisUrl, amount }: QrisPaymentCardProps) {
   };
 
   return (
-    <div className="rounded-2xl border border-[#ead8ca] bg-white p-6 shadow-sm text-center">
+    <div className="rounded-2xl border border-toti-divider bg-white p-6 shadow-sm text-center">
       <SandboxInlineAction method="qris" qrisUrl={qrisUrl} />
 
-      <div className="inline-flex items-center justify-center rounded-lg bg-[#ED0226]/10 px-4 py-2 mb-4">
-        <span className="font-black text-[#ED0226] tracking-wide">QRIS</span>
+      <div className="inline-flex items-center justify-center rounded-lg bg-toti-error/10 px-4 py-2 mb-4">
+        <span className="font-black text-toti-error tracking-wide">QRIS</span>
       </div>
       
-      <p className="text-sm font-semibold text-[#6f5448] mb-4">
+      <p className="text-sm font-semibold text-toti-secondary mb-4">
         {t('checkout.qris')}
       </p>
 
       <div className="flex justify-center mb-6">
-        <div className="p-4 bg-white border-2 border-[#ead8ca] rounded-xl shadow-sm inline-block max-w-full">
+        <div className="p-4 bg-white border-2 border-toti-beige rounded-xl shadow-sm inline-block max-w-full">
           <img src={qrisUrl} alt="QRIS Code" className="w-48 h-48 sm:w-64 sm:h-64 object-contain" />
         </div>
       </div>
 
-      <div className="rounded-xl bg-[#f8f4f0] p-4 flex flex-col sm:flex-row items-center justify-between gap-4 border border-[#ead8ca] mb-6">
+      <div className="rounded-xl bg-toti-cream p-4 flex flex-col sm:flex-row items-center justify-between gap-4 border border-toti-beige mb-6">
         <div className="text-left">
-          <p className="text-xs text-[#6f5448] font-semibold">{t('checkout.due_now')}</p>
-          <p className="text-xl font-black text-[#d85b30]">{formatRupiah(amount)}</p>
+          <p className="text-xs text-toti-secondary font-semibold">{t('checkout.due_now')}</p>
+          <p className="text-xl font-black text-toti-brick">{formatRupiah(amount)}</p>
         </div>
       </div>
 
       <button
         onClick={handleDownload}
-        className="flex items-center justify-center gap-2 w-full px-6 py-3 rounded-xl bg-white border-2 border-[#d85b30] text-sm font-bold text-[#d85b30] hover:bg-[#d85b30]/5 transition"
+        className="flex items-center justify-center gap-2 w-full px-6 py-3 rounded-xl bg-white border-2 border-toti-brick text-sm font-bold text-toti-brick hover:bg-toti-brick/5 transition"
       >
         <Download className="h-5 w-5" />
         {t('checkout.download_qr')}

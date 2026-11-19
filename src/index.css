@@ -10,6 +10,30 @@
   }
 }
 
+@layer components {
+  .toti-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-toti-brick px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-all duration-150 hover:bg-toti-brick-hover active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-brick focus-visible:ring-offset-2 disabled:bg-toti-disabled disabled:text-toti-secondary/70 disabled:cursor-not-allowed disabled:active:scale-100 disabled:shadow-none;
+  }
+  .toti-btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-toti-divider bg-white px-5 py-2.5 text-sm font-bold text-toti-ink transition-all duration-150 hover:bg-toti-cream hover:border-toti-brick/50 hover:text-toti-brick active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-brick/30 focus-visible:ring-offset-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100;
+  }
+  .toti-btn-disabled {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-toti-disabled bg-toti-disabled px-5 py-2.5 text-sm font-semibold text-toti-secondary/75 cursor-not-allowed select-none;
+  }
+  .toti-btn-danger-outline {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-toti-error/40 bg-white px-4 py-2 text-sm font-semibold text-toti-error transition-all duration-150 hover:bg-toti-error/15 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-error/40 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .toti-btn-whatsapp {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-[#25D366] bg-[#25D366]/5 px-5 py-2.5 text-sm font-bold text-[#1EBE57] shadow-sm transition-all duration-150 hover:bg-[#25D366]/15 hover:border-[#1EBE57] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#25D366]/40;
+  }
+  .toti-stepper {
+    @apply inline-flex items-center rounded-lg border border-toti-divider bg-white p-0.5;
+  }
+  .toti-stepper-btn {
+    @apply flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-md text-toti-ink transition-colors hover:bg-toti-cream active:bg-toti-beige disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+}
+
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -246,6 +270,51 @@
   }
 }
 
+/* ==========================================================================
+   Toti Home Scroll-Linked CSS Mesh & Flowing Gradient Backdrop
+   ========================================================================== */
+@keyframes toti-home-ambient-drift {
+  0%, 100% {
+    opacity: 0.96;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.toti-home-mesh {
+  --gx: 8%;
+  --gy: 18%;
+  background-image:
+    radial-gradient(58% 50% at var(--gx, 8%) var(--gy, 18%), rgba(224, 160, 78, 0.52) 0%, rgba(224, 160, 78, 0.22) 45%, transparent 74%),
+    radial-gradient(52% 46% at calc(100% - var(--gx, 8%) * 0.72) calc(18% + var(--gy, 18%) * 0.72), rgba(155, 74, 47, 0.30) 0%, rgba(155, 74, 47, 0.12) 45%, transparent 72%),
+    radial-gradient(50% 45% at calc(20% + var(--gx, 8%) * 0.55) calc(82% - var(--gy, 18%) * 0.55), rgba(198, 164, 143, 0.48) 0%, rgba(198, 164, 143, 0.18) 48%, transparent 75%),
+    radial-gradient(45% 40% at calc(85% - var(--gx, 8%) * 0.4) calc(12% + var(--gy, 18%) * 0.35), rgba(201, 122, 61, 0.24) 0%, transparent 70%),
+    linear-gradient(125deg, #F6EFE6 0%, #EFE4D6 35%, #E8DCCB 68%, #F6EFE6 100%);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 240% 240%;
+  background-position: 0 0, 0 0, 0 0, 0 0, var(--gx, 8%) 50%;
+  background-repeat: no-repeat;
+  animation: toti-home-ambient-drift 12s ease-in-out infinite;
+  will-change: background-position;
+}
+
+.toti-buyer-ambient-mesh {
+  background-color: #F6EFE6;
+  background-image:
+    radial-gradient(50% 44% at 10% 14%, rgba(224, 160, 78, 0.28) 0%, rgba(224, 160, 78, 0.10) 48%, transparent 74%),
+    radial-gradient(46% 42% at 90% 20%, rgba(198, 164, 143, 0.32) 0%, rgba(198, 164, 143, 0.10) 50%, transparent 72%),
+    radial-gradient(54% 46% at 50% 86%, rgba(155, 74, 47, 0.14) 0%, transparent 72%),
+    linear-gradient(180deg, #F6EFE6 0%, #F4EAE0 50%, #F6EFE6 100%);
+  background-attachment: fixed;
+  background-size: 100% 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toti-buyer-ambient-mesh {
+    background-attachment: scroll;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-toti-gradient,
   .animate-toti-orb-1,
@@ -259,8 +328,14 @@
   .toti-bounce-dot,
   .toti-bounce-shadow,
   .toti-morph-square,
-  .toti-morph-shadow {
+  .toti-morph-shadow,
+  .toti-home-mesh {
     animation: none !important;
+  }
+  .toti-home-mesh {
+    --gx: 8% !important;
+    --gy: 18% !important;
+    background-position: 0 0, 0 0, 0 0, 0 0, 8% 50% !important;
   }
   .toti-morph-square {
     border-radius: 8px !important;

@@ -56,42 +56,42 @@ const getStatusMap = (
   pending: {
     label: t('orders.status_pending', 'Menunggu'),
     icon: Clock,
-    color: 'text-yellow-600 bg-yellow-50',
+    color: 'text-toti-brick-hover bg-toti-honey/20 ring-toti-warning/30',
   },
   processed: {
     label: t('orders.status_processed', 'Diproses'),
     icon: Package,
-    color: 'text-blue-600 bg-blue-50',
+    color: 'text-toti-secondary bg-toti-alt ring-toti-divider/40',
   },
   shipped: {
     label: t('orders.status_shipped', 'Dikirim'),
     icon: Truck,
-    color: 'text-purple-600 bg-purple-50',
+    color: 'text-toti-cocoa bg-toti-beige ring-toti-divider/40',
   },
   completed: {
     label: t('orders.status_completed', 'Selesai'),
     icon: CheckCircle,
-    color: 'text-green-600 bg-green-50',
+    color: 'text-toti-ink bg-toti-success/20 ring-toti-success/30',
   },
   ready: {
     label: t('orders.status_ready', 'Siap'),
     icon: CheckCircle,
-    color: 'text-teal-600 bg-teal-50',
+    color: 'text-toti-ink bg-toti-success/20 ring-toti-success/30',
   },
   cancelled: {
     label: t('orders.status_cancelled', 'Dibatalkan'),
     icon: XCircle,
-    color: 'text-red-600 bg-red-50',
+    color: 'text-toti-error bg-toti-error/15 ring-toti-error/25',
   },
   refunded: {
     label: t('orders.status_refunded', 'Dikembalikan'),
     icon: XCircle,
-    color: 'text-red-600 bg-red-50',
+    color: 'text-toti-error bg-toti-error/15 ring-toti-error/25',
   },
   cancelled_settlement_expired: {
     label: t('orders.status_cancelled_settlement_expired', 'Batas Waktu Pelunasan Berakhir'),
     icon: XCircle,
-    color: 'text-red-600 bg-red-50',
+    color: 'text-toti-error bg-toti-error/15 ring-toti-error/25',
   },
 })
 
@@ -563,7 +563,7 @@ export default function OrderDetailPage() {
 
     if (status === 'cancelled_settlement_expired' || order.rawStatus === 'cancelled_settlement_expired') {
       return (
-        <span className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold text-red-700 bg-red-100 ring-1 ring-inset ring-red-600/20">
+        <span className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset text-toti-error bg-toti-error/15 ring-toti-error/25">
           <XCircle className="h-4 w-4" />
           {i18n.language === 'en' ? 'Settlement Expired' : 'Batas Waktu Pelunasan Berakhir'}
         </span>
@@ -572,7 +572,7 @@ export default function OrderDetailPage() {
 
     if (status === 'cancelled') {
       return (
-        <span className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold text-red-700 bg-red-100 ring-1 ring-inset ring-red-600/20">
+        <span className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset text-toti-error bg-toti-error/15 ring-toti-error/25">
           <XCircle className="h-4 w-4" />
           {i18n.language === 'en' ? 'Cancelled' : 'Dibatalkan'}
         </span>
@@ -581,7 +581,7 @@ export default function OrderDetailPage() {
 
     if (status === 'refunded') {
       return (
-        <span className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold text-red-700 bg-red-100 ring-1 ring-inset ring-red-600/20">
+        <span className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset text-toti-error bg-toti-error/15 ring-toti-error/25">
           <XCircle className="h-4 w-4" />
           {i18n.language === 'en' ? 'Refunded' : 'Dikembalikan'}
         </span>
@@ -590,7 +590,7 @@ export default function OrderDetailPage() {
 
     if (invStatus === 'unpaid') {
       return (
-        <span className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold text-amber-800 bg-amber-100 ring-1 ring-inset ring-amber-600/20">
+        <span className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset text-toti-brick-hover bg-toti-honey/20 ring-toti-warning/30">
           <Clock className="h-4 w-4" />
           {i18n.language === 'en' ? 'Waiting for Payment' : 'Menunggu Pembayaran'}
         </span>
@@ -599,7 +599,7 @@ export default function OrderDetailPage() {
 
     if ((invStatus === 'partial' || invStatus === 'paid') && (status === 'pending' || (status as string) === 'awaiting_payment')) {
       return (
-        <span className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold text-blue-800 bg-blue-100 ring-1 ring-inset ring-blue-600/20">
+        <span className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset text-toti-brick-hover bg-toti-honey/20 ring-toti-warning/30">
           <Clock className="h-4 w-4" />
           {i18n.language === 'en' ? 'Waiting for Seller Confirmation' : 'Menunggu Konfirmasi Seller'}
         </span>
@@ -621,7 +621,7 @@ export default function OrderDetailPage() {
 
     return (
       <span
-        className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ${info.color}`}
+        className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-bold ring-1 ring-inset ${info.color}`}
       >
         <info.icon className="h-4 w-4" />
         {info.label}
@@ -640,15 +640,15 @@ export default function OrderDetailPage() {
   if (error || !order) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-16 text-center">
-        <XCircle className="mx-auto h-12 w-12 text-red-400" />
+        <XCircle className="mx-auto h-12 w-12 text-toti-error" />
 
-        <h2 className="mt-3 text-xl font-semibold text-gray-700">
+        <h2 className="mt-3 text-xl font-semibold text-toti-ink">
           {error || t('order_detail.not_found')}
         </h2>
 
         <Link
           to={ROUTES.ORDERS}
-          className="mt-4 inline-block text-[#d85b30] transition hover:text-[#c04e28]"
+          className="mt-4 inline-block text-toti-brick transition hover:text-toti-brick-hover"
         >
           {t('order_detail.back_to_list')}
         </Link>
@@ -679,25 +679,25 @@ export default function OrderDetailPage() {
     <div className="mx-auto max-w-4xl px-4 py-8">
       <Link
         to={ROUTES.ORDERS}
-        className="mb-6 flex items-center gap-2 text-sm font-medium text-[#6f5448] transition hover:text-[#4b2417]"
+        className="mb-6 flex items-center gap-2 text-sm font-medium text-toti-secondary transition hover:text-toti-ink"
       >
           <ArrowLeft className="h-4 w-4" />
           {t('order_detail.back_to_list')}
         </Link>
 
-      <div className="overflow-hidden rounded-2xl border border-[#ead8ca] bg-white shadow-sm">
-        <div className="border-b border-[#ead8ca] bg-[#f8f4f0] px-4 py-3 sm:px-6 sm:py-4">
+      <div className="overflow-hidden rounded-2xl border border-toti-divider bg-white shadow-sm">
+        <div className="border-b border-toti-beige bg-toti-cream px-4 py-3 sm:px-6 sm:py-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h1 className="text-xl font-bold text-[#4b2417]">
+              <h1 className="text-xl font-bold text-toti-ink">
                 {order.orderNumber}
               </h1>
 
-              <p className="text-sm text-[#6f5448]">
+              <p className="text-sm text-toti-secondary">
                 {t('order_detail.ordered_on')} {order.date} · {order.time}
               </p>
               {(order.fulfillmentDate || order.fulfillment_date) && (
-                <p className="text-sm font-medium text-[#d85b30] mt-1">
+                <p className="text-sm font-medium text-toti-brick mt-1">
                   {i18n.language === 'en' ? 'Fulfillment Date' : 'Tanggal Pemenuhan'}:{' '}
                   {new Date(order.fulfillment_date || order.fulfillmentDate!).toLocaleDateString(
                     i18n.language === 'en' ? 'en-US' : 'id-ID',
@@ -711,7 +711,7 @@ export default function OrderDetailPage() {
               <div className="flex items-center gap-2 flex-wrap">
                 {getStatusBadge(order)}
                 {isBuyerOrderOverdue(order) && (
-                  <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                  <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold bg-toti-error/15 text-toti-error border border-toti-error/25">
                     {i18n.language === 'en' ? 'Overdue' : 'Terlambat'}
                   </span>
                 )}
@@ -721,7 +721,7 @@ export default function OrderDetailPage() {
                   <button
                     onClick={handleCancelOrder}
                     disabled={isCancelling}
-                    className="flex items-center justify-center gap-1.5 rounded-lg border border-red-500 bg-white px-3 py-1.5 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                    className="toti-btn-danger-outline h-9 px-3.5 text-xs"
                   >
                     {isCancelling ? (
                       <>
@@ -736,7 +736,7 @@ export default function OrderDetailPage() {
                 <button
                   onClick={handleDownloadInvoice}
                   disabled={isDownloading}
-                  className="flex items-center justify-center gap-1.5 rounded-lg border border-[#d85b30] bg-white px-3 py-1.5 text-xs font-semibold text-[#d85b30] transition hover:bg-[#fff9f6] disabled:opacity-50"
+                  className="toti-btn-secondary h-9 px-3.5 text-xs"
                 >
                   {isDownloading ? (
                     <>
@@ -758,27 +758,27 @@ export default function OrderDetailPage() {
         <div className="p-6">
           <div className="grid gap-6 md:grid-cols-2 items-start">
             <div>
-              <div className="rounded-xl border border-[#ead8ca] p-4">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-[#6f5448]">
+              <div className="rounded-xl border border-toti-beige p-4">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-toti-secondary">
                   {t('order_detail.shipping_method')}
                 </h3>
 
                 <div className="mt-3 flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#f3e2d7]">
-                    <methodInfo.icon className="h-5 w-5 text-[#d85b30]" />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-toti-alt">
+                    <methodInfo.icon className="h-5 w-5 text-toti-brick" />
                   </div>
 
                   <div>
-                    <p className="font-medium text-[#4b2417]">
+                    <p className="font-medium text-toti-ink">
                       {t(`orders.method_${order.deliveryMethod}`)}
                     </p>
 
                     {isDelivery && order.address ? (
-                      <p className="text-xs text-[#6f5448]">
+                      <p className="text-xs text-toti-secondary">
                         {order.address}
                       </p>
                     ) : (
-                      <p className="text-xs text-[#6f5448]">
+                      <p className="text-xs text-toti-secondary">
                         Toti Cakery Batam
                       </p>
                     )}
@@ -786,25 +786,25 @@ export default function OrderDetailPage() {
                 </div>
 
                 {isDelivery && (
-                  <div className="mt-3 space-y-1.5 border-t border-[#ead8ca] pt-3 text-xs">
+                  <div className="mt-3 space-y-1.5 border-t border-toti-beige pt-3 text-xs">
                     <div className="flex items-center gap-2">
-                      <User className="h-3.5 w-3.5 text-[#6f5448] shrink-0" />
-                      <span className="font-semibold text-[#4b2417]">
+                      <User className="h-3.5 w-3.5 text-toti-secondary shrink-0" />
+                      <span className="font-semibold text-toti-ink">
                         {order.recipientName || '-'}
                       </span>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <Phone className="h-3.5 w-3.5 text-[#6f5448] shrink-0" />
-                      <span className="text-[#4b2417]">
+                      <Phone className="h-3.5 w-3.5 text-toti-secondary shrink-0" />
+                      <span className="text-toti-ink">
                         {order.recipientPhone || '-'}
                       </span>
                     </div>
 
                     {order.address && (
                       <div className="flex items-start gap-2 pt-0.5">
-                        <MapPin className="h-3.5 w-3.5 text-[#6f5448] shrink-0 mt-0.5" />
-                        <span className="text-[#6f5448] leading-relaxed">
+                        <MapPin className="h-3.5 w-3.5 text-toti-secondary shrink-0 mt-0.5" />
+                        <span className="text-toti-secondary leading-relaxed">
                           {order.address}
                         </span>
                       </div>
@@ -813,18 +813,18 @@ export default function OrderDetailPage() {
                 )}
               </div>
 
-              <div className="mt-4 rounded-xl border border-[#ead8ca] p-4">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-[#6f5448]">
+              <div className="mt-4 rounded-xl border border-toti-beige p-4">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-toti-secondary">
                   {t('order_detail.payment_information')}
                 </h3>
 
                 {countdownStr && (
-                  <div className="mt-3 flex items-center justify-between rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs font-semibold text-amber-900">
+                  <div className="mt-3 flex items-center justify-between rounded-xl bg-toti-honey/15 border border-toti-warning/30 p-3 text-xs font-semibold text-toti-brick-hover">
                     <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4 text-amber-600 animate-pulse shrink-0" />
+                      <Clock className="h-4 w-4 text-toti-brick-hover animate-pulse shrink-0" />
                       <span>{i18n.language === 'en' ? 'Payment expires in:' : 'Batas waktu pembayaran:'}</span>
                     </div>
-                    <span className="font-mono text-sm font-bold text-amber-800 bg-amber-100/80 px-2.5 py-0.5 rounded-lg border border-amber-300">
+                    <span className="font-mono text-sm font-bold text-toti-brick-hover bg-toti-honey/20 px-2.5 py-0.5 rounded-lg border border-toti-warning/40">
                       {countdownStr}
                     </span>
                   </div>
@@ -832,15 +832,15 @@ export default function OrderDetailPage() {
 
                 <div className="mt-3 space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-[#6f5448]">{t('checkout.payment_preference')}</span>
-                    <span className="font-medium capitalize text-[#4b2417]">
+                    <span className="text-toti-secondary">{t('checkout.payment_preference')}</span>
+                    <span className="font-medium capitalize text-toti-ink">
                       {String(order.paymentMethodPreference).toLowerCase() === 'dp' ? t('checkout.pay_dp_label') : t('checkout.pay_full_label')}
                     </span>
                   </div>
 
                   <div className="flex justify-between">
-                    <span className="text-[#6f5448]">{t('order_detail.method')}</span>
-                    <span className="font-medium text-[#4b2417]">
+                    <span className="text-toti-secondary">{t('order_detail.method')}</span>
+                    <span className="font-medium text-toti-ink">
                       {(() => {
                         const rawCandidate =
                           paymentInstructions?.payment_method ||
@@ -863,18 +863,18 @@ export default function OrderDetailPage() {
                   </div>
 
                   <div className="flex justify-between">
-                    <span className="text-[#6f5448]">{t('order_detail.status')}</span>
+                    <span className="text-toti-secondary">{t('order_detail.status')}</span>
                     <span
                       className={`font-medium capitalize ${
                         isOrderCancelled
-                          ? 'text-red-600'
+                          ? 'text-toti-error'
                           : order.paymentStatus === 'paid'
-                            ? 'text-green-600'
+                            ? 'text-toti-ink'
                             : order.paymentStatus === 'partial'
-                              ? 'text-yellow-600'
+                              ? 'text-toti-brick-hover'
                               : order.paymentStatus === 'refunded'
-                                ? 'text-gray-500'
-                                : 'text-red-600'
+                                ? 'text-toti-muted'
+                                : 'text-toti-error'
                       }`}
                     >
                       {isOrderCancelled
@@ -892,31 +892,31 @@ export default function OrderDetailPage() {
                   </div>
 
                   {!isOrderCancelled && (
-                    <div className="flex justify-between border-t border-[#ead8ca] pt-2 font-bold">
-                      <span className="text-[#4b2417]">{t('checkout.due_now')}</span>
-                      <span className="text-red-600">
+                    <div className="flex justify-between border-t border-toti-beige pt-2 font-bold">
+                      <span className="text-toti-ink">{t('checkout.due_now')}</span>
+                      <span className="text-toti-error">
                         {formatRupiah(activePaymentAmount)}
                       </span>
                     </div>
                   )}
                   
-                  <div className={`flex justify-between text-sm ${isOrderCancelled ? 'border-t border-[#ead8ca] pt-2' : 'mt-1'}`}>
-                    <span className="text-[#6f5448]">{t('order_detail.total_paid')}</span>
-                    <span className="text-[#4b2417] font-medium">
+                  <div className={`flex justify-between text-sm ${isOrderCancelled ? 'border-t border-toti-beige pt-2' : 'mt-1'}`}>
+                    <span className="text-toti-secondary">{t('order_detail.total_paid')}</span>
+                    <span className="text-toti-ink font-medium">
                       {formatRupiah(order.amountPaid || 0)}
                     </span>
                   </div>
                   
                   <div className="flex justify-between mt-1 text-sm">
-                    <span className="text-[#6f5448]">{t('order_detail.remaining_bill')}</span>
-                    <span className="text-[#4b2417] font-medium">
+                    <span className="text-toti-secondary">{t('order_detail.remaining_bill')}</span>
+                    <span className="text-toti-ink font-medium">
                       {formatRupiah(isOrderCancelled ? 0 : (order.amountDue || 0))}
                     </span>
                   </div>
                   
                   <div className="flex justify-between mt-1 text-sm font-bold">
-                    <span className="text-[#4b2417]">{t('order_detail.total')}</span>
-                    <span className="text-[#d85b30]">
+                    <span className="text-toti-ink">{t('order_detail.total')}</span>
+                    <span className="text-toti-brick">
                       {formatRupiah(isOrderCancelled && (order.amountPaid || 0) === 0 ? 0 : order.total)}
                     </span>
                   </div>
@@ -924,11 +924,11 @@ export default function OrderDetailPage() {
 
                 {/* Pembayaran Tagihan (Unpaid / Partial) */}
                 {!isOrderCancelled && (order.paymentStatus === 'unpaid' || (order.paymentStatus === 'partial' && order.amountDue !== undefined && order.amountDue > 0)) && !paymentInstructions && (
-                  <div className="mt-4 border-t border-[#ead8ca] pt-4">
+                  <div className="mt-4 border-t border-toti-beige pt-4">
                     {!showPayRemaining ? (
                       <button
                         onClick={() => setShowPayRemaining(true)}
-                        className="flex h-10 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white transition hover:bg-[#c04e28]"
+                        className="toti-btn-primary w-full h-10"
                       >
                         {order.paymentStatus === 'unpaid' ? t('checkout.continue_payment') : t('order_detail.pay_remaining')}
                       </button>
@@ -943,14 +943,14 @@ export default function OrderDetailPage() {
                           <button
                             onClick={() => setShowPayRemaining(false)}
                             disabled={isPayingRemaining}
-                            className="flex-1 h-10 rounded-xl border border-gray-300 text-sm font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                            className="toti-btn-secondary flex-1 h-10"
                           >
                             {t('order_detail.cancel')}
                           </button>
                           <button
                             onClick={handlePayRemaining}
                             disabled={isPayingRemaining}
-                            className="flex-[2] flex h-10 items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white transition hover:bg-[#c04e28] disabled:opacity-60"
+                            className="toti-btn-primary flex-[2] h-10"
                           >
                             {isPayingRemaining ? (
                               <>
@@ -969,12 +969,12 @@ export default function OrderDetailPage() {
               </div>
 
               {order.notes && (
-                <div className="mt-4 rounded-xl border border-[#ead8ca] p-4">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-[#6f5448]">
+                <div className="mt-4 rounded-xl border border-toti-beige p-4">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-toti-secondary">
                     {t('order_detail.notes')}
                   </h3>
 
-                  <p className="mt-2 text-sm text-[#6f5448]">
+                  <p className="mt-2 text-sm text-toti-secondary">
                     {order.notes}
                   </p>
                 </div>
@@ -982,35 +982,35 @@ export default function OrderDetailPage() {
             </div>
 
             <div>
-              <div className="rounded-xl border border-[#ead8ca] p-4">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-[#6f5448]">
+              <div className="rounded-xl border border-toti-beige p-4">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-toti-secondary">
                   {t('order_detail.items')} ({order.items.length})
                 </h3>
 
                 <div className="mt-3 space-y-2">
                   {order.items.length === 0 ? (
-                    <p className="text-sm text-[#6f5448]">
+                    <p className="text-sm text-toti-secondary">
                       {t('order_detail.item_unavailable')}
                     </p>
                   ) : (
                     order.items.map((item) => (
                       <div
                         key={item.id}
-                        className="flex justify-between border-b border-[#ead8ca] pb-2 text-sm"
+                        className="flex justify-between border-b border-toti-beige pb-2 text-sm"
                       >
                         <div>
-                          <p className="font-medium text-[#4b2417]">
+                          <p className="font-medium text-toti-ink">
                             {item.productName}
                           </p>
 
-                          <p className="text-xs text-[#8b7166]">
+                          <p className="text-xs text-toti-muted">
                             {item.variantName} · {item.quantity} pcs
                           </p>
 
                           {item.customizations && item.customizations.length > 0 && (
-                            <div className="mt-1 space-y-0.5 pl-2 border-l-2 border-[#d0bfaf]">
+                            <div className="mt-1 space-y-0.5 pl-2 border-l-2 border-toti-divider">
                               {item.customizations.map((c, cIdx) => (
-                                <p key={c.id || `${c.stock_item_id}-${cIdx}`} className="text-xs text-[#6f5448]">
+                                <p key={c.id || `${c.stock_item_id}-${cIdx}`} className="text-xs text-toti-secondary">
                                   &bull; {c.stock_item_name} ({c.quantity} {c.unit})
                                 </p>
                               ))}
@@ -1018,7 +1018,7 @@ export default function OrderDetailPage() {
                           )}
 
                           {item.custom_decoration_charge !== undefined && Number(item.custom_decoration_charge) > 0 && (
-                            <p className="text-xs text-[#9b4a2f] font-medium mt-0.5">
+                            <p className="text-xs text-toti-brick font-medium mt-0.5">
                               + Custom Decoration: {formatRupiah(item.custom_decoration_charge)}
                             </p>
                           )}
@@ -1027,20 +1027,20 @@ export default function OrderDetailPage() {
                             <div className="mt-2 space-y-2">
                               {reviewedProductIds.has(item.productId) ? (
                                 <div>
-                                  <span className="text-xs font-semibold text-green-600 flex items-center gap-1">
-                                    <CheckCircle className="h-3.5 w-3.5" />
+                                  <span className="text-xs font-semibold text-toti-ink flex items-center gap-1">
+                                    <CheckCircle className="h-3.5 w-3.5 text-toti-success" />
                                     {t('review.already_reviewed')}
                                   </span>
                                   {orderReviewsMap[item.productId] && (
-                                    <div className="mt-1 text-xs text-[#6f5448] bg-[#f8f4f0] p-2.5 rounded-lg border border-[#ead8ca]">
-                                      <div className="flex items-center gap-1 text-[#f59e0b] font-bold mb-1">
+                                    <div className="mt-1 text-xs text-toti-secondary bg-toti-cream p-2.5 rounded-lg border border-toti-beige">
+                                      <div className="flex items-center gap-1 text-toti-honey font-bold mb-1">
                                         {'★'.repeat(orderReviewsMap[item.productId].rating)}
                                       </div>
                                       <p>{orderReviewsMap[item.productId].comment}</p>
                                       {orderReviewsMap[item.productId].images && orderReviewsMap[item.productId].images!.length > 0 && (
                                         <div className="mt-2 flex flex-wrap gap-2">
                                           {orderReviewsMap[item.productId].images!.map((img) => (
-                                            <div key={img.id} className="relative group h-12 w-12 rounded-lg overflow-hidden border border-[#ead8ca]">
+                                            <div key={img.id} className="relative group h-12 w-12 rounded-lg overflow-hidden border border-toti-beige">
                                               <img
                                                 src={img.image_url}
                                                 alt="Review"
@@ -1052,7 +1052,7 @@ export default function OrderDetailPage() {
                                                 onClick={() => handleDeleteReviewImage(orderReviewsMap[item.productId!].id, img.id, item.productId!)}
                                                 disabled={deletingImageId === img.id}
                                                 title={t('review.remove_photo')}
-                                                className="absolute top-0.5 right-0.5 bg-red-600/80 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition hover:bg-red-700"
+                                                className="absolute top-0.5 right-0.5 bg-toti-error/80 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition hover:bg-toti-error"
                                               >
                                                 {deletingImageId === img.id ? (
                                                   <Loader2 className="h-3 w-3 animate-spin" />
@@ -1070,7 +1070,7 @@ export default function OrderDetailPage() {
                               ) : (
                                 <button
                                   onClick={() => setReviewModalItem({ productId: item.productId!, productName: item.productName })}
-                                  className="flex items-center gap-1 rounded-md border border-[#d85b30] px-2 py-1 text-xs font-semibold text-[#d85b30] transition hover:bg-[#fff9f6]"
+                                  className="toti-btn-secondary h-9 px-3.5 text-xs"
                                 >
                                   <Star className="h-3.5 w-3.5" />
                                   {t('review.give_review')}
@@ -1080,7 +1080,7 @@ export default function OrderDetailPage() {
                           )}
                         </div>
 
-                        <span className="text-[#6f5448]">
+                        <span className="text-toti-secondary">
                           {formatRupiah(item.subtotal)}
                         </span>
                       </div>
@@ -1088,25 +1088,25 @@ export default function OrderDetailPage() {
                   )}
                 </div>
 
-                <div className="mt-4 space-y-1 border-t border-[#ead8ca] pt-3 text-sm">
+                <div className="mt-4 space-y-1 border-t border-toti-beige pt-3 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-[#6f5448]">{t('order_detail.subtotal')}</span>
-                    <span className="text-[#4b2417]">
+                    <span className="text-toti-secondary">{t('order_detail.subtotal')}</span>
+                    <span className="text-toti-ink">
                       {formatRupiah(order.subtotal)}
                     </span>
                   </div>
 
                   {order.accessories && order.accessories.length > 0 && (
-                    <div className="py-2 my-1 border-y border-[#ead8ca]/50 space-y-1">
-                      <p className="text-xs font-bold text-[#6f5448] uppercase tracking-wide">
+                    <div className="py-2 my-1 border-y border-toti-beige/50 space-y-1">
+                      <p className="text-xs font-bold text-toti-secondary uppercase tracking-wide">
                         Accessories ({order.accessories.length})
                       </p>
                       {order.accessories.map((acc, aIdx) => (
-                        <div key={acc.id || `${acc.stock_item_id}-${aIdx}`} className="flex justify-between text-xs text-[#6f5448]">
+                        <div key={acc.id || `${acc.stock_item_id}-${aIdx}`} className="flex justify-between text-xs text-toti-secondary">
                           <span>
                             {acc.stock_item_name} ({acc.quantity} {acc.unit})
                           </span>
-                          <span className="font-semibold text-[#4b2417]">
+                          <span className="font-semibold text-toti-ink">
                             {formatRupiah(Number(acc.subtotal || 0))}
                           </span>
                         </div>
@@ -1116,10 +1116,10 @@ export default function OrderDetailPage() {
 
                   {order.deliveryMethod !== 'pickup' && (
                     <div className="flex justify-between">
-                      <span className="text-[#6f5448]">
+                      <span className="text-toti-secondary">
                         {t('order_detail.shipping_fee')}
                       </span>
-                      <span className="text-sm text-[#8b7166]">
+                      <span className="text-sm text-toti-muted">
                         {t('order_detail.calculated_via_wa')}
                       </span>
                     </div>
@@ -1127,46 +1127,46 @@ export default function OrderDetailPage() {
 
                   {order.serviceFee > 0 && (
                     <div className="flex justify-between">
-                      <span className="text-[#6f5448]">{t('order_detail.service_fee')}</span>
-                      <span className="text-[#4b2417]">
+                      <span className="text-toti-secondary">{t('order_detail.service_fee')}</span>
+                      <span className="text-toti-ink">
                         {formatRupiah(order.serviceFee)}
                       </span>
                     </div>
                   )}
 
-                  <div className="flex justify-between border-t border-[#ead8ca] pt-2 font-bold">
-                    <span className="text-[#4b2417]">{t('order_detail.total', 'Total')}</span>
-                    <span className={isOrderCancelled ? "text-gray-400 line-through text-sm font-normal" : "text-[#d85b30]"}>
+                  <div className="flex justify-between border-t border-toti-beige pt-2 font-bold">
+                    <span className="text-toti-ink">{t('order_detail.total', 'Total')}</span>
+                    <span className={isOrderCancelled ? "text-toti-muted line-through text-sm font-normal" : "text-toti-brick"}>
                       {formatRupiah(order.total)}
                     </span>
                   </div>
                   {order.amountPaid !== undefined && (
                     <div className="flex justify-between mt-1 text-sm">
-                      <span className="text-[#6f5448]">{t('order_detail.total_paid', 'Total Dibayar')}</span>
-                      <span className="text-[#4b2417] font-medium">
+                      <span className="text-toti-secondary">{t('order_detail.total_paid', 'Total Dibayar')}</span>
+                      <span className="text-toti-ink font-medium">
                         {formatRupiah(order.amountPaid)}
                       </span>
                     </div>
                   )}
                   {order.amountDue !== undefined && !isOrderCancelled && (
                     <div className="flex justify-between mt-1 text-sm font-bold">
-                      <span className="text-[#4b2417]">{t('order_detail.remaining_bill', 'Sisa Tagihan')}</span>
-                      <span className="text-red-600">
+                      <span className="text-toti-ink">{t('order_detail.remaining_bill', 'Sisa Tagihan')}</span>
+                      <span className="text-toti-error">
                         {formatRupiah(order.amountDue)}
                       </span>
                     </div>
                   )}
 
                   {order.deliveryMethod !== 'pickup' && (
-                    <p className="mt-2 text-center text-xs text-[#8b7166]">
+                    <p className="mt-2 text-center text-xs text-toti-muted">
                       {t('order_detail.shipping_fee_note')}
                     </p>
                   )}
                 </div>
               </div>
 
-              <div className="mt-4 rounded-xl border border-[#ead8ca] p-4">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-[#6f5448]">
+              <div className="mt-4 rounded-xl border border-toti-beige p-4">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-toti-secondary">
                   {t('order_detail.status')}
                 </h3>
 
@@ -1175,12 +1175,12 @@ export default function OrderDetailPage() {
                   {!isOrderCancelled && needsPayment && paymentInstructions && (
                     <div className="mb-4 grid gap-4">
                       {countdownStr && (
-                        <div className="flex items-center justify-between rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs font-semibold text-amber-900">
+                        <div className="flex items-center justify-between rounded-xl bg-toti-honey/15 border border-toti-warning/30 p-3 text-xs font-semibold text-toti-brick-hover">
                           <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-amber-600 animate-pulse shrink-0" />
+                            <Clock className="h-4 w-4 text-toti-brick-hover animate-pulse shrink-0" />
                             <span>{i18n.language === 'en' ? 'Payment expires in:' : 'Batas waktu pembayaran:'}</span>
                           </div>
-                          <span className="font-mono text-sm font-bold text-amber-800 bg-amber-100/80 px-2.5 py-0.5 rounded-lg border border-amber-300">
+                          <span className="font-mono text-sm font-bold text-toti-brick-hover bg-toti-honey/20 px-2.5 py-0.5 rounded-lg border border-toti-warning/40">
                             {countdownStr}
                           </span>
                         </div>
@@ -1200,15 +1200,15 @@ export default function OrderDetailPage() {
 
                   <div className="flex items-center gap-3">
 
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-toti-success/20">
+                      <CheckCircle className="h-4 w-4 text-toti-success" />
                     </div>
 
                     <div>
-                      <p className="text-sm font-medium text-[#4b2417]">
+                      <p className="text-sm font-medium text-toti-ink">
                         {t('order_detail.status_created')}
                       </p>
-                      <p className="text-xs text-[#6f5448]">
+                      <p className="text-xs text-toti-secondary">
                         {order.date} · {order.time}
                       </p>
                     </div>
@@ -1219,15 +1219,15 @@ export default function OrderDetailPage() {
                     order.status === 'ready' ||
                     order.status === 'completed') && (
                     <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100">
-                        <Package className="h-4 w-4 text-blue-600" />
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-toti-alt">
+                        <Package className="h-4 w-4 text-toti-secondary" />
                       </div>
 
                       <div>
-                        <p className="text-sm font-medium text-[#4b2417]">
+                        <p className="text-sm font-medium text-toti-ink">
                           {t('orders.status_processed')}
                         </p>
-                        <p className="text-xs text-[#6f5448]">
+                        <p className="text-xs text-toti-secondary">
                           {t('order_detail.estimated_completion')}: {order.estimatedDate || '-'}
                         </p>
                       </div>
@@ -1238,12 +1238,12 @@ export default function OrderDetailPage() {
                     order.status === 'shipped' ||
                     order.status === 'completed') && (
                     <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-teal-100">
-                        <CheckCircle className="h-4 w-4 text-teal-600" />
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-toti-success/20">
+                        <CheckCircle className="h-4 w-4 text-toti-success" />
                       </div>
 
                       <div>
-                        <p className="text-sm font-medium text-[#4b2417]">
+                        <p className="text-sm font-medium text-toti-ink">
                           {order.deliveryMethod === 'pickup' ? t('order_detail.ready_pickup') : t('order_detail.ready_delivery')}
                         </p>
                       </div>
@@ -1253,12 +1253,12 @@ export default function OrderDetailPage() {
                   {(order.status === 'shipped' ||
                     order.status === 'completed') && order.deliveryMethod !== 'pickup' && (
                     <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100">
-                        <Truck className="h-4 w-4 text-purple-600" />
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-toti-beige">
+                        <Truck className="h-4 w-4 text-toti-cocoa" />
                       </div>
 
                       <div>
-                        <p className="text-sm font-medium text-[#4b2417]">
+                        <p className="text-sm font-medium text-toti-ink">
                           {t('order_detail.in_delivery')}
                         </p>
                       </div>
@@ -1267,15 +1267,15 @@ export default function OrderDetailPage() {
 
                   {order.status === 'completed' && (
                     <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100">
-                        <CheckCircle className="h-4 w-4 text-green-600" />
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-toti-success/20">
+                        <CheckCircle className="h-4 w-4 text-toti-success" />
                       </div>
 
                       <div>
-                        <p className="text-sm font-medium text-[#4b2417]">
+                        <p className="text-sm font-medium text-toti-ink">
                           {t('order_detail.status_completed')}
                         </p>
-                        <p className="text-xs text-[#6f5448]">
+                        <p className="text-xs text-toti-secondary">
                           {order.completedDate || order.date}
                         </p>
                       </div>
@@ -1284,12 +1284,12 @@ export default function OrderDetailPage() {
 
                   {order.status === 'cancelled' && (
                     <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100">
-                        <XCircle className="h-4 w-4 text-red-600" />
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-toti-error/15">
+                        <XCircle className="h-4 w-4 text-toti-error" />
                       </div>
 
                       <div>
-                        <p className="text-sm font-medium text-[#4b2417]">
+                        <p className="text-sm font-medium text-toti-ink">
                           {t('order_detail.status_cancelled')}
                         </p>
                       </div>
@@ -1298,12 +1298,12 @@ export default function OrderDetailPage() {
 
                   {(order.status === 'cancelled_settlement_expired' || order.rawStatus === 'cancelled_settlement_expired') && (
                     <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100">
-                        <XCircle className="h-4 w-4 text-red-600" />
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-toti-error/15">
+                        <XCircle className="h-4 w-4 text-toti-error" />
                       </div>
 
                       <div>
-                        <p className="text-sm font-medium text-[#4b2417]">
+                        <p className="text-sm font-medium text-toti-ink">
                           {i18n.language === 'en' ? 'Order Cancelled (Settlement Expired)' : 'Pesanan Dibatalkan (Batas Waktu Pelunasan Berakhir)'}
                         </p>
                       </div>
@@ -1312,12 +1312,12 @@ export default function OrderDetailPage() {
 
                   {order.status === 'refunded' && (
                     <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100">
-                        <XCircle className="h-4 w-4 text-red-600" />
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-toti-error/15">
+                        <XCircle className="h-4 w-4 text-toti-error" />
                       </div>
 
                       <div>
-                        <p className="text-sm font-medium text-[#4b2417]">
+                        <p className="text-sm font-medium text-toti-ink">
                           {t('order_detail.status_refunded')}
                         </p>
                       </div>
@@ -1333,20 +1333,20 @@ export default function OrderDetailPage() {
       {reviewModalItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-4 sm:p-6 shadow-xl max-h-[90dvh] overflow-y-auto">
-            <h2 className="text-lg font-bold text-[#4b2417]">
+            <h2 className="text-lg font-bold text-toti-ink">
               {t('review.give_review')} — {reviewModalItem.productName}
             </h2>
 
             {reviewError && (
-              <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700 flex items-center gap-2">
+              <div className="mt-4 rounded-lg bg-toti-error/15 p-3 text-sm text-toti-error flex items-center gap-2">
                 <XCircle className="h-4 w-4" />
                 {reviewError}
               </div>
             )}
 
             <div className="mt-6">
-              <label className="mb-2 block text-center text-sm font-semibold text-[#4b2417]">
-                {t('review.rating_label', 'Penilaian')} <span className="text-red-500 ml-0.5" aria-hidden="true">*</span>
+              <label className="mb-2 block text-center text-sm font-semibold text-toti-ink">
+                {t('review.rating_label', 'Penilaian')} <span className="text-toti-error ml-0.5" aria-hidden="true">*</span>
               </label>
               <div className="flex justify-center gap-2">
                 {[1, 2, 3, 4, 5].map((star) => (
@@ -1360,8 +1360,8 @@ export default function OrderDetailPage() {
                     <Star
                       className={`h-8 w-8 ${
                         reviewRating >= star
-                          ? 'fill-[#f59e0b] text-[#f59e0b]'
-                          : 'text-gray-300'
+                          ? 'fill-toti-honey text-toti-honey'
+                          : 'text-toti-disabled'
                       }`}
                     />
                   </button>
@@ -1370,8 +1370,8 @@ export default function OrderDetailPage() {
             </div>
 
             <div className="mt-6">
-              <label htmlFor="review-comment" className="mb-2 block text-sm font-semibold text-[#6f5448]">
-                {t('review.product_review')} <span className="text-xs font-normal text-stone-400 ml-1">({t('common.optional', 'Opsional')})</span>
+              <label htmlFor="review-comment" className="mb-2 block text-sm font-semibold text-toti-secondary">
+                {t('review.product_review')} <span className="text-xs font-normal text-toti-muted ml-1">({t('common.optional', 'Opsional')})</span>
               </label>
               <textarea
                 id="review-comment"
@@ -1379,24 +1379,24 @@ export default function OrderDetailPage() {
                 value={reviewComment}
                 onChange={(e) => setReviewComment(e.target.value)}
                 placeholder={t('review.placeholder')}
-                className="w-full rounded-xl border border-[#ead8ca] p-3 text-sm outline-none focus:border-[#d85b30] focus:ring-1 focus:ring-[#d85b30]"
+                className="w-full rounded-xl border border-toti-beige p-3 text-sm outline-none focus:border-toti-brick focus:ring-1 focus:ring-toti-brick"
               ></textarea>
             </div>
 
             {/* Photo Upload Section */}
             <div className="mt-5">
-              <label className="mb-2 block text-sm font-semibold text-[#6f5448]">
-                {t('review.review_photos')} <span className="text-xs font-normal text-stone-400 ml-1">({t('common.optional', 'Opsional')})</span>
+              <label className="mb-2 block text-sm font-semibold text-toti-secondary">
+                {t('review.review_photos')} <span className="text-xs font-normal text-toti-muted ml-1">({t('common.optional', 'Opsional')})</span>
               </label>
               
               <div className="flex flex-wrap gap-2.5 items-center">
                 {selectedImagePreviews.map((previewUrl, index) => (
-                  <div key={index} className="relative h-16 w-16 rounded-xl overflow-hidden border border-[#ead8ca] group">
+                  <div key={index} className="relative h-16 w-16 rounded-xl overflow-hidden border border-toti-beige group">
                     <img src={previewUrl} alt={`Preview ${index + 1}`} className="h-full w-full object-cover" />
                     <button
                       type="button"
                       onClick={() => handleRemoveSelectedImage(index)}
-                      className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 hover:bg-red-600 transition"
+                      className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 hover:bg-toti-error transition"
                       title={t('review.remove_photo')}
                     >
                       <X className="h-3.5 w-3.5" />
@@ -1404,7 +1404,7 @@ export default function OrderDetailPage() {
                   </div>
                 ))}
 
-                <label className="flex h-16 w-16 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#ead8ca] bg-[#f8f4f0] text-[#6f5448] transition hover:border-[#d85b30] hover:text-[#d85b30]">
+                <label className="flex h-16 w-16 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-toti-beige bg-toti-cream text-toti-secondary transition hover:border-toti-brick hover:text-toti-brick">
                   <Upload className="h-5 w-5 mb-0.5" />
                   <span className="text-[10px] font-bold">{t('review.add_photos')}</span>
                   <input
@@ -1416,7 +1416,7 @@ export default function OrderDetailPage() {
                   />
                 </label>
               </div>
-              <p className="mt-1.5 text-[11px] text-[#8b7166]">
+              <p className="mt-1.5 text-[11px] text-toti-muted">
                 {t('order_detail.upload_file_hint', 'JPG, PNG, WEBP (Maks 5 MB per file)')}
               </p>
             </div>
@@ -1425,14 +1425,14 @@ export default function OrderDetailPage() {
               <button
                 onClick={closeReviewModal}
                 disabled={isSubmittingReview}
-                className="flex-1 rounded-xl border border-gray-300 py-2.5 text-sm font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-50"
+                className="toti-btn-secondary flex-1 h-10"
               >
                 {t('review.cancel')}
               </button>
               <button
                 onClick={handleSubmitReview}
                 disabled={isSubmittingReview || reviewRating === 0}
-                className="flex flex-1 items-center justify-center rounded-xl bg-[#d85b30] py-2.5 text-sm font-bold text-white hover:bg-[#c04e28] disabled:opacity-60"
+                className="toti-btn-primary flex-1 h-10"
               >
                 {isSubmittingReview ? (
                   <>
@@ -1458,7 +1458,7 @@ export default function OrderDetailPage() {
             <img src={selectedLightBoxUrl} alt="Enlarged review photo" className="max-w-full max-h-[85vh] rounded-lg object-contain" />
             <button
               onClick={() => setSelectedLightBoxUrl(null)}
-              className="absolute -top-10 right-0 text-white hover:text-gray-300 focus:outline-none"
+              className="absolute -top-10 right-0 text-white hover:text-toti-beige focus:outline-none"
             >
               <X className="h-7 w-7" />
             </button>
