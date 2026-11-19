@@ -28,7 +28,7 @@ export function BuyerFooter() {
   }
 
   return (
-    <footer className="hidden md:block mt-10 border-t border-[#D0BFAF] bg-white">
+    <footer className="hidden md:block mt-10 border-t border-toti-divider bg-white">
       <div className="mx-auto max-w-7xl px-6 py-10 lg:px-8">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-5">
           <div>
@@ -39,19 +39,19 @@ export function BuyerFooter() {
                 className="h-10 w-auto object-contain"
               />
             </div>
-            <p className="mt-3 text-xs text-[#6B4A3C]">
+            <p className="mt-3 text-xs text-toti-secondary">
               {t('footer.motto')}
             </p>
           </div>
 
           <div>
-            <h4 className="text-sm font-black text-[#3A1F16]">{t('footer.about_us')}</h4>
-            <ul className="mt-3 space-y-2 text-xs text-[#6B4A3C]">
+            <h4 className="text-sm font-black text-toti-ink">{t('footer.about_us')}</h4>
+            <ul className="mt-3 space-y-2 text-xs text-toti-secondary">
               <li>
                 <Link
                   to={ROUTES.CATALOG}
                   onClick={handleTopClick}
-                  className="hover:text-[#9B4A2F] transition"
+                  className="hover:text-toti-brick transition"
                 >
                   {t('footer.products')}
                 </Link>
@@ -60,7 +60,7 @@ export function BuyerFooter() {
                 <a
                   href="/#our-store"
                   onClick={handleOurStoreClick}
-                  className="hover:text-[#9B4A2F] transition"
+                  className="hover:text-toti-brick transition"
                 >
                   {t('footer.our_store')}
                 </a>
@@ -69,13 +69,13 @@ export function BuyerFooter() {
           </div>
 
           <div>
-            <h4 className="text-sm font-black text-[#3A1F16]">{t('footer.help')}</h4>
-            <ul className="mt-3 space-y-2 text-xs text-[#6B4A3C]">
+            <h4 className="text-sm font-black text-toti-ink">{t('footer.help')}</h4>
+            <ul className="mt-3 space-y-2 text-xs text-toti-secondary">
               <li>
                 <Link
                   to={ROUTES.HOW_TO_SHOP}
                   onClick={handleTopClick}
-                  className="hover:text-[#9B4A2F] transition"
+                  className="hover:text-toti-brick transition"
                 >
                   {t('footer.how_to_shop')}
                 </Link>
@@ -84,7 +84,7 @@ export function BuyerFooter() {
                 <Link
                   to={ROUTES.PAYMENT_GUIDE}
                   onClick={handleTopClick}
-                  className="hover:text-[#9B4A2F] transition"
+                  className="hover:text-toti-brick transition"
                 >
                   {t('footer.payment_guide')}
                 </Link>
@@ -93,7 +93,7 @@ export function BuyerFooter() {
                 <Link
                   to={ROUTES.BUYER_FAQ}
                   onClick={handleTopClick}
-                  className="hover:text-[#9B4A2F] transition"
+                  className="hover:text-toti-brick transition"
                 >
                   {t('footer.faq')}
                 </Link>
@@ -102,13 +102,13 @@ export function BuyerFooter() {
           </div>
 
           <div>
-            <h4 className="text-sm font-black text-[#3A1F16]">{t('footer.policies')}</h4>
-            <ul className="mt-3 space-y-2 text-xs text-[#6B4A3C]">
+            <h4 className="text-sm font-black text-toti-ink">{t('footer.policies')}</h4>
+            <ul className="mt-3 space-y-2 text-xs text-toti-secondary">
               <li>
                 <Link
                   to={ROUTES.SHIPPING}
                   onClick={handleTopClick}
-                  className="hover:text-[#9B4A2F] transition"
+                  className="hover:text-toti-brick transition"
                 >
                   {t('footer.shipping')}
                 </Link>
@@ -117,7 +117,7 @@ export function BuyerFooter() {
                 <Link
                   to={ROUTES.PRIVACY}
                   onClick={handleTopClick}
-                  className="hover:text-[#9B4A2F] transition"
+                  className="hover:text-toti-brick transition"
                 >
                   {t('footer.privacy')}
                 </Link>
@@ -126,7 +126,7 @@ export function BuyerFooter() {
                 <Link
                   to={ROUTES.TERMS}
                   onClick={handleTopClick}
-                  className="hover:text-[#9B4A2F] transition"
+                  className="hover:text-toti-brick transition"
                 >
                   {t('footer.terms')}
                 </Link>
@@ -135,7 +135,7 @@ export function BuyerFooter() {
           </div>
 
           <div>
-            <h4 className="text-sm font-black text-[#3A1F16]">{t('footer.social_media')}</h4>
+            <h4 className="text-sm font-black text-toti-ink">{t('footer.social_media')}</h4>
             <div className="mt-3 space-y-3">
               <a
                 href="https://instagram.com/toti.cakery"
@@ -144,7 +144,7 @@ export function BuyerFooter() {
                 className="flex items-center gap-3 transition hover:opacity-80"
               >
                 <img src={instagramIcon} alt="Instagram" className="h-7 w-7" />
-                <span className="text-xs text-[#6B4A3C] hover:text-[#9B4A2F]">
+                <span className="text-xs text-toti-secondary hover:text-toti-brick">
                   @toti.cakery
                 </span>
               </a>
@@ -156,7 +156,7 @@ export function BuyerFooter() {
                 className="flex items-center gap-3 transition hover:opacity-80"
               >
                 <img src={whatsappIcon} alt="WhatsApp" className="h-7 w-7" />
-                <span className="text-xs text-[#6B4A3C] hover:text-[#9B4A2F]">
+                <span className="text-xs text-toti-secondary hover:text-toti-brick">
                   {whatsappNumberDisplay}
                 </span>
               </a>
@@ -164,7 +164,7 @@ export function BuyerFooter() {
           </div>
         </div>
 
-        <div className="mt-8 border-t border-[#D0BFAF] pt-5 text-center text-xs text-[#9C8478]">
+        <div className="mt-8 border-t border-toti-divider pt-5 text-center text-xs text-toti-muted">
           COPYRIGHT ©2026 TOTI CAKERY <br className="sm:hidden" /> ALL RIGHTS RESERVED
         </div>
       </div>

@@ -15,13 +15,13 @@ export function BuyerBottomNav() {
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
     [
       'flex flex-1 flex-col items-center justify-center py-2 text-[10px] font-semibold transition-colors',
-      isActive ? 'text-[#9B4A2F]' : 'text-[#7D6E65] hover:text-[#3A1F16]',
+      isActive ? 'text-toti-brick' : 'text-toti-muted hover:text-toti-ink',
     ].join(' ')
 
   return (
     <nav
       aria-label={t('nav.mobile_nav', 'Navigasi Mobile')}
-      className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#EAD8CA] pb-[env(safe-area-inset-bottom)] md:hidden"
+      className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-toti-beige pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       <div className="flex h-14 items-center justify-around px-2">
         <NavLink to={ROUTES.HOME} className={navLinkClass}>
@@ -38,7 +38,7 @@ export function BuyerBottomNav() {
           <div className="relative">
             <ShoppingCart className="h-5 w-5 mb-0.5" />
             {totalItems > 0 && (
-              <span className="absolute -right-2.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#9B4A2F] px-1 text-[9px] font-bold leading-none text-white">
+              <span className="absolute -right-2.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-toti-brick px-1 text-[9px] font-bold leading-none text-white">
                 {totalItems}
               </span>
             )}

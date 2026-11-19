@@ -4,11 +4,20 @@ export default {
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
+  safelist: [
+    'bg-toti-success/15',
+    'bg-toti-error/15',
+    'bg-toti-warning/15',
+    'bg-toti-honey/15',
+  ],
   theme: {
     extend: {
       fontFamily: {
         display: ['Fredoka', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
         sans: ['Nunito', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'sans-serif'],
+      },
+      opacity: {
+        15: '0.15',
       },
       colors: {
         toti: {
