@@ -28,6 +28,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Lock,
+  ZoomIn,
 } from 'lucide-react';
 import { SellerSortDropdown } from '@/components/ui/SellerSortDropdown';
 import { SellerFilterDropdown } from '@/components/ui/SellerFilterDropdown';
@@ -64,6 +65,7 @@ import {
   type WhatsAppStatus
 } from "@/services/whatsappService";
 import ImageCropper from '@/components/common/ImageCropper';
+import { PhotoLightboxModal } from '@/components/common/PhotoLightboxModal';
 import { roleLabel } from '@/lib/roles';
 
 // ============================================================
@@ -1766,7 +1768,7 @@ function EmailSenderTab() {
           <button
             type="button"
             onClick={() => setIsEditing(true)}
-            className="inline-flex items-center gap-2 rounded-lg border border-[#d0bfaf] bg-white px-4 py-2 text-sm font-semibold text-[#d85b30] shadow-xs hover:bg-[#fff7f2] hover:border-[#d85b30] transition self-start sm:self-auto"
+            className="inline-flex items-center gap-2 rounded-lg border border-[#d0bfaf] bg-white px-4 py-2 text-sm font-semibold text-[#d85b30] shadow-sm hover:bg-[#fff7f2] hover:border-[#d85b30] transition self-start sm:self-auto"
           >
             <Edit className="h-4 w-4" />
             Edit
@@ -1774,7 +1776,7 @@ function EmailSenderTab() {
         </div>
 
         <div className="max-w-xl space-y-5">
-          <div className="rounded-xl border border-[#d0bfaf]/60 bg-[#fbf9f8] p-5 space-y-4 shadow-xs">
+          <div className="rounded-xl border border-[#d0bfaf]/60 bg-[#fbf9f8] p-5 space-y-4 shadow-sm">
             <div>
               <span className="block text-xs font-bold uppercase tracking-wider text-[#6f5448]">From Name</span>
               <p className="mt-1 text-base font-semibold text-[#4b2417]">{fromName || '—'}</p>
@@ -1801,7 +1803,7 @@ function EmailSenderTab() {
             {fromEmail && (
               <div className="border-t border-[#d0bfaf]/40 pt-4">
                 <span className="block text-xs font-bold uppercase tracking-wider text-[#6f5448]">Customer Inbox Preview</span>
-                <div className="mt-2 rounded-lg border border-stone-200 bg-white p-3 text-xs text-stone-700 font-mono space-y-1 shadow-xs">
+                <div className="mt-2 rounded-lg border border-stone-200 bg-white p-3 text-xs text-stone-700 font-mono space-y-1 shadow-sm">
                   <p><span className="text-stone-400">From:</span> <span className="font-semibold text-stone-900">{fromName || 'Store'}</span> &lt;{fromEmail}&gt;</p>
                   <p><span className="text-stone-400">Subject:</span> Order Confirmation #TC-1024</p>
                 </div>
@@ -1996,6 +1998,8 @@ function StoreCustomizationTab({ onDirtyChange }: StoreCustomizationTabProps = {
   const [heroImageUrls, setHeroImageUrls] = useState<string[]>([]);
   const [cropModalOpen, setCropModalOpen] = useState(false);
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const [bannerLightboxOpen, setBannerLightboxOpen] = useState(false);
+  const [bannerLightboxIndex, setBannerLightboxIndex] = useState(0);
 
   const [storeAddress, setStoreAddress] = useState('');
   const [mapsEmbedUrl, setMapsEmbedUrl] = useState('');
@@ -2400,21 +2404,35 @@ function StoreCustomizationTab({ onDirtyChange }: StoreCustomizationTabProps = {
               {heroImageUrls.map((url, idx) => (
                 <div
                   key={url + idx}
-                  className="group relative flex flex-col overflow-hidden rounded-xl border border-[#d0bfaf] bg-white shadow-xs transition hover:shadow-md"
+                  className="group relative flex flex-col overflow-hidden rounded-xl border border-[#d0bfaf] bg-white shadow-sm transition-all duration-200 hover:shadow-md"
                 >
-                  <div className="relative aspect-video w-full overflow-hidden bg-stone-100">
+                  <div
+                    onClick={() => {
+                      setBannerLightboxIndex(idx);
+                      setBannerLightboxOpen(true);
+                    }}
+                    className="group/thumb relative aspect-[3/2] w-full overflow-hidden bg-stone-100 flex items-center justify-center cursor-zoom-in"
+                    title="Klik untuk melihat foto ukuran penuh"
+                  >
+                    {/* Crisp Full-Bleed Slide Thumbnail (Zero Blur) */}
                     <img
                       src={optimizeCloudinaryHeroUrl(url, 800)}
                       alt={`Hero Slide ${idx + 1}`}
-                      className="h-full w-full object-cover"
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover/thumb:scale-105"
                     />
                     <span
-                      className={`absolute left-2 top-2 rounded-md px-2 py-0.5 text-[11px] font-bold text-white shadow-xs ${
-                        idx === 0 ? 'bg-[#d85b30]' : 'bg-black/60 backdrop-blur-xs'
+                      className={`absolute left-2 top-2 z-20 rounded-md px-2 py-0.5 text-[11px] font-bold text-white shadow-sm ${
+                        idx === 0 ? 'bg-[#d85b30]' : 'bg-black/60 backdrop-blur-sm'
                       }`}
                     >
                       {idx === 0 ? '#1 (Primary)' : `#${idx + 1}`}
                     </span>
+
+                    {/* Hover Scrim with Eye Icon */}
+                    <div className="absolute inset-0 z-20 flex items-center justify-center gap-1.5 bg-black/40 text-xs font-semibold text-white opacity-0 backdrop-blur-sm transition-opacity duration-150 group-hover/thumb:opacity-100">
+                      <Eye className="h-4 w-4" />
+                      <span>Lihat Penuh</span>
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between border-t border-stone-100 bg-stone-50/80 px-2.5 py-1.5">
@@ -2425,7 +2443,7 @@ function StoreCustomizationTab({ onDirtyChange }: StoreCustomizationTabProps = {
                         disabled={idx === 0 || saving || uploadingImage}
                         title="Move Left / Earlier"
                         aria-label={`Move slide ${idx + 1} left`}
-                        className="rounded p-1 text-stone-600 hover:bg-stone-200 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                        className="rounded p-1 text-stone-600 hover:bg-stone-200 hover:scale-105 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-150"
                       >
                         <ChevronLeft className="h-4 w-4" />
                       </button>
@@ -2435,9 +2453,21 @@ function StoreCustomizationTab({ onDirtyChange }: StoreCustomizationTabProps = {
                         disabled={idx === heroImageUrls.length - 1 || saving || uploadingImage}
                         title="Move Right / Later"
                         aria-label={`Move slide ${idx + 1} right`}
-                        className="rounded p-1 text-stone-600 hover:bg-stone-200 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                        className="rounded p-1 text-stone-600 hover:bg-stone-200 hover:scale-105 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-150"
                       >
                         <ChevronRight className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setBannerLightboxIndex(idx);
+                          setBannerLightboxOpen(true);
+                        }}
+                        title="Lihat ukuran penuh"
+                        aria-label={`Lihat slide ${idx + 1} ukuran penuh`}
+                        className="rounded p-1 text-toti-secondary hover:bg-toti-cream hover:text-toti-brick hover:scale-105 active:scale-95 transition-all duration-150"
+                      >
+                        <ZoomIn className="h-4 w-4" />
                       </button>
                     </div>
 
@@ -2447,7 +2477,7 @@ function StoreCustomizationTab({ onDirtyChange }: StoreCustomizationTabProps = {
                       disabled={saving || uploadingImage}
                       title="Delete Slide"
                       aria-label={`Delete slide ${idx + 1}`}
-                      className="flex items-center gap-1 rounded px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-30 transition"
+                      className="flex items-center gap-1 rounded px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 hover:scale-105 active:scale-95 disabled:opacity-30 transition-all duration-150"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                       <span>Remove</span>
@@ -2470,7 +2500,7 @@ function StoreCustomizationTab({ onDirtyChange }: StoreCustomizationTabProps = {
                 {uploadingImage ? 'Uploading Slide...' : `Add Slide (${heroImageUrls.length}/5)`}
               </button>
               <p className="text-[11px] text-gray-500">
-                Supported formats: JPEG, PNG, WEBP (max. 5 MB each). Aspect ratio: 16:9 recommended.
+                Supported formats: JPEG, PNG, WEBP (max. 5 MB each). Aspect ratio: 3:2 recommended.
               </p>
             </div>
           )}
@@ -2489,12 +2519,22 @@ function StoreCustomizationTab({ onDirtyChange }: StoreCustomizationTabProps = {
               imageSrc={cropImageSrc}
               title="Crop Hero Banner"
               cropShape="rect"
-              aspectRatio={16 / 9}
+              aspectRatio={3 / 2}
+              allowOriginal={false}
               onCrop={handleCropConfirm}
               onCancel={handleCropCancel}
               isUploading={uploadingImage}
             />
           )}
+
+          <PhotoLightboxModal
+            isOpen={bannerLightboxOpen}
+            images={heroImageUrls}
+            currentIndex={bannerLightboxIndex}
+            altPrefix="Banner Hero Slide"
+            onClose={() => setBannerLightboxOpen(false)}
+            onIndexChange={(nextIdx) => setBannerLightboxIndex(nextIdx)}
+          />
         </div>
 
         {/* BAGIAN 2: BILINGUAL CONTENT (ID & EN) */}

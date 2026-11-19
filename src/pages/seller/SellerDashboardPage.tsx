@@ -124,7 +124,7 @@ export default function SellerDashboardPage() {
       <section className="relative group max-w-full">
         <HorizontalCardScroller scrollContainerClassName="gap-3 sm:gap-4 pb-3 sm:pb-4 snap-mandatory">
           {/* Total Products */}
-          <div className="snap-start flex-none w-[165px] sm:w-[280px] md:w-[300px] lg:flex-1 lg:min-w-[240px] rounded-xl sm:rounded-2xl border border-gray-200 bg-white p-3.5 sm:p-5 shadow-sm flex flex-col h-full">
+          <div className="snap-start flex-none w-[165px] sm:w-[280px] md:w-[300px] lg:flex-1 lg:min-w-[240px] rounded-xl sm:rounded-2xl border border-gray-200 bg-white p-3.5 sm:p-5 shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md hover:border-stone-300 flex flex-col h-full">
             <div className="flex items-center justify-between mb-2.5 sm:mb-4">
               <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-blue-50">
                 <Package className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
@@ -141,7 +141,7 @@ export default function SellerDashboardPage() {
           </div>
 
           {/* Active Products */}
-          <div className="snap-start flex-none w-[165px] sm:w-[280px] md:w-[300px] lg:flex-1 lg:min-w-[240px] rounded-xl sm:rounded-2xl border border-gray-200 bg-white p-3.5 sm:p-5 shadow-sm flex flex-col h-full">
+          <div className="snap-start flex-none w-[165px] sm:w-[280px] md:w-[300px] lg:flex-1 lg:min-w-[240px] rounded-xl sm:rounded-2xl border border-gray-200 bg-white p-3.5 sm:p-5 shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md hover:border-stone-300 flex flex-col h-full">
             <div className="flex items-center justify-between mb-2.5 sm:mb-4">
               <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-green-50">
                 <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
@@ -158,7 +158,7 @@ export default function SellerDashboardPage() {
           </div>
 
           {/* Total Sales */}
-          <div className="snap-start flex-none w-[165px] sm:w-[280px] md:w-[300px] lg:flex-1 lg:min-w-[240px] rounded-xl sm:rounded-2xl border border-gray-200 bg-white p-3.5 sm:p-5 shadow-sm flex flex-col h-full">
+          <div className="snap-start flex-none w-[165px] sm:w-[280px] md:w-[300px] lg:flex-1 lg:min-w-[240px] rounded-xl sm:rounded-2xl border border-gray-200 bg-white p-3.5 sm:p-5 shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md hover:border-stone-300 flex flex-col h-full">
             <div className="flex items-center justify-between mb-2.5 sm:mb-4">
               <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-orange-50">
                 <ShoppingBag className="h-4 w-4 sm:h-5 sm:w-5 text-orange-600" />
@@ -177,7 +177,7 @@ export default function SellerDashboardPage() {
           </div>
 
           {/* Recent Orders */}
-          <div className="snap-start flex-none w-[200px] sm:w-[280px] md:w-[300px] lg:flex-1 lg:min-w-[240px] rounded-xl sm:rounded-2xl border border-gray-200 bg-white p-3.5 sm:p-5 shadow-sm flex flex-col h-full overflow-hidden">
+          <div className="snap-start flex-none w-[200px] sm:w-[280px] md:w-[300px] lg:flex-1 lg:min-w-[240px] rounded-xl sm:rounded-2xl border border-gray-200 bg-white p-3.5 sm:p-5 shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md hover:border-stone-300 flex flex-col h-full overflow-hidden">
             <div className="flex items-center justify-between mb-2.5 sm:mb-4">
               <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full bg-purple-50">
                 <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />

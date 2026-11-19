@@ -141,10 +141,14 @@ export function BuyerFooter() {
                 href="https://instagram.com/toti.cakery"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 transition hover:opacity-80"
+                className="group flex items-center gap-3 transition-colors duration-150"
               >
-                <img src={instagramIcon} alt="Instagram" className="h-7 w-7" />
-                <span className="text-xs text-toti-secondary hover:text-toti-brick">
+                <img
+                  src={instagramIcon}
+                  alt="Instagram"
+                  className="h-7 w-7 transition-transform duration-200 group-hover:scale-110 group-hover:-translate-y-0.5"
+                />
+                <span className="text-xs text-toti-secondary group-hover:text-toti-brick transition-colors">
                   @toti.cakery
                 </span>
               </a>
@@ -153,10 +157,14 @@ export function BuyerFooter() {
                 href={whatsappUrl || '#'}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-3 transition hover:opacity-80"
+                className="group flex items-center gap-3 transition-colors duration-150"
               >
-                <img src={whatsappIcon} alt="WhatsApp" className="h-7 w-7" />
-                <span className="text-xs text-toti-secondary hover:text-toti-brick">
+                <img
+                  src={whatsappIcon}
+                  alt="WhatsApp"
+                  className="h-7 w-7 transition-transform duration-200 group-hover:scale-110 group-hover:-translate-y-0.5"
+                />
+                <span className="text-xs text-toti-secondary group-hover:text-toti-brick transition-colors">
                   {whatsappNumberDisplay}
                 </span>
               </a>

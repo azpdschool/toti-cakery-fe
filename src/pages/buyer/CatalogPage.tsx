@@ -121,7 +121,7 @@ function CategoryScroller({
           onClick={() => onSelect(null)}
           className={`shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition cursor-pointer ${
             selectedId === null
-              ? 'bg-gradient-to-r from-toti-brick to-toti-brick-hover border border-toti-brick text-white shadow-md shadow-toti-brick/25'
+              ? 'bg-gradient-to-r from-toti-brick to-toti-brick-hover border border-toti-brick text-white shadow-md shadow-toti-brick/25 hover:brightness-105 hover:-translate-y-0.5 transition-all duration-150'
               : 'bg-white/95 border border-toti-divider/60 text-toti-ink shadow-sm transition-all duration-150 hover:border-toti-brick/60 hover:text-toti-brick hover:bg-white hover:-translate-y-0.5 motion-reduce:hover:translate-y-0 hover:shadow'
           }`}
         >
@@ -136,7 +136,7 @@ function CategoryScroller({
             onClick={() => onSelect(id)}
             className={`shrink-0 whitespace-nowrap rounded-full px-4 py-2 text-sm font-semibold transition cursor-pointer ${
               selectedId === id
-                ? 'bg-gradient-to-r from-toti-brick to-toti-brick-hover border border-toti-brick text-white shadow-md shadow-toti-brick/25'
+                ? 'bg-gradient-to-r from-toti-brick to-toti-brick-hover border border-toti-brick text-white shadow-md shadow-toti-brick/25 hover:brightness-105 hover:-translate-y-0.5 transition-all duration-150'
                 : 'bg-white/95 border border-toti-divider/60 text-toti-ink shadow-sm transition-all duration-150 hover:border-toti-brick/60 hover:text-toti-brick hover:bg-white hover:-translate-y-0.5 motion-reduce:hover:translate-y-0 hover:shadow'
             }`}
           >
@@ -215,7 +215,7 @@ function PriceFilterButton({
       >
         <SlidersHorizontal className="h-4 w-4" />
         {activeCount > 0 && (
-          <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-toti-brick px-1 text-[10px] font-bold text-white shadow-xs">
+          <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-toti-brick px-1 text-[10px] font-bold text-white shadow-sm">
             {activeCount}
           </span>
         )}
@@ -249,7 +249,7 @@ function PriceFilterButton({
                     onClick={() => setDraftSort(opt.value)}
                     className={`flex items-center justify-between rounded-xl px-3 py-2 text-xs font-medium transition cursor-pointer ${
                       isSelected
-                        ? 'border border-toti-brick/40 bg-toti-cream font-bold text-toti-brick shadow-xs'
+                        ? 'border border-toti-brick/40 bg-toti-cream font-bold text-toti-brick shadow-sm'
                         : 'border border-transparent text-toti-ink hover:bg-toti-alt/60'
                     }`}
                   >
@@ -630,7 +630,7 @@ export default function CatalogPage() {
 
           {/* PRODUCT GRID */}
           {filteredProducts.length === 0 ? (
-            <div className="mt-4 flex flex-col items-center justify-center rounded-xl bg-white/95 border border-toti-divider/60 py-16 text-center shadow-xs">
+            <div className="mt-4 flex flex-col items-center justify-center rounded-xl bg-white/95 border border-toti-divider/60 py-16 text-center shadow-sm">
               <p className="text-4xl">🔍</p>
               <p className="mt-4 text-lg font-black text-toti-ink">{t('catalog.not_found_title')}</p>
               <p className="text-sm text-toti-secondary">{t('catalog.not_found_desc')}</p>

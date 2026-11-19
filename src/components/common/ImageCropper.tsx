@@ -21,6 +21,7 @@ export interface ImageCropperProps {
   title?: string
   cropShape?: 'rect' | 'round'
   aspectRatio?: number
+  allowOriginal?: boolean
 }
 
 function getRadianAngle(degreeValue: number) {
@@ -164,11 +165,20 @@ export default function ImageCropper({
   title,
   cropShape = 'round',
   aspectRatio = 1,
+  allowOriginal = true,
 }: ImageCropperProps) {
   const { t } = useTranslation()
 
   // Mode: 'crop' | 'original'
-  const [mode, setMode] = useState<'crop' | 'original'>('crop')
+  const [modeState, setModeState] = useState<'crop' | 'original'>('crop')
+  const mode = allowOriginal ? modeState : 'crop'
+  const setMode = (nextMode: 'crop' | 'original') => {
+    if (!allowOriginal && nextMode === 'original') return
+    setModeState(nextMode)
+  }
+
+  // Full-view preview overlay state
+  const [fullPreviewOpen, setFullPreviewOpen] = useState(false)
 
   // Cropper states
   const [crop, setCrop] = useState<Point>({ x: 0, y: 0 })
@@ -180,7 +190,13 @@ export default function ImageCropper({
   // Aspect ratio state (for product / rect images)
   const [naturalAspect, setNaturalAspect] = useState<number>(aspectRatio || 1)
   const [selectedRatioKey, setSelectedRatioKey] = useState<'1:1' | '4:3' | '16:9' | 'original'>(
-    aspectRatio === 1 ? '1:1' : aspectRatio === 4 / 3 ? '4:3' : aspectRatio === 16 / 9 ? '16:9' : 'original'
+    aspectRatio === 1
+      ? '1:1'
+      : Math.abs(aspectRatio - 4 / 3) < 0.01
+      ? '4:3'
+      : Math.abs(aspectRatio - 16 / 9) < 0.01
+      ? '16:9'
+      : 'original'
   )
 
   useEffect(() => {
@@ -197,6 +213,8 @@ export default function ImageCropper({
   const currentAspect =
     cropShape === 'round'
       ? 1
+      : !allowOriginal
+      ? aspectRatio
       : selectedRatioKey === '1:1'
       ? 1
       : selectedRatioKey === '4:3'
@@ -214,7 +232,13 @@ export default function ImageCropper({
     setCrop({ x: 0, y: 0 })
     setRotation(0)
     setSelectedRatioKey(
-      aspectRatio === 1 ? '1:1' : aspectRatio === 4 / 3 ? '4:3' : aspectRatio === 16 / 9 ? '16:9' : 'original'
+      aspectRatio === 1
+        ? '1:1'
+        : Math.abs(aspectRatio - 4 / 3) < 0.01
+        ? '4:3'
+        : Math.abs(aspectRatio - 16 / 9) < 0.01
+        ? '16:9'
+        : 'original'
     )
   }
 
@@ -222,7 +246,7 @@ export default function ImageCropper({
     if (isUploading || isProcessing) return
     setIsProcessing(true)
     try {
-      if (mode === 'original') {
+      if (allowOriginal && mode === 'original') {
         const file = await getOriginalFile(imageSrc)
         onCrop(file)
       } else {
@@ -251,55 +275,85 @@ export default function ImageCropper({
         {/* Header */}
         <div className="mb-4 flex items-center justify-between border-b border-gray-100 pb-3">
           <h3 className="text-lg font-bold text-[#4b2417] truncate">{dialogTitle}</h3>
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={isUploading || isProcessing}
-            className="rounded-full p-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-50 transition"
-            aria-label={t('profile.cancel', 'Batal')}
-            title={t('profile.cancel', 'Batal')}
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setFullPreviewOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-100 hover:text-gray-900 cursor-pointer"
+              title={t('profile.view_full', 'Lihat Foto Asli')}
+              aria-label={t('profile.view_full', 'Lihat Foto Asli')}
+            >
+              <Maximize2 className="h-3.5 w-3.5 text-[#d85b30]" />
+              <span className="hidden sm:inline">Lihat Foto Asli</span>
+            </button>
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={isUploading || isProcessing}
+              className="rounded-full p-1.5 text-gray-500 hover:bg-gray-100 disabled:opacity-50 transition"
+              aria-label={t('profile.cancel', 'Batal')}
+              title={t('profile.cancel', 'Batal')}
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         {/* Mode Tabs: Use Original vs Crop & Adjust */}
-        <div className="mb-4 flex rounded-xl bg-gray-100 p-1">
-          <button
-            type="button"
-            onClick={() => setMode('original')}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-xs sm:text-sm font-semibold transition-all ${
-              mode === 'original'
-                ? 'bg-white text-[#d85b30] shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            <Maximize2 className="h-4 w-4" />
-            <span>{t('profile.mode_original', 'Gunakan Ukuran Asli')}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode('crop')}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-xs sm:text-sm font-semibold transition-all ${
-              mode === 'crop'
-                ? 'bg-white text-[#d85b30] shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            <CropIcon className="h-4 w-4" />
-            <span>{t('profile.mode_crop', 'Potong & Sesuaikan')}</span>
-          </button>
-        </div>
+        {allowOriginal && (
+          <div className="mb-4 flex rounded-xl bg-gray-100 p-1">
+            <button
+              type="button"
+              onClick={() => setMode('original')}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-xs sm:text-sm font-semibold transition-all ${
+                mode === 'original'
+                  ? 'bg-white text-[#d85b30] shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Maximize2 className="h-4 w-4" />
+              <span>{t('profile.mode_original', 'Gunakan Ukuran Asli')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('crop')}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-xs sm:text-sm font-semibold transition-all ${
+                mode === 'crop'
+                  ? 'bg-white text-[#d85b30] shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <CropIcon className="h-4 w-4" />
+              <span>{t('profile.mode_crop', 'Potong & Sesuaikan')}</span>
+            </button>
+          </div>
+        )}
 
         {/* Canvas / Preview Container */}
         {mode === 'original' ? (
           <div>
-            <div className="relative flex h-52 sm:h-72 md:h-80 w-full items-center justify-center overflow-hidden rounded-xl border border-gray-800 bg-gray-950 p-3 shadow-inner">
+            <div
+              onClick={() => setFullPreviewOpen(true)}
+              className="group/orig relative flex h-52 sm:h-72 md:h-80 w-full items-center justify-center overflow-hidden rounded-xl border border-gray-800 bg-gray-950 p-3 shadow-inner cursor-zoom-in"
+              title={t('profile.view_full', 'Lihat Ukuran Penuh')}
+            >
               <img
                 src={imageSrc}
                 alt={t('profile.preview_original', 'Ukuran Asli')}
-                className="max-h-full max-w-full select-none rounded object-contain"
+                className="max-h-full max-w-full select-none rounded object-contain transition-transform duration-200 group-hover/orig:scale-[1.02]"
               />
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setFullPreviewOpen(true)
+                }}
+                className="absolute right-3 top-3 inline-flex items-center gap-1.5 rounded-lg bg-black/60 px-2.5 py-1 text-xs font-semibold text-white/90 backdrop-blur-sm transition-all duration-150 hover:bg-black/80 hover:text-white"
+                title={t('profile.view_full', 'Lihat Ukuran Penuh')}
+              >
+                <Maximize2 className="h-3.5 w-3.5" />
+                <span>Lihat Penuh</span>
+              </button>
             </div>
             <div className="mt-3 flex items-center justify-center gap-1.5 text-xs text-gray-500">
               <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
@@ -336,10 +390,19 @@ export default function ImageCropper({
                       : '!rounded-full border-2 border-white/80 shadow-2xl',
                 }}
               />
+              <button
+                type="button"
+                onClick={() => setFullPreviewOpen(true)}
+                className="absolute right-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-lg bg-black/60 px-2.5 py-1 text-xs font-semibold text-white/90 backdrop-blur-sm transition-all duration-150 hover:bg-black/80 hover:text-white"
+                title={t('profile.view_full', 'Lihat Foto Asli')}
+              >
+                <Maximize2 className="h-3.5 w-3.5" />
+                <span>Lihat Foto Asli</span>
+              </button>
             </div>
 
             {/* Aspect Ratio Options for Rectangular Crop (e.g. Products) */}
-            {cropShape === 'rect' && (
+            {cropShape === 'rect' && allowOriginal && (
               <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                 <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   {t('profile.aspect_ratio', 'Rasio')}:
@@ -467,27 +530,31 @@ export default function ImageCropper({
 
         {/* Footer actions */}
         <div className="mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 border-t border-gray-100 pt-4">
-          <button
-            type="button"
-            onClick={async () => {
-              if (isUploading || isProcessing) return
-              setIsProcessing(true)
-              try {
-                const file = await getOriginalFile(imageSrc)
-                onCrop(file)
-              } catch (err) {
-                console.error('Failed to use original file:', err)
-              } finally {
-                setIsProcessing(false)
-              }
-            }}
-            disabled={isUploading || isProcessing}
-            className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#d85b30] bg-[#fff4ed] px-4 py-2 text-sm font-bold text-[#d85b30] transition hover:bg-[#ffe8db] disabled:opacity-50"
-            title="Use the original image dimensions without any cropping"
-          >
-            <Maximize2 className="h-4 w-4" />
-            <span>Use Original Size (No Crop)</span>
-          </button>
+          {allowOriginal ? (
+            <button
+              type="button"
+              onClick={async () => {
+                if (isUploading || isProcessing) return
+                setIsProcessing(true)
+                try {
+                  const file = await getOriginalFile(imageSrc)
+                  onCrop(file)
+                } catch (err) {
+                  console.error('Failed to use original file:', err)
+                } finally {
+                  setIsProcessing(false)
+                }
+              }}
+              disabled={isUploading || isProcessing}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#d85b30] bg-[#fff4ed] px-4 py-2 text-sm font-bold text-[#d85b30] transition hover:bg-[#ffe8db] disabled:opacity-50"
+              title="Use the original image dimensions without any cropping"
+            >
+              <Maximize2 className="h-4 w-4" />
+              <span>Use Original Size (No Crop)</span>
+            </button>
+          ) : (
+            <div />
+          )}
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             <button
@@ -516,6 +583,36 @@ export default function ImageCropper({
           </div>
         </div>
       </div>
+
+      {/* Full-View Preview Overlay (z-[80] above cropper modal z-[70]) */}
+      {fullPreviewOpen && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm animate-fade-in"
+          onClick={() => setFullPreviewOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Preview full image"
+        >
+          <div
+            className="relative flex max-h-[92vh] max-w-[94vw] flex-col items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setFullPreviewOpen(false)}
+              className="absolute -top-12 right-0 flex h-10 w-10 items-center justify-center rounded-full text-white/80 transition hover:bg-white/10 hover:text-white cursor-pointer"
+              aria-label={t('profile.cancel', 'Tutup')}
+            >
+              <X className="h-6 w-6" />
+            </button>
+            <img
+              src={imageSrc}
+              alt={t('profile.preview_original', 'Ukuran Asli')}
+              className="max-h-[85vh] max-w-full select-none rounded-xl object-contain shadow-2xl"
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

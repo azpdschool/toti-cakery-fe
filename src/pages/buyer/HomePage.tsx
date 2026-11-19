@@ -441,138 +441,142 @@ export default function HomePage() {
       <div className="relative z-10 pb-12 space-y-8 sm:space-y-10 lg:space-y-12 bg-transparent">
         {/* 1. HERO SECTION (Seamless, edge-to-edge borderless split Hero) */}
         <section className="w-full overflow-hidden border-b border-toti-beige/70 bg-transparent">
-          <div className="grid w-full grid-cols-1 md:grid-cols-12 md:min-h-[440px] md:h-[calc(72svh-77px)] lg:max-h-[540px]">
-            {/* Left Text Column */}
-            <div className="md:col-span-5 order-2 md:order-1 relative overflow-hidden flex flex-col justify-center bg-transparent px-5 py-8 sm:px-8 md:py-12 md:pl-[max(1.5rem,calc((100vw-80rem)/2+2rem))] md:pr-10 lg:pr-12">
-              <ScrollReveal direction="up" distance={20} className="relative z-10 max-w-lg pr-14 sm:pr-0">
-                <h1 className="font-display text-4xl md:text-5xl font-black tracking-tight text-toti-ink whitespace-pre-line leading-tight">
-                  {heroTitle}
-                </h1>
-                <p className="mt-4 sm:mt-5 text-base sm:text-lg leading-relaxed text-toti-secondary max-w-[60ch] whitespace-pre-line font-sans">
-                  {heroSubtitle}
-                </p>
-                <div className="mt-6 sm:mt-8 flex flex-wrap items-center gap-3 sm:gap-4">
-                  <Link
-                    to={ROUTES.CATALOG}
-                    className="toti-btn-primary min-h-[44px] px-6 py-2.5 text-sm sm:text-base cursor-pointer w-full sm:w-auto text-center"
-                  >
-                    {t('home.view_products', 'Lihat produk')}
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={scrollToTestimonials}
-                    className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-toti-honey px-6 py-2.5 text-sm sm:text-base font-semibold text-toti-ink transition-colors duration-150 hover:bg-toti-honey-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-honey focus-visible:ring-offset-2 cursor-pointer w-full sm:w-auto text-center"
-                  >
-                    {t('home.read_reviews', 'Baca ulasan')}
-                  </button>
-                </div>
-              </ScrollReveal>
-            </div>
-
-            {/* Right Photo Column */}
-            <div className="md:col-span-7 order-1 md:order-2 relative w-full h-[36svh] min-h-[240px] max-h-[340px] md:h-full md:max-h-none md:p-6 lg:p-8 flex items-center justify-center bg-transparent">
-              <div
-                className="relative w-full h-full min-h-[240px] md:min-h-[380px] rounded-2xl md:rounded-3xl overflow-hidden bg-toti-alt shadow-[0_20px_50px_-15px_rgba(58,31,22,0.18)] ring-1 ring-toti-divider/50 group"
-                onMouseEnter={() => setIsHeroPaused(true)}
-                onMouseLeave={() => setIsHeroPaused(false)}
-                onFocusCapture={() => setIsHeroPaused(true)}
-                onBlurCapture={(e) => {
-                  if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
-                    setIsHeroPaused(false)
-                  }
-                }}
-              >
-                {/* Subtle Desktop Left-Edge Blend Seam */}
-                <div
-                  aria-hidden="true"
-                  className="hidden md:block absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-toti-cream/45 to-transparent pointer-events-none z-10"
-                />
-                {heroSlides.map((url, idx) => {
-                  const isActive = idx === currentSlide
-                  const isSingle = heroSlides.length === 1
-                  const slideAlt = isSingle
-                    ? t('home.hero_image_alt', cleanHeroTitle || 'Aneka kue lezat dan cake spesial Toti Cakery')
-                    : `${cleanHeroTitle || 'Toti Cakery'} — ${t('home.hero_slide_indicator', {
-                        current: idx + 1,
-                        total: heroSlides.length,
-                        defaultValue: `Slide ${idx + 1} dari ${heroSlides.length}`,
-                      })}`
-
-                  return (
-                    <div
-                      key={url + idx}
-                      className={`absolute inset-0 w-full h-full ${
-                        prefersReducedMotion
-                          ? isActive
-                            ? 'opacity-100 z-10'
-                            : 'opacity-0 z-0 pointer-events-none'
-                      : `transition-opacity duration-700 ease-in-out ${
-                          isActive ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
-                        }`
-                  }`}
-                  aria-hidden={!isActive}
-                >
-                  <img
-                    src={url}
-                    alt={slideAlt}
-                    fetchPriority={idx === 0 ? 'high' : 'auto'}
-                    loading={idx === 0 ? 'eager' : 'lazy'}
-                    decoding="async"
-                    className="h-full w-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.03] motion-reduce:transform-none"
-                  />
-                </div>
-              )
-            })}
-
-            {/* Controls (Rendered ONLY when heroSlides.length > 1) */}
-            {heroSlides.length > 1 && (
-              <>
-                {/* Previous Slide Button */}
-                <button
-                  type="button"
-                  onClick={() =>
-                    setCurrentSlide((prev) => (prev - 1 + heroSlides.length) % heroSlides.length)
-                  }
-                  className="absolute left-3 top-1/2 -translate-y-1/2 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition hover:bg-black/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                  aria-label={t('home.hero_prev_slide', 'Slide sebelumnya')}
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-
-                {/* Next Slide Button */}
-                <button
-                  type="button"
-                  onClick={() => setCurrentSlide((prev) => (prev + 1) % heroSlides.length)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition hover:bg-black/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                  aria-label={t('home.hero_next_slide', 'Slide berikutnya')}
-                >
-                  <ChevronRight className="h-5 w-5" />
-                </button>
-
-                {/* Dot Indicators */}
-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 rounded-full bg-black/30 px-2.5 py-1 backdrop-blur-sm">
-                  {heroSlides.map((_, dotIdx) => (
+          <div className="mx-auto max-w-7xl px-4 lg:px-8">
+            <div className="grid w-full grid-cols-1 md:grid-cols-12 md:items-center gap-6 md:gap-8 lg:gap-10 py-6 sm:py-8 md:py-10 lg:py-12">
+              {/* Left Text Column */}
+              <div className="md:col-span-5 order-2 md:order-1 relative overflow-hidden flex flex-col justify-center bg-transparent">
+                <ScrollReveal direction="up" distance={20} className="relative z-10 max-w-lg">
+                  <h1 className="font-display text-4xl md:text-5xl font-black tracking-tight text-toti-ink whitespace-pre-line leading-tight">
+                    {heroTitle}
+                  </h1>
+                  <p className="mt-4 sm:mt-5 text-base sm:text-lg leading-relaxed text-toti-secondary max-w-[60ch] whitespace-pre-line font-sans">
+                    {heroSubtitle}
+                  </p>
+                  <div className="mt-6 sm:mt-8 flex flex-wrap items-center gap-3 sm:gap-4">
+                    <Link
+                      to={ROUTES.CATALOG}
+                      className="toti-btn-primary min-h-[44px] px-6 py-2.5 text-sm sm:text-base cursor-pointer w-full sm:w-auto text-center hover:-translate-y-0.5 hover:shadow-md active:translate-y-0"
+                    >
+                      {t('home.view_products', 'Lihat produk')}
+                    </Link>
                     <button
-                      key={dotIdx}
                       type="button"
-                      onClick={() => setCurrentSlide(dotIdx)}
-                      className={`h-2 rounded-full transition-all duration-300 ${
-                        dotIdx === currentSlide ? 'w-6 bg-white' : 'w-2 bg-white/50 hover:bg-white/80'
-                      }`}
-                      aria-label={t('home.hero_slide_nav', {
-                        number: dotIdx + 1,
-                        defaultValue: `Ke slide ${dotIdx + 1}`,
-                      })}
-                      aria-current={dotIdx === currentSlide ? 'true' : undefined}
-                    />
-                  ))}
+                      onClick={scrollToTestimonials}
+                      className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-toti-honey px-6 py-2.5 text-sm sm:text-base font-semibold text-toti-ink transition-all duration-150 hover:bg-toti-honey-hover hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-honey focus-visible:ring-offset-2 cursor-pointer w-full sm:w-auto text-center"
+                    >
+                      {t('home.read_reviews', 'Baca ulasan')}
+                    </button>
+                  </div>
+                </ScrollReveal>
+              </div>
+
+              {/* Right Photo Column */}
+              <div className="md:col-span-7 order-1 md:order-2 relative w-full flex items-center justify-center bg-transparent">
+                <div
+                  className="relative w-full aspect-[3/2] max-h-[520px] rounded-2xl md:rounded-3xl overflow-hidden bg-toti-alt shadow-[0_20px_50px_-15px_rgba(58,31,22,0.18)] ring-1 ring-toti-divider/50 group"
+                  onMouseEnter={() => setIsHeroPaused(true)}
+                  onMouseLeave={() => setIsHeroPaused(false)}
+                  onFocusCapture={() => setIsHeroPaused(true)}
+                  onBlurCapture={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                      setIsHeroPaused(false)
+                    }
+                  }}
+                >
+                  {heroSlides.map((url, idx) => {
+                    const isActive = idx === currentSlide
+                    const isSingle = heroSlides.length === 1
+                    const slideAlt = isSingle
+                      ? t('home.hero_image_alt', cleanHeroTitle || 'Aneka kue lezat dan cake spesial Toti Cakery')
+                      : `${cleanHeroTitle || 'Toti Cakery'} — ${t('home.hero_slide_indicator', {
+                          current: idx + 1,
+                          total: heroSlides.length,
+                          defaultValue: `Slide ${idx + 1} dari ${heroSlides.length}`,
+                        })}`
+
+                    return (
+                      <div
+                        key={url + idx}
+                        className={`absolute inset-0 w-full h-full ${
+                          prefersReducedMotion
+                            ? isActive
+                              ? 'opacity-100 z-10'
+                              : 'opacity-0 z-0 pointer-events-none'
+                            : `transition-opacity duration-700 ease-in-out ${
+                                isActive ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
+                              }`
+                        }`}
+                        aria-hidden={!isActive}
+                      >
+                        {/* Slide Image (Crisp Full-Bleed Zero Blur) */}
+                        <img
+                          src={url}
+                          alt={slideAlt}
+                          fetchPriority={idx === 0 ? 'high' : 'auto'}
+                          loading={idx === 0 ? 'eager' : 'lazy'}
+                          decoding="async"
+                          className="h-full w-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-[1.03] motion-reduce:transform-none"
+                        />
+
+                        {/* Subtle Bottom Gradient Scrim for Indicators */}
+                        <div
+                          aria-hidden="true"
+                          className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent pointer-events-none z-10"
+                        />
+                      </div>
+                    )
+                  })}
+
+                {/* Controls (Rendered ONLY when heroSlides.length > 1) */}
+                {heroSlides.length > 1 && (
+                  <>
+                    {/* Previous Slide Button */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setCurrentSlide((prev) => (prev - 1 + heroSlides.length) % heroSlides.length)
+                      }
+                      className="absolute left-3 top-1/2 -translate-y-1/2 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition-all duration-150 hover:bg-black/60 hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                      aria-label={t('home.hero_prev_slide', 'Slide sebelumnya')}
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+
+                    {/* Next Slide Button */}
+                    <button
+                      type="button"
+                      onClick={() => setCurrentSlide((prev) => (prev + 1) % heroSlides.length)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition-all duration-150 hover:bg-black/60 hover:scale-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                      aria-label={t('home.hero_next_slide', 'Slide berikutnya')}
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+
+                    {/* Dot Indicators */}
+                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 rounded-full bg-black/30 px-2.5 py-1 backdrop-blur-sm">
+                      {heroSlides.map((_, dotIdx) => (
+                        <button
+                          key={dotIdx}
+                          type="button"
+                          onClick={() => setCurrentSlide(dotIdx)}
+                          className={`h-2 rounded-full transition-all duration-300 ${
+                            dotIdx === currentSlide ? 'w-6 bg-white' : 'w-2 bg-white/50 hover:bg-white/80'
+                          }`}
+                          aria-label={t('home.hero_slide_nav', {
+                            number: dotIdx + 1,
+                            defaultValue: `Ke slide ${dotIdx + 1}`,
+                          })}
+                          aria-current={dotIdx === currentSlide ? 'true' : undefined}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
                 </div>
-              </>
-            )}
               </div>
             </div>
-        </div>
-      </section>
+          </div>
+        </section>
 
       {/* 2. SEMUA PRODUK (Boxless, open layout matching Testimoni Pelanggan) */}
       <section id="our-products" className="mx-auto max-w-7xl px-4 pt-5 md:pt-8 lg:px-8 scroll-mt-24 bg-transparent">
@@ -601,7 +605,7 @@ export default function HomePage() {
                 type="button"
                 onClick={scrollProductLeft}
                 aria-label={t('common.prev')}
-                className="absolute left-0 top-1/2 -translate-y-1/2 -ml-4 hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-md border border-toti-beige text-toti-secondary hover:text-toti-brick hover:border-toti-brick z-10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-brick cursor-pointer"
+                className="absolute left-0 top-1/2 -translate-y-1/2 -ml-4 hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-md border border-toti-beige text-toti-secondary hover:text-toti-brick hover:border-toti-brick hover:scale-105 active:scale-95 z-10 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-brick cursor-pointer"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
@@ -611,7 +615,7 @@ export default function HomePage() {
                 type="button"
                 onClick={scrollProductRight}
                 aria-label={t('common.next')}
-                className="absolute right-0 top-1/2 -translate-y-1/2 -mr-4 hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-md border border-toti-beige text-toti-secondary hover:text-toti-brick hover:border-toti-brick z-10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-brick cursor-pointer"
+                className="absolute right-0 top-1/2 -translate-y-1/2 -mr-4 hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-md border border-toti-beige text-toti-secondary hover:text-toti-brick hover:border-toti-brick hover:scale-105 active:scale-95 z-10 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-brick cursor-pointer"
               >
                 <ChevronRight className="h-5 w-5" />
               </button>
@@ -778,7 +782,7 @@ export default function HomePage() {
                 type="button"
                 onClick={scrollReviewLeft}
                 aria-label={t('common.prev')}
-                className="absolute left-0 top-1/2 -translate-y-1/2 -ml-4 hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-toti-card shadow-md border border-toti-beige text-toti-secondary hover:text-toti-brick hover:border-toti-brick z-10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-brick cursor-pointer"
+                className="absolute left-0 top-1/2 -translate-y-1/2 -ml-4 hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-toti-card shadow-md border border-toti-beige text-toti-secondary hover:text-toti-brick hover:border-toti-brick hover:scale-105 active:scale-95 z-10 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-brick cursor-pointer"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
@@ -788,7 +792,7 @@ export default function HomePage() {
                 type="button"
                 onClick={scrollReviewRight}
                 aria-label={t('common.next')}
-                className="absolute right-0 top-1/2 -translate-y-1/2 -mr-4 hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-toti-card shadow-md border border-toti-beige text-toti-secondary hover:text-toti-brick hover:border-toti-brick z-10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-brick cursor-pointer"
+                className="absolute right-0 top-1/2 -translate-y-1/2 -mr-4 hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-toti-card shadow-md border border-toti-beige text-toti-secondary hover:text-toti-brick hover:border-toti-brick hover:scale-105 active:scale-95 z-10 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-brick cursor-pointer"
               >
                 <ChevronRight className="h-5 w-5" />
               </button>

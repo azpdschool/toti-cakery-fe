@@ -103,7 +103,8 @@ export function SellerSidebar({ isOpen, onClose }: SellerSidebarProps) {
   return (
     <aside
       className={`
-        fixed inset-y-0 left-0 z-30 flex h-screen flex-col overflow-hidden bg-[#F9F5EC]
+        fixed inset-y-0 left-0 z-30 flex h-screen flex-col overflow-hidden
+        bg-[linear-gradient(180deg,#F9F5EC_0%,#F9F5EC_18%,#EFE2D2_58%,#DEC8B3_100%)] border-r border-[#D6C1AC]
         transition-all duration-300 ease-in-out
         lg:sticky lg:top-0
         ${
@@ -114,7 +115,7 @@ export function SellerSidebar({ isOpen, onClose }: SellerSidebarProps) {
       `}
     >
       <div className="flex h-full w-64 flex-col overflow-y-auto p-4">
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-6 flex items-center justify-between pb-4 border-b border-[#3A1F16]/10">
           <img
             src={LOGO_URL}
             alt="Toti Cakery"
@@ -141,21 +142,21 @@ export function SellerSidebar({ isOpen, onClose }: SellerSidebarProps) {
                 }
               }}
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
+                `group flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200 cursor-pointer ${
                   isActive
-                    ? 'bg-[#E0A04E] text-[#3A1F16]'
-                    : 'text-[#4b2417]/80 hover:bg-[#4b2417]/5 hover:text-[#4b2417]'
+                    ? 'bg-[#E0A04E] text-[#3A1F16] shadow-sm shadow-[#E0A04E]/30 hover:bg-[#D4933F] hover:shadow-md hover:shadow-[#E0A04E]/40 hover:translate-x-1'
+                    : 'text-[#4b2417]/80 hover:bg-[#3A1F16]/10 hover:text-[#3A1F16] hover:translate-x-1'
                 }`
               }
             >
-              <item.icon className="h-5 w-5" />
-              {item.label}
+              <item.icon className="h-5 w-5 shrink-0 transition-transform duration-200 group-hover:scale-110" />
+              <span>{item.label}</span>
             </NavLink>
           ))}
         </nav>
 
         <div className="mt-auto border-t border-[#4b2417]/10 pt-4">
-          <div className="flex items-center gap-3 rounded-lg bg-[#4b2417]/5 p-3">
+          <div className="flex items-center gap-3 rounded-xl bg-white/40 p-3 transition-all duration-200 hover:bg-white/60 shadow-sm border border-[#3A1F16]/5">
             {avatarUrl || user?.avatar_url ? (
               <img
                 src={avatarUrl || user?.avatar_url!}
@@ -181,7 +182,7 @@ export function SellerSidebar({ isOpen, onClose }: SellerSidebarProps) {
             <button
               type="button"
               onClick={handleLogout}
-              className="rounded-full p-1.5 text-[#4b2417]/60 hover:bg-[#4b2417]/10 hover:text-[#4b2417] shrink-0"
+              className="rounded-full p-1.5 text-[#4b2417]/60 hover:bg-red-50 hover:text-red-600 transition-all duration-150 shrink-0"
               title="Logout"
             >
               <LogOut className="h-4 w-4" />
