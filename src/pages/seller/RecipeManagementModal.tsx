@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Trash2, Loader2, AlertCircle } from 'lucide-react';
 import { SellerModal } from '@/components/ui/SellerModal';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
+import { SellerSquareMorphLoader } from '@/components/common/TotiLoader';
 import { DecimalInput } from '@/components/ui/DecimalInput';
 import { getProductRecipes, addRecipeIngredient, deleteRecipeIngredient, type RecipeOut } from '@/api/recipe';
 import { getInventoryOptions, type InventoryOption } from '@/services/sellerInventoryService';
@@ -165,7 +166,7 @@ export default function RecipeManagementModal({ productId, productName, onClose 
             {loading ? (
               <tr>
                 <td colSpan={4} className="py-8 text-center text-gray-500">
-                  <Loader2 className="mx-auto h-6 w-6 animate-spin" />
+                  <SellerSquareMorphLoader size="sm" className="py-2" />
                 </td>
               </tr>
             ) : recipes.length === 0 ? (

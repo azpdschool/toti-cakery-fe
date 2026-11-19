@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getProductBySlug, formatRupiah, getProductsByCategoryId, getAllProductsDetailed } from '@/services/productService'
 import { getProductReviewsAPI } from '@/api/review'
@@ -9,9 +9,14 @@ import type { Product } from '@/services/productService'
 import { useTranslation } from 'react-i18next'
 import { useWhatsApp } from '@/context/WhatsAppContext'
 import { ProductCard } from '@/components/common/ProductCard'
-import { Heart, Share2, ChevronLeft, ChevronRight, X, ShoppingCart } from 'lucide-react'
+import { Heart, Share2, ChevronLeft, ChevronRight, ShoppingCart, Star } from 'lucide-react'
 import { useWishlist } from '@/hooks/useWishlist'
 import { toast } from 'react-hot-toast'
+import { PhotoLightboxModal } from '@/components/common/PhotoLightboxModal'
+import { BuyerBouncingLoader } from '@/components/common/TotiLoader'
+
+type RatingFilter = 'all' | 'with-photos' | '5' | '4' | '3' | '2' | '1'
+type ReviewSort = 'newest' | 'oldest' | 'highest' | 'lowest'
 
 export default function ProductDetailPage() {
   const { getWhatsAppUrl } = useWhatsApp()
@@ -19,7 +24,19 @@ export default function ProductDetailPage() {
   const [product, setProduct] = useState<Product | null>(null)
   const [reviews, setReviews] = useState<ReviewResponse[]>([])
   const [recommendations, setRecommendations] = useState<Product[]>([])
-  const [lightboxImage, setLightboxImage] = useState<{ url: string; alt?: string } | null>(null)
+  const [ratingFilter, setRatingFilter] = useState<RatingFilter>('all')
+  const [reviewSort, setReviewSort] = useState<ReviewSort>('newest')
+  const [galleryLightbox, setGalleryLightbox] = useState<{
+    isOpen: boolean
+    images: string[]
+    currentIndex: number
+    altPrefix?: string
+  }>({
+    isOpen: false,
+    images: [],
+    currentIndex: 0,
+    altPrefix: 'Foto',
+  })
   
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -38,18 +55,59 @@ export default function ProductDetailPage() {
   const isManualScrollRef = useRef(false)
   const manualScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  useEffect(() => {
-    if (!lightboxImage) return
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setLightboxImage(null)
+  const reviewCounts = useMemo(() => {
+    const counts = {
+      all: reviews.length,
+      withPhotos: 0,
+      star5: 0,
+      star4: 0,
+      star3: 0,
+      star2: 0,
+      star1: 0,
     }
-    document.body.style.overflow = 'hidden'
-    window.addEventListener('keydown', handleKeyDown)
-    return () => {
-      document.body.style.overflow = ''
-      window.removeEventListener('keydown', handleKeyDown)
+    for (const r of reviews) {
+      if (r.images && r.images.length > 0) {
+        counts.withPhotos += 1
+      }
+      const rounded = Math.round(r.rating)
+      if (rounded === 5) counts.star5 += 1
+      else if (rounded === 4) counts.star4 += 1
+      else if (rounded === 3) counts.star3 += 1
+      else if (rounded === 2) counts.star2 += 1
+      else if (rounded === 1) counts.star1 += 1
     }
-  }, [lightboxImage])
+    return counts
+  }, [reviews])
+
+  const filteredAndSortedReviews = useMemo(() => {
+    let result = [...reviews]
+
+    if (ratingFilter === 'with-photos') {
+      result = result.filter((r) => r.images && r.images.length > 0)
+    } else if (ratingFilter !== 'all') {
+      const targetRating = Number(ratingFilter)
+      result = result.filter((r) => Math.round(r.rating) === targetRating)
+    }
+
+    result.sort((a, b) => {
+      const aTime = a.created_at ? new Date(a.created_at).getTime() : 0
+      const bTime = b.created_at ? new Date(b.created_at).getTime() : 0
+
+      if (reviewSort === 'oldest') {
+        return aTime - bTime
+      }
+      if (reviewSort === 'highest') {
+        return b.rating - a.rating || bTime - aTime
+      }
+      if (reviewSort === 'lowest') {
+        return a.rating - b.rating || bTime - aTime
+      }
+      // 'newest' default
+      return bTime - aTime
+    })
+
+    return result
+  }, [reviews, ratingFilter, reviewSort])
 
   useEffect(() => {
     if (!slug) return
@@ -231,11 +289,7 @@ export default function ProductDetailPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#D0BFAF] border-t-[#9B4A2F]" />
-      </div>
-    )
+    return <BuyerBouncingLoader mode="section" size="lg" />
   }
 
   if (error || !product) {
@@ -441,7 +495,7 @@ export default function ProductDetailPage() {
   )
 
   return (
-    <div className="bg-[#F6EFE6] pb-32 sm:pb-16 w-full max-w-full min-w-0 overflow-x-clip">
+    <div className="pb-32 sm:pb-16 w-full max-w-full min-w-0 overflow-x-clip">
       <div className="mx-auto max-w-7xl px-4 py-4 md:py-8 lg:px-8 w-full max-w-full min-w-0">
         
         {/* UNIFIED STICKY HEADER: PRODUCT TITLE + SECTION NAVIGATION TABS */}
@@ -497,9 +551,11 @@ export default function ProductDetailPage() {
                   {/* Main Image Container */}
                   <div
                     onClick={() =>
-                      setLightboxImage({
-                        url: currentGalleryImage?.imageUrl || product.image,
-                        alt: product.name,
+                      setGalleryLightbox({
+                        isOpen: true,
+                        images: galleryImages.map((img) => img.imageUrl),
+                        currentIndex: selectedImageIndex,
+                        altPrefix: product.name,
                       })
                     }
                     className="relative group overflow-hidden rounded-xl md:rounded-2xl bg-black shadow-sm border border-[#E8DCCB] w-full aspect-square shrink-0 flex items-center justify-center max-w-full min-w-0 cursor-zoom-in"
@@ -633,54 +689,223 @@ export default function ProductDetailPage() {
             <section id="ulasan" className="scroll-mt-[190px] rounded-2xl border border-[#EAD8CA] bg-white p-4 sm:p-6 md:p-8 shadow-sm">
               <h2 className="text-xl font-black text-[#3A1F16] mb-4">{t('product_detail.reviews')}</h2>
               
-              <div className="mb-6 flex items-center gap-4">
-                <div className="flex flex-col items-center justify-center rounded-xl bg-[#F6EFE6] p-4 text-[#3A1F16] border border-[#EAD8CA]/60">
-                  <div className="text-3xl font-black">
-                    <span className="text-[#E0A04E] mr-1">★</span>
-                    {product.rating.toFixed(1)}
-                  </div>
-                  <span className="text-xs text-[#6B4A3C] mt-1">{t('product_detail.based_on_reviews', { count: product.reviewCount })}</span>
-                </div>
-              </div>
-
               {reviews.length === 0 ? (
                 <p className="text-sm text-[#9C8478]">{t('product_detail.no_reviews')}</p>
               ) : (
-                <div className="flex flex-col gap-4 border-t border-[#EAD8CA]/60 pt-4">
-                  {reviews.map(review => (
-                    <div key={review.id} className="border-b border-[#F6EFE6] pb-4 last:border-b-0 last:pb-0">
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-[#3A1F16]">
-                            {review.customer?.nama || review.customer_name || 'Pelanggan Toti'}
+                <>
+                  {/* Shopee-Style Summary & Filter Card */}
+                  <div className="mb-6 rounded-xl border border-[#E6D5C6] bg-[#FBF3EA] p-4 sm:p-5 shadow-xs">
+                    <div className="flex flex-col md:flex-row md:items-center gap-5 sm:gap-6">
+                      {/* Left: Overall Rating */}
+                      <div className="flex flex-col items-center justify-center shrink-0 min-w-[140px] text-center border-b md:border-b-0 md:border-r border-[#E6D5C6] pb-4 md:pb-0 md:pr-6">
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-4xl font-black text-[#9B4A2F]">
+                            {product.rating > 0
+                              ? product.rating.toFixed(1)
+                              : (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1)}
                           </span>
-                          <div className="flex text-[#E0A04E] text-sm">
-                            {'★'.repeat(Math.round(review.rating))}
-                            <span className="text-gray-300">{'★'.repeat(5 - Math.round(review.rating))}</span>
-                          </div>
+                          <span className="text-sm font-semibold text-[#6B4A3C]">
+                            {t('product_detail.out_of_five', 'dari 5')}
+                          </span>
                         </div>
-                        <span className="text-xs text-[#9C8478]">
-                          {new Date(review.created_at).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <p className="text-sm text-[#6B4A3C] mt-2">{review.comment}</p>
-                      {review.images && review.images.length > 0 && (
-                        <div className="mt-3 flex gap-2 overflow-x-auto pb-1 scrollbar-none snap-x">
-                          {review.images.map((img) => (
-                            <button
-                              key={img.id}
-                              type="button"
-                              onClick={() => setLightboxImage({ url: img.image_url, alt: 'Foto ulasan pelanggan' })}
-                              className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-[#E8DCCB] bg-white transition hover:opacity-90 snap-start focus:outline-none cursor-zoom-in"
-                            >
-                              <img src={img.image_url} alt="Ulasan pelanggan" className="h-full w-full object-cover" />
-                            </button>
+                        <div className="mt-2 flex items-center gap-1">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <Star
+                              key={i}
+                              className={`h-4 w-4 ${
+                                i < Math.round(product.rating || (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length))
+                                  ? 'fill-[#E0A04E] text-[#E0A04E]'
+                                  : 'text-gray-300 fill-transparent'
+                              }`}
+                            />
                           ))}
                         </div>
-                      )}
+                        <span className="mt-1.5 text-xs text-[#6B4A3C]">
+                          {t('product_detail.based_on_reviews', { count: reviews.length })}
+                        </span>
+                      </div>
+
+                      {/* Right: Filter Chips */}
+                      <div className="flex flex-wrap items-center gap-2 flex-1">
+                        {/* Semua */}
+                        <button
+                          type="button"
+                          onClick={() => setRatingFilter('all')}
+                          className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                            ratingFilter === 'all'
+                              ? 'bg-[#9B4A2F] text-white border-[#9B4A2F] shadow-xs'
+                              : 'bg-white text-[#3A1F16] border-[#E6D5C6] hover:border-[#9B4A2F] hover:text-[#9B4A2F]'
+                          }`}
+                        >
+                          <span>{t('product_detail.filter_all', 'Semua')}</span>
+                          <span className="opacity-80">({reviewCounts.all})</span>
+                        </button>
+
+                        {/* 5 Stars */}
+                        <button
+                          type="button"
+                          onClick={() => setRatingFilter('5')}
+                          className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                            ratingFilter === '5'
+                              ? 'bg-[#9B4A2F] text-white border-[#9B4A2F] shadow-xs'
+                              : 'bg-white text-[#3A1F16] border-[#E6D5C6] hover:border-[#9B4A2F] hover:text-[#9B4A2F]'
+                          }`}
+                        >
+                          <span>{t('product_detail.filter_star', { star: 5 })}</span>
+                          <span className="opacity-80">({reviewCounts.star5})</span>
+                        </button>
+
+                        {/* 4 Stars */}
+                        <button
+                          type="button"
+                          onClick={() => setRatingFilter('4')}
+                          className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                            ratingFilter === '4'
+                              ? 'bg-[#9B4A2F] text-white border-[#9B4A2F] shadow-xs'
+                              : 'bg-white text-[#3A1F16] border-[#E6D5C6] hover:border-[#9B4A2F] hover:text-[#9B4A2F]'
+                          }`}
+                        >
+                          <span>{t('product_detail.filter_star', { star: 4 })}</span>
+                          <span className="opacity-80">({reviewCounts.star4})</span>
+                        </button>
+
+                        {/* 3 Stars */}
+                        <button
+                          type="button"
+                          onClick={() => setRatingFilter('3')}
+                          className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                            ratingFilter === '3'
+                              ? 'bg-[#9B4A2F] text-white border-[#9B4A2F] shadow-xs'
+                              : 'bg-white text-[#3A1F16] border-[#E6D5C6] hover:border-[#9B4A2F] hover:text-[#9B4A2F]'
+                          }`}
+                        >
+                          <span>{t('product_detail.filter_star', { star: 3 })}</span>
+                          <span className="opacity-80">({reviewCounts.star3})</span>
+                        </button>
+
+                        {/* 2 Stars */}
+                        <button
+                          type="button"
+                          onClick={() => setRatingFilter('2')}
+                          className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                            ratingFilter === '2'
+                              ? 'bg-[#9B4A2F] text-white border-[#9B4A2F] shadow-xs'
+                              : 'bg-white text-[#3A1F16] border-[#E6D5C6] hover:border-[#9B4A2F] hover:text-[#9B4A2F]'
+                          }`}
+                        >
+                          <span>{t('product_detail.filter_star', { star: 2 })}</span>
+                          <span className="opacity-80">({reviewCounts.star2})</span>
+                        </button>
+
+                        {/* 1 Star */}
+                        <button
+                          type="button"
+                          onClick={() => setRatingFilter('1')}
+                          className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                            ratingFilter === '1'
+                              ? 'bg-[#9B4A2F] text-white border-[#9B4A2F] shadow-xs'
+                              : 'bg-white text-[#3A1F16] border-[#E6D5C6] hover:border-[#9B4A2F] hover:text-[#9B4A2F]'
+                          }`}
+                        >
+                          <span>{t('product_detail.filter_star', { star: 1 })}</span>
+                          <span className="opacity-80">({reviewCounts.star1})</span>
+                        </button>
+
+                        {/* Dengan Foto */}
+                        <button
+                          type="button"
+                          onClick={() => setRatingFilter('with-photos')}
+                          className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                            ratingFilter === 'with-photos'
+                              ? 'bg-[#9B4A2F] text-white border-[#9B4A2F] shadow-xs'
+                              : 'bg-white text-[#3A1F16] border-[#E6D5C6] hover:border-[#9B4A2F] hover:text-[#9B4A2F]'
+                          }`}
+                        >
+                          <span>{t('product_detail.filter_with_photos', 'Dengan Foto')}</span>
+                          <span className="opacity-80">({reviewCounts.withPhotos})</span>
+                        </button>
+                      </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+
+                  {/* Sort Bar */}
+                  <div className="mb-4 flex items-center justify-between gap-3 border-b border-[#EAD8CA]/60 pb-3">
+                    <span className="text-xs sm:text-sm font-semibold text-[#6B4A3C]">
+                      {t('product_detail.sort_label', 'Urutkan')}:
+                    </span>
+                    <select
+                      value={reviewSort}
+                      onChange={(e) => setReviewSort(e.target.value as ReviewSort)}
+                      className="rounded-lg border border-[#D0BFAF] bg-white px-3 py-1.5 text-xs sm:text-sm font-medium text-[#3A1F16] focus:outline-none focus:ring-2 focus:ring-[#9B4A2F] cursor-pointer"
+                    >
+                      <option value="newest">{t('product_detail.sort_newest', 'Terbaru')}</option>
+                      <option value="oldest">{t('product_detail.sort_oldest', 'Terlama')}</option>
+                      <option value="highest">{t('product_detail.sort_highest', 'Rating Tertinggi')}</option>
+                      <option value="lowest">{t('product_detail.sort_lowest', 'Rating Terendah')}</option>
+                    </select>
+                  </div>
+
+                  {/* Review List */}
+                  {filteredAndSortedReviews.length === 0 ? (
+                    <div className="py-8 text-center space-y-3">
+                      <p className="text-sm text-[#9C8478]">
+                        {t('product_detail.no_filtered_reviews', 'Belum ada ulasan untuk filter ini.')}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setRatingFilter('all')}
+                        className="inline-flex items-center rounded-lg border border-[#9B4A2F] px-4 py-2 text-xs sm:text-sm font-semibold text-[#9B4A2F] hover:bg-[#9B4A2F] hover:text-white transition cursor-pointer"
+                      >
+                        {t('product_detail.reset_filter', 'Reset Filter')}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-4">
+                      {filteredAndSortedReviews.map((review) => (
+                        <div key={review.id} className="border-b border-[#F6EFE6] pb-4 last:border-b-0 last:pb-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-bold text-[#3A1F16]">
+                                {review.customer?.nama || review.customer_name || 'Pelanggan Toti'}
+                              </span>
+                              <div className="flex text-[#E0A04E] text-sm">
+                                {'★'.repeat(Math.round(review.rating))}
+                                <span className="text-gray-300">{'★'.repeat(5 - Math.round(review.rating))}</span>
+                              </div>
+                            </div>
+                            <span className="text-xs text-[#9C8478]">
+                              {new Date(review.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <p className="text-sm text-[#6B4A3C] mt-2 whitespace-pre-line leading-relaxed">
+                            {review.comment}
+                          </p>
+                          {review.images && review.images.length > 0 && (
+                            <div className="mt-3 flex gap-2 overflow-x-auto pb-1 scrollbar-none snap-x">
+                              {review.images.map((img, imgIdx) => (
+                                <button
+                                  key={img.id}
+                                  type="button"
+                                  onClick={() =>
+                                    setGalleryLightbox({
+                                      isOpen: true,
+                                      images: (review.images || []).map((i) => i.image_url),
+                                      currentIndex: imgIdx,
+                                      altPrefix: `Foto ulasan ${review.customer?.nama || review.customer_name || ''}`,
+                                    })
+                                  }
+                                  className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-[#E8DCCB] bg-white transition hover:opacity-90 snap-start focus:outline-none cursor-zoom-in"
+                                >
+                                  <img src={img.image_url} alt="Ulasan pelanggan" className="h-full w-full object-cover" />
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </section>
 
@@ -778,34 +1003,15 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
-      {/* Lightbox Modal */}
-      {lightboxImage && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm transition-opacity"
-          onClick={() => setLightboxImage(null)}
-          role="dialog"
-          aria-modal="true"
-        >
-          <div
-            className="relative max-w-4xl max-h-[90vh] flex flex-col items-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <img
-              src={lightboxImage.url}
-              alt={lightboxImage.alt || 'Enlarged photo'}
-              className="max-w-full max-h-[85vh] rounded-xl object-contain shadow-2xl"
-            />
-            <button
-              type="button"
-              onClick={() => setLightboxImage(null)}
-              className="absolute -top-12 right-0 sm:-top-10 text-white/80 hover:text-white p-2 rounded-full hover:bg-white/10 transition focus:outline-none"
-              aria-label="Tutup"
-            >
-              <X className="h-7 w-7" />
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Full-Screen Photo Lightbox Modal */}
+      <PhotoLightboxModal
+        isOpen={galleryLightbox.isOpen}
+        images={galleryLightbox.images}
+        currentIndex={galleryLightbox.currentIndex}
+        altPrefix={galleryLightbox.altPrefix}
+        onClose={() => setGalleryLightbox((prev) => ({ ...prev, isOpen: false }))}
+        onIndexChange={(newIdx) => setGalleryLightbox((prev) => ({ ...prev, currentIndex: newIdx }))}
+      />
     </div>
   )
 }

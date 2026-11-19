@@ -7,15 +7,22 @@ import { WishlistProvider } from '@/hooks/useWishlist'
 import { ToastProvider } from '@/components/ui/Toast'
 import { SmartToaster, setupSmartToastDurations } from '@/components/ui/SmartToastBar'
 import { router } from '@/router'
+import { BuyerBouncingLoader, SellerSquareMorphLoader } from '@/components/common/TotiLoader'
 import '@/lib/i18n'
 
 setupSmartToastDurations()
 
-function Loading() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-[#fffaf5]">
-      <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-[#d85b30]" />
-    </div>
+function RootRouteLoader() {
+  const isSellerPath =
+    typeof window !== 'undefined' &&
+    (window.location.pathname.startsWith('/seller') ||
+      window.location.pathname.startsWith('/auth/seller') ||
+      window.location.pathname === '/auth/login')
+
+  return isSellerPath ? (
+    <SellerSquareMorphLoader mode="fullScreen" size="lg" />
+  ) : (
+    <BuyerBouncingLoader mode="fullScreen" size="lg" />
   )
 }
 
@@ -27,7 +34,7 @@ export default function App() {
         <WishlistProvider>
           <CartProvider>
             <WhatsAppProvider>
-              <Suspense fallback={<Loading />}>
+              <Suspense fallback={<RootRouteLoader />}>
                 <RouterProvider router={router} />
               </Suspense>
             </WhatsAppProvider>

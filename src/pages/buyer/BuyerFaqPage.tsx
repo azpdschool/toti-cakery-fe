@@ -3,6 +3,11 @@ import { useSearchParams } from 'react-router-dom';
 import { ChevronDown, MessageCircleQuestion } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { getAllFaqs, type FaqOut } from '@/api/faq';
+import {
+  ScrollProgressBar,
+  ScrollParallaxHero,
+  ScrollReveal,
+} from '@/components/common/ScrollMotion';
 
 export default function BuyerFaqPage() {
   const { t, i18n } = useTranslation();
@@ -64,89 +69,101 @@ export default function BuyerFaqPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#fffaf5] px-4 py-12 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-3xl">
-        <div className="text-center mb-12">
-          <div className="inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-[#d85b30]/10 mb-6 text-[#d85b30]">
-            <MessageCircleQuestion className="h-8 w-8" />
-          </div>
-          <h1 className="text-3xl font-black text-[#4b2417] sm:text-4xl">
-            {t('faq.title', 'Frequently Asked Questions')}
-          </h1>
-          <p className="mt-4 text-lg text-[#6f5448]">
-            {t('faq.subtitle', 'Find answers to common questions about Toti Cakery.')}
-          </p>
-        </div>
+    <div className="px-4 py-10 sm:px-6 lg:px-8">
+      <ScrollProgressBar />
+
+      <div className="mx-auto max-w-7xl">
+        {/* Editorial Header */}
+        <ScrollParallaxHero
+          icon={MessageCircleQuestion}
+          title={t('faq.title', 'Frequently Asked Questions')}
+          subtitle={t('faq.subtitle', 'Find answers to common questions about Toti Cakery.')}
+        />
 
         {loading ? (
           <div className="space-y-4">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="animate-pulse rounded-2xl bg-white p-6 shadow-sm">
+              <div
+                key={i}
+                className="animate-pulse rounded-2xl bg-white border border-[#E8DCCB] p-6 sm:p-7 shadow-sm"
+              >
                 <div className="h-6 w-3/4 rounded bg-gray-200"></div>
               </div>
             ))}
           </div>
         ) : error ? (
-          <div className="rounded-2xl bg-white p-12 text-center shadow-sm">
-            <h3 className="text-lg font-bold text-[#4b2417] mb-2">
+          <div className="rounded-2xl bg-white border border-[#E8DCCB] p-10 sm:p-14 text-center shadow-sm">
+            <h3 className="text-xl font-bold text-[#4b2417] mb-2 font-display">
               {t('faq.error_title', 'Unable to load frequently asked questions right now.')}
             </h3>
-            <p className="text-[#6f5448] mb-6">{t('faq.error_desc', 'Please try again later.')}</p>
+            <p className="text-[#6f5448] mb-6 font-sans text-sm sm:text-base">
+              {t('faq.error_desc', 'Please try again later.')}
+            </p>
             <button
               onClick={loadFaqs}
-              className="rounded-xl bg-[#d85b30] px-6 py-3 font-bold text-white hover:bg-[#c04e28] transition-colors"
+              className="rounded-xl bg-[#d85b30] px-6 py-3 font-bold text-white hover:bg-[#c04e28] transition-colors shadow-sm active:scale-95 cursor-pointer"
             >
               {t('faq.retry', 'Retry')}
             </button>
           </div>
         ) : faqs.length === 0 ? (
-          <div className="rounded-2xl bg-white p-12 text-center shadow-sm">
-            <p className="text-lg text-[#6f5448]">
+          <div className="rounded-2xl bg-white border border-[#E8DCCB] p-10 sm:p-14 text-center shadow-sm">
+            <p className="text-base sm:text-lg text-[#6f5448] font-sans">
               {t('faq.empty', 'No frequently asked questions are available right now.')}
             </p>
           </div>
         ) : (
           <div className="space-y-4">
-            {faqs.map((faq) => {
+            {faqs.map((faq, idx) => {
               const isEn = i18n.language?.startsWith('en');
               const question = isEn && faq.pertanyaan_en ? faq.pertanyaan_en : faq.pertanyaan;
               const answer = isEn && faq.jawaban_en ? faq.jawaban_en : faq.jawaban;
+              const isOpen = openId === faq.id;
               return (
-                <div
+                <ScrollReveal
                   key={faq.id}
-                  id={`faq-${faq.id}`}
-                  className="overflow-hidden rounded-2xl bg-white shadow-sm transition-all hover:shadow-md"
+                  delay={Math.min(idx * 55, 275)}
+                  direction="up"
                 >
-                  <button
-                    onClick={() => toggleFaq(faq.id)}
-                    className="flex w-full items-center justify-between p-6 text-left"
-                    aria-expanded={openId === faq.id}
-                  >
-                    <span className="text-lg font-bold text-[#4b2417]">
-                      {question}
-                    </span>
-                    <ChevronDown
-                      className={`h-5 w-5 text-[#d85b30] transition-transform duration-300 ${
-                        openId === faq.id ? 'rotate-180' : ''
-                      }`}
-                    />
-                  </button>
                   <div
-                    className={`grid transition-all duration-300 ease-in-out ${
-                      openId === faq.id
-                        ? 'grid-rows-[1fr] opacity-100'
-                        : 'grid-rows-[0fr] opacity-0'
+                    id={`faq-${faq.id}`}
+                    className={`w-full overflow-hidden rounded-3xl transition-all duration-300 ${
+                      isOpen
+                        ? 'border border-[#9B4A2F]/50 shadow-md bg-white'
+                        : 'border border-[#E8DCCB] bg-white hover:border-[#E0A04E] hover:shadow-sm'
                     }`}
                   >
-                    <div className="overflow-hidden">
-                      <div className="p-6 pt-0">
-                        <p className="text-[#6f5448] leading-relaxed whitespace-pre-wrap">
-                          {answer}
-                        </p>
+                    <button
+                      onClick={() => toggleFaq(faq.id)}
+                      className="flex w-full items-center justify-between p-6 sm:p-7 text-left focus:outline-none cursor-pointer"
+                      aria-expanded={isOpen}
+                    >
+                      <span className="text-lg sm:text-xl font-bold text-[#3A1F16] font-display pr-4">
+                        {question}
+                      </span>
+                      <ChevronDown
+                        className={`h-5 w-5 shrink-0 text-[#d85b30] transition-transform duration-300 ${
+                          isOpen ? 'rotate-180' : ''
+                        }`}
+                      />
+                    </button>
+                    <div
+                      className={`grid transition-all duration-300 ease-in-out ${
+                        isOpen
+                          ? 'grid-rows-[1fr] opacity-100'
+                          : 'grid-rows-[0fr] opacity-0'
+                      }`}
+                    >
+                      <div className="overflow-hidden">
+                        <div className="p-6 sm:p-7 pt-0 border-t border-[#E8DCCB]/40">
+                          <p className="text-[#6f5448] leading-relaxed whitespace-pre-wrap font-sans text-sm sm:text-base mt-4">
+                            {answer}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                </ScrollReveal>
               );
             })}
           </div>

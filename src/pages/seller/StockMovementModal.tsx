@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { X, Loader2, SlidersHorizontal } from 'lucide-react';
+import { X, SlidersHorizontal } from 'lucide-react';
+import { SellerSquareMorphLoader } from '@/components/common/TotiLoader';
 import { getStockMovementsService, type InventoryItem } from '@/services/sellerInventoryService';
 import type { StockMovementOut } from '@/api/stock';
 import { formatRupiah } from '@/services/productService';
@@ -76,7 +77,7 @@ export default function StockMovementModal({ isOpen, item, onClose, onSuccess }:
           </div>
 
           <div className="p-6 overflow-y-auto">
-            {loading && <div className="flex justify-center p-4"><Loader2 className="animate-spin w-6 h-6 text-gray-500" /></div>}
+            {loading && <SellerSquareMorphLoader size="sm" className="py-8" />}
             {error && <div className="text-red-500 p-4 bg-red-50 rounded-lg">{error}</div>}
             {!loading && !error && movements.length === 0 && (
               <p className="text-center text-gray-500 p-4">No movements found.</p>

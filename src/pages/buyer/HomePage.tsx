@@ -1,14 +1,17 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
   ChevronLeft,
   ChevronRight,
   ShoppingCart,
-  Sparkles,
   Star,
   MapPin,
   X,
+  ExternalLink,
+  Minus,
+  Plus,
 } from 'lucide-react'
+import { BuyerBouncingLoader } from '@/components/common/TotiLoader'
 import { ROUTES } from '@/constants'
 import { useCart } from '@/context/CartContext'
 import { useTranslation } from 'react-i18next'
@@ -19,21 +22,80 @@ import {
   type SimpleProduct,
 } from '@/services/productService'
 import { getLatestReviews } from '@/services/reviewService'
+import type { ReviewResponse } from '@/api/review'
 import {
   getStoreCustomization,
   DEFAULT_STORE_CUSTOMIZATION,
+  optimizeCloudinaryHeroUrl,
   type StoreCustomizationData,
 } from '@/services/storeCustomizationService'
+import { PhotoLightboxModal } from '@/components/common/PhotoLightboxModal'
 
 const DEFAULT_HERO_IMAGE = DEFAULT_STORE_CUSTOMIZATION.hero_image_url!
 const DEFAULT_MAPS_URL = DEFAULT_STORE_CUSTOMIZATION.maps_embed_url!
 
+interface HomeReview {
+  id: number
+  customerName: string
+  rating: number
+  comment: string
+  purchasedProductName: string
+  productId: string
+  productName: string
+  createdAt?: string
+  images?: { id: number; image_url: string }[]
+}
+
+type ModalRatingFilter = 'all' | 'with-photos' | '5' | '4' | '3' | '2' | '1'
+type ModalReviewSort = 'newest' | 'oldest' | 'highest' | 'lowest'
+
 export default function HomePage() {
-  const [selectedTestimonialImage, setSelectedTestimonialImage] = useState<string | null>(null)
   const { addItem } = useCart()
   const { t, i18n } = useTranslation()
   const location = useLocation()
   const [customization, setCustomization] = useState<StoreCustomizationData | null>(null)
+  const [isMapActive, setIsMapActive] = useState(false)
+
+  const [products, setProducts] = useState<SimpleProduct[]>([])
+  const [productQuantities, setProductQuantities] = useState<Record<string, number>>({})
+  const [reviews, setReviews] = useState<HomeReview[]>([])
+  const [expandedReviewIds, setExpandedReviewIds] = useState<Set<number>>(new Set())
+
+  // Modal State for Store-wide Reviews
+  const [isAllReviewsModalOpen, setIsAllReviewsModalOpen] = useState(false)
+  const [allStoreReviews, setAllStoreReviews] = useState<ReviewResponse[] | null>(null)
+  const [loadingAllReviews, setLoadingAllReviews] = useState(false)
+  const [modalRatingFilter, setModalRatingFilter] = useState<ModalRatingFilter>('all')
+  const [modalReviewSort, setModalReviewSort] = useState<ModalReviewSort>('newest')
+
+  // Lightbox State
+  const [photoLightbox, setPhotoLightbox] = useState<{
+    isOpen: boolean
+    images: string[]
+    currentIndex: number
+    altPrefix?: string
+  }>({
+    isOpen: false,
+    images: [],
+    currentIndex: 0,
+    altPrefix: 'Foto ulasan',
+  })
+  const [loading, setLoading] = useState(true)
+  const [currentSlide, setCurrentSlide] = useState(0)
+  const [isHeroPaused, setIsHeroPaused] = useState(false)
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mediaQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+    setPrefersReducedMotion(mediaQuery.matches)
+
+    const handler = (e: MediaQueryListEvent) => {
+      setPrefersReducedMotion(e.matches)
+    }
+    mediaQuery.addEventListener('change', handler)
+    return () => mediaQuery.removeEventListener('change', handler)
+  }, [])
 
   useEffect(() => {
     if (location.hash === '#our-store') {
@@ -47,19 +109,108 @@ export default function HomePage() {
     }
   }, [location.hash])
 
-  const [products, setProducts] = useState<SimpleProduct[]>([])
-  const [reviews, setReviews] = useState<
-    {
-      customerName: string
-      rating: number
-      comment: string
-      purchasedProductName: string
-      productId: string
-      productName: string
-      images?: { id: number; image_url: string }[]
-    }[]
-  >([])
-  const [loading, setLoading] = useState(true)
+  const getMatchedProduct = (productId: string | number) => {
+    return products.find(
+      (p) => p.backendId === Number(productId) || p.id === String(productId)
+    )
+  }
+
+  const toggleExpandReview = (reviewId: number) => {
+    setExpandedReviewIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(reviewId)) next.delete(reviewId)
+      else next.add(reviewId)
+      return next
+    })
+  }
+
+  const openAllReviewsModal = async () => {
+    setIsAllReviewsModalOpen(true)
+    if (!allStoreReviews) {
+      try {
+        setLoadingAllReviews(true)
+        const data = await getLatestReviews(50)
+        setAllStoreReviews(data || [])
+      } catch (err) {
+        console.error('Failed to load all store reviews:', err)
+        toast.error(t('common.error', 'Gagal memuat ulasan'))
+      } finally {
+        setLoadingAllReviews(false)
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (!isAllReviewsModalOpen) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // If photo lightbox is open, let PhotoLightboxModal handle escape
+      if (e.key === 'Escape' && !photoLightbox.isOpen) {
+        setIsAllReviewsModalOpen(false)
+      }
+    }
+
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.body.style.overflow = prevOverflow
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isAllReviewsModalOpen, photoLightbox.isOpen])
+
+  const modalReviewCounts = useMemo(() => {
+    const list = allStoreReviews || []
+    const counts = {
+      all: list.length,
+      withPhotos: 0,
+      star5: 0,
+      star4: 0,
+      star3: 0,
+      star2: 0,
+      star1: 0,
+    }
+    for (const r of list) {
+      if (r.images && r.images.length > 0) counts.withPhotos += 1
+      const rounded = Math.round(r.rating)
+      if (rounded === 5) counts.star5 += 1
+      else if (rounded === 4) counts.star4 += 1
+      else if (rounded === 3) counts.star3 += 1
+      else if (rounded === 2) counts.star2 += 1
+      else if (rounded === 1) counts.star1 += 1
+    }
+    return counts
+  }, [allStoreReviews])
+
+  const filteredAndSortedModalReviews = useMemo(() => {
+    let result = [...(allStoreReviews || [])]
+
+    if (modalRatingFilter === 'with-photos') {
+      result = result.filter((r) => r.images && r.images.length > 0)
+    } else if (modalRatingFilter !== 'all') {
+      const targetRating = Number(modalRatingFilter)
+      result = result.filter((r) => Math.round(r.rating) === targetRating)
+    }
+
+    result.sort((a, b) => {
+      const aTime = a.created_at ? new Date(a.created_at).getTime() : 0
+      const bTime = b.created_at ? new Date(b.created_at).getTime() : 0
+
+      if (modalReviewSort === 'oldest') {
+        return aTime - bTime
+      }
+      if (modalReviewSort === 'highest') {
+        return b.rating - a.rating || bTime - aTime
+      }
+      if (modalReviewSort === 'lowest') {
+        return a.rating - b.rating || bTime - aTime
+      }
+      return bTime - aTime
+    })
+
+    return result
+  }, [allStoreReviews, modalRatingFilter, modalReviewSort])
 
   useEffect(() => {
     let isMounted = true
@@ -82,14 +233,25 @@ export default function HomePage() {
         ])
         if (!isMounted) return
         setProducts(allProducts)
+        setProductQuantities((prev) => {
+          const next = { ...prev }
+          allProducts.forEach((p) => {
+            if (next[p.id] === undefined) {
+              next[p.id] = p.minimumOrder || 1
+            }
+          })
+          return next
+        })
         setReviews(
           (allReviews || []).map((item) => ({
-            customerName: item.customer?.nama || item.customer_name || 'Customer',
+            id: item.id,
+            customerName: item.customer?.nama || item.customer_name || t('home.default_customer_name', 'Pelanggan'),
             rating: item.rating,
             comment: item.comment || '',
             purchasedProductName: item.product?.nama_produk || item.product_name || '',
             productId: String(item.product_id),
             productName: item.product?.nama_produk || item.product_name || '',
+            createdAt: item.created_at,
             images: item.images || [],
           }))
         )
@@ -108,16 +270,39 @@ export default function HomePage() {
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [t])
 
+  const handleIncrementProductQty = (product: SimpleProduct, e?: React.MouseEvent) => {
+    e?.preventDefault()
+    e?.stopPropagation()
+    const minOrder = product.minimumOrder || 1
+    const maxQty = product.stockQuantity
+    const current = productQuantities[product.id] ?? minOrder
+    const next = Math.min(maxQty, current + 1)
+    setProductQuantities((prev) => ({ ...prev, [product.id]: next }))
+  }
 
-  const handleAddToCart = (product: SimpleProduct) => {
-    const isPurchasable = product.isAvailable && product.isInStock && product.stockQuantity > 0;
+  const handleDecrementProductQty = (product: SimpleProduct, e?: React.MouseEvent) => {
+    e?.preventDefault()
+    e?.stopPropagation()
+    const minOrder = product.minimumOrder || 1
+    const current = productQuantities[product.id] ?? minOrder
+    const next = Math.max(minOrder, current - 1)
+    setProductQuantities((prev) => ({ ...prev, [product.id]: next }))
+  }
+
+  const handleAddToCart = (product: SimpleProduct, quantity?: number) => {
+    const isPurchasable = product.isAvailable && product.isInStock && product.stockQuantity > 0
     if (!isPurchasable) {
-      toast.error(t('cart.add_to_cart_failure', 'Gagal menambahkan produk ke keranjang'));
-      return;
+      toast.error(t('cart.add_to_cart_failure', 'Gagal menambahkan produk ke keranjang'))
+      return
     }
-    
+
+    const minOrder = product.minimumOrder || 1
+    const maxQty = product.stockQuantity
+    const rawQty = quantity ?? (productQuantities[product.id] ?? minOrder)
+    const qtyToAdd = Math.max(minOrder, Math.min(maxQty, rawQty))
+
     addItem({
       productId: product.id,
       variantId: `${product.id}-default`,
@@ -125,13 +310,13 @@ export default function HomePage() {
       variantName: 'Default',
       price: product.price,
       image: product.image,
-      minOrder: product.minimumOrder || 1,
+      minOrder,
       step: 1,
       category: product.category,
-      quantity: product.minimumOrder || 1,
-    });
-    toast.success(t('cart.add_to_cart_success', 'Ditambahkan ke keranjang'));
-  };
+      quantity: qtyToAdd,
+    })
+    toast.success(t('cart.add_to_cart_success', 'Ditambahkan ke keranjang'))
+  }
 
   // Horizontal scroll carousel behavior (products)
   const productScrollRef = useRef<HTMLDivElement>(null)
@@ -161,7 +346,7 @@ export default function HomePage() {
     setTimeout(updateProductScrollButtons, 300)
   }
 
-  // Horizontal scroll carousel behavior (testimonials)
+  // Horizontal scroll carousel behavior (testimonials) - fixed scroll direction
   const reviewScrollRef = useRef<HTMLDivElement>(null)
   const [canScrollReviewLeft, setCanScrollReviewLeft] = useState(false)
   const [canScrollReviewRight, setCanScrollReviewRight] = useState(true)
@@ -181,20 +366,20 @@ export default function HomePage() {
   }, [reviews])
 
   const scrollReviewLeft = () => {
-    reviewScrollRef.current?.scrollBy({ left: 300, behavior: 'smooth' })
-    setTimeout(updateReviewScrollButtons, 300)
-  }
-  const scrollReviewRight = () => {
     reviewScrollRef.current?.scrollBy({ left: -300, behavior: 'smooth' })
     setTimeout(updateReviewScrollButtons, 300)
   }
+  const scrollReviewRight = () => {
+    reviewScrollRef.current?.scrollBy({ left: 300, behavior: 'smooth' })
+    setTimeout(updateReviewScrollButtons, 300)
+  }
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-gray-700" />
-      </div>
-    )
+  const scrollToTestimonials = () => {
+    const el = document.getElementById('testimonials-section')
+    if (el) {
+      const prefersReducedMotion = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      el.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth' })
+    }
   }
 
   const currentLang = i18n.language?.startsWith('en') ? 'en' : 'id'
@@ -202,7 +387,34 @@ export default function HomePage() {
 
   const heroTitle = localeContent?.hero_title || `${t('home.hero_title_1')}\n${t('home.hero_title_2')}`
   const heroSubtitle = localeContent?.hero_subtitle || t('home.hero_desc')
-  const heroImageUrl = customization?.hero_image_url || DEFAULT_HERO_IMAGE
+  const cleanHeroTitle = heroTitle.replace(/\n/g, ' ').trim()
+
+  const heroSlides = useMemo(() => {
+    const urls = customization?.hero_image_urls
+    if (urls && urls.length > 0) {
+      return urls.map((url) => optimizeCloudinaryHeroUrl(url, 1600))
+    }
+    if (customization?.hero_image_url) {
+      return [optimizeCloudinaryHeroUrl(customization.hero_image_url, 1600)]
+    }
+    return [optimizeCloudinaryHeroUrl(DEFAULT_HERO_IMAGE, 1600)]
+  }, [customization])
+
+  useEffect(() => {
+    if (currentSlide >= heroSlides.length) {
+      setCurrentSlide(0)
+    }
+  }, [heroSlides.length, currentSlide])
+
+  useEffect(() => {
+    if (heroSlides.length <= 1 || prefersReducedMotion || isHeroPaused) return
+
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % heroSlides.length)
+    }, 5000)
+
+    return () => clearInterval(timer)
+  }, [heroSlides.length, prefersReducedMotion, isHeroPaused])
 
   const aboutTitle = localeContent?.about_title || t('home.about_title')
   const aboutDescription =
@@ -211,38 +423,483 @@ export default function HomePage() {
   const mapsEmbedUrl = customization?.maps_embed_url || DEFAULT_MAPS_URL
   const storeAddress = customization?.store_address
 
+  // Embed language handling: if embed string contains pb with !1sen, switch to !1sid at component render
+  const renderedMapsUrl = useMemo(() => {
+    if (mapsEmbedUrl && mapsEmbedUrl.includes('!1sen')) {
+      return mapsEmbedUrl.replace(/!1sen/g, '!1sid')
+    }
+    return mapsEmbedUrl
+  }, [mapsEmbedUrl])
+
+  if (loading) {
+    return <BuyerBouncingLoader mode="section" size="lg" />
+  }
+
   return (
-    <div className="bg-[#F6EFE6] pb-6">
-      {/* HERO SECTION */}
-      <section className="mx-auto max-w-7xl px-4 pt-5 lg:px-8">
-        <div className="relative overflow-hidden rounded-xl bg-white shadow-md ring-1 ring-[#D0BFAF]/60">
+    <div className="pb-12 space-y-8 sm:space-y-10 lg:space-y-12">
+      {/* 1. HERO SECTION (Seamless, edge-to-edge borderless split Hero) */}
+      <section className="w-full overflow-hidden border-b border-[#E6D5C6]/70">
+        <div className="grid w-full grid-cols-1 md:grid-cols-12 md:min-h-[500px] md:h-[calc(82svh-77px)] lg:max-h-[640px]">
+          {/* Left Text Column */}
+          <div className="md:col-span-5 order-2 md:order-1 flex flex-col justify-center bg-transparent px-5 py-8 sm:px-8 md:py-12 md:pl-[max(1.5rem,calc((100vw-80rem)/2+2rem))] md:pr-10 lg:pr-12">
+            <div className="max-w-lg pr-14 sm:pr-0">
+              <h1 className="font-display text-4xl md:text-5xl font-black tracking-tight text-toti-ink whitespace-pre-line leading-tight">
+                {heroTitle}
+              </h1>
+              <p className="mt-4 sm:mt-5 text-base sm:text-lg leading-relaxed text-toti-secondary max-w-[60ch] whitespace-pre-line font-sans">
+                {heroSubtitle}
+              </p>
+              <div className="mt-6 sm:mt-8 flex flex-wrap items-center gap-3 sm:gap-4">
+                <Link
+                  to={ROUTES.CATALOG}
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-toti-brick px-6 py-2.5 text-sm sm:text-base font-semibold text-white transition-colors duration-150 hover:bg-toti-brick-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-brick focus-visible:ring-offset-2 cursor-pointer w-full sm:w-auto text-center"
+                >
+                  {t('home.view_products', 'Lihat produk')}
+                </Link>
+                <button
+                  type="button"
+                  onClick={scrollToTestimonials}
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-toti-honey px-6 py-2.5 text-sm sm:text-base font-semibold text-toti-ink transition-colors duration-150 hover:bg-toti-honey-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-honey focus-visible:ring-offset-2 cursor-pointer w-full sm:w-auto text-center"
+                >
+                  {t('home.read_reviews', 'Baca ulasan')}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Photo Column */}
           <div
-            className="absolute inset-0"
-            style={{
-              backgroundImage: `url('${heroImageUrl}')`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
+            className="md:col-span-7 order-1 md:order-2 relative w-full h-[36svh] min-h-[220px] max-h-[320px] md:h-auto md:min-h-full md:max-h-none overflow-hidden bg-[#EFE4D8]"
+            onMouseEnter={() => setIsHeroPaused(true)}
+            onMouseLeave={() => setIsHeroPaused(false)}
+            onFocusCapture={() => setIsHeroPaused(true)}
+            onBlurCapture={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                setIsHeroPaused(false)
+              }
             }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-white/90 via-white/80 to-white/65 md:bg-gradient-to-r md:from-white md:via-white/85 md:to-transparent" />
-          <div className="relative z-10 px-4 py-8 sm:px-8 sm:py-10 lg:px-12 lg:py-16 max-w-2xl">
-            <h1 className="max-w-xl text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-black leading-tight tracking-tight text-[#3A1F16] whitespace-pre-line">
-              {heroTitle}
-            </h1>
-            <p className="mt-5 max-w-md text-base leading-7 text-[#6B4A3C] whitespace-pre-line">
-              {heroSubtitle}
-            </p>
+          >
+            {heroSlides.map((url, idx) => {
+              const isActive = idx === currentSlide
+              const isSingle = heroSlides.length === 1
+              const slideAlt = isSingle
+                ? t('home.hero_image_alt', cleanHeroTitle || 'Aneka kue lezat dan cake spesial Toti Cakery')
+                : `${cleanHeroTitle || 'Toti Cakery'} — ${t('home.hero_slide_indicator', {
+                    current: idx + 1,
+                    total: heroSlides.length,
+                    defaultValue: `Slide ${idx + 1} dari ${heroSlides.length}`,
+                  })}`
+
+              return (
+                <div
+                  key={url + idx}
+                  className={`absolute inset-0 w-full h-full ${
+                    prefersReducedMotion
+                      ? isActive
+                        ? 'opacity-100 z-10'
+                        : 'opacity-0 z-0 pointer-events-none'
+                      : `transition-opacity duration-700 ease-in-out ${
+                          isActive ? 'opacity-100 z-10' : 'opacity-0 z-0 pointer-events-none'
+                        }`
+                  }`}
+                  aria-hidden={!isActive}
+                >
+                  <img
+                    src={url}
+                    alt={slideAlt}
+                    fetchPriority={idx === 0 ? 'high' : 'auto'}
+                    loading={idx === 0 ? 'eager' : 'lazy'}
+                    decoding="async"
+                    className="h-full w-full object-cover object-center"
+                  />
+                </div>
+              )
+            })}
+
+            {/* Controls (Rendered ONLY when heroSlides.length > 1) */}
+            {heroSlides.length > 1 && (
+              <>
+                {/* Previous Slide Button */}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCurrentSlide((prev) => (prev - 1 + heroSlides.length) % heroSlides.length)
+                  }
+                  className="absolute left-3 top-1/2 -translate-y-1/2 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-xs transition hover:bg-black/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                  aria-label={t('home.hero_prev_slide', 'Slide sebelumnya')}
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+
+                {/* Next Slide Button */}
+                <button
+                  type="button"
+                  onClick={() => setCurrentSlide((prev) => (prev + 1) % heroSlides.length)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-xs transition hover:bg-black/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                  aria-label={t('home.hero_next_slide', 'Slide berikutnya')}
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+
+                {/* Dot Indicators */}
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 rounded-full bg-black/30 px-2.5 py-1 backdrop-blur-xs">
+                  {heroSlides.map((_, dotIdx) => (
+                    <button
+                      key={dotIdx}
+                      type="button"
+                      onClick={() => setCurrentSlide(dotIdx)}
+                      className={`h-2 rounded-full transition-all duration-300 ${
+                        dotIdx === currentSlide ? 'w-6 bg-white' : 'w-2 bg-white/50 hover:bg-white/80'
+                      }`}
+                      aria-label={t('home.hero_slide_nav', {
+                        number: dotIdx + 1,
+                        defaultValue: `Ke slide ${dotIdx + 1}`,
+                      })}
+                      aria-current={dotIdx === currentSlide ? 'true' : undefined}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         </div>
       </section>
 
-      {/* ABOUT & MAP */}
-      <section id="our-store" className="mx-auto max-w-7xl px-4 pt-8 lg:px-8">
-        <div className="rounded-xl bg-white px-6 py-5 shadow-sm">
-          <div className="grid gap-8 lg:grid-cols-[0.95fr_1.8fr] lg:items-center">
-            <div className="overflow-hidden rounded-xl h-52 sm:h-64 lg:h-full lg:min-h-[240px]">
+      {/* 2. SEMUA PRODUK (Boxless, open layout matching Testimoni Pelanggan) */}
+      <section id="our-products" className="mx-auto max-w-7xl px-4 pt-10 md:pt-14 lg:px-8 scroll-mt-24">
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="font-display text-2xl md:text-[32px] md:leading-[40px] font-semibold text-toti-ink">
+            {t('home.our_products')}
+          </h2>
+          <Link
+            to={ROUTES.CATALOG}
+            className="inline-flex min-h-[44px] items-center px-2 py-1 text-sm font-semibold text-toti-brick hover:text-toti-brick-hover transition-colors rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-brick"
+          >
+            {t('home.view_all')}
+          </Link>
+        </div>
+
+        {products.length === 0 ? (
+          <div className="rounded-2xl bg-white border border-[#E6D5C6]/80 p-8 text-center shadow-xs">
+            <p className="text-center text-sm sm:text-base text-toti-secondary font-sans">
+              {t('catalog.not_found_desc', 'Belum ada produk aktif yang tersedia.')}
+            </p>
+          </div>
+        ) : (
+          <div className="relative">
+            {canScrollProductLeft && (
+              <button
+                type="button"
+                onClick={scrollProductLeft}
+                aria-label={t('common.prev')}
+                className="absolute left-0 top-1/2 -translate-y-1/2 -ml-4 hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-md border border-[#E6D5C6]/80 text-toti-secondary hover:text-toti-brick hover:border-toti-brick z-10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-brick cursor-pointer"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+            )}
+            {canScrollProductRight && (
+              <button
+                type="button"
+                onClick={scrollProductRight}
+                aria-label={t('common.next')}
+                className="absolute right-0 top-1/2 -translate-y-1/2 -mr-4 hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-md border border-[#E6D5C6]/80 text-toti-secondary hover:text-toti-brick hover:border-toti-brick z-10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-brick cursor-pointer"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            )}
+
+            <div
+              ref={productScrollRef}
+              onScroll={updateProductScrollButtons}
+              className="flex gap-5 overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth px-1 -mx-1 py-1"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
+            >
+              {products.map((product) => {
+                const maxQty = product.stockQuantity
+                const isUnavailable = !product.isAvailable
+                const isOutOfStock = !isUnavailable && (!product.isInStock || maxQty <= 0)
+                const isPurchasable = !isUnavailable && !isOutOfStock
+
+                const minOrder = product.minimumOrder || 1
+                const currentQty = productQuantities[product.id] ?? minOrder
+
+                return (
+                  <article
+                    key={product.id}
+                    className="snap-start shrink-0 w-[220px] overflow-hidden bg-white rounded-2xl border border-[#E6D5C6]/80 shadow-sm transition hover:-translate-y-1 hover:shadow-md flex flex-col justify-between"
+                  >
+                    <Link to={`/catalog/${product.slug}`} tabIndex={-1} aria-hidden="true">
+                      <div className="aspect-square w-full overflow-hidden bg-toti-alt">
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          loading="lazy"
+                          decoding="async"
+                          className="h-full w-full object-cover transition duration-300 hover:scale-105"
+                          onError={(e) => {
+                            e.currentTarget.onerror = null;
+                            e.currentTarget.src = '/fallback-logo.png';
+                            e.currentTarget.classList.remove('object-cover');
+                            e.currentTarget.classList.add('object-contain', 'p-6');
+                          }}
+                        />
+                      </div>
+                    </Link>
+                    <div className="p-4 flex flex-col flex-1 justify-between">
+                      <div>
+                        <Link
+                          to={`/catalog/${product.slug}`}
+                          className="line-clamp-2 min-h-[2.75rem] text-sm font-semibold text-toti-ink hover:text-toti-brick transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-brick rounded"
+                        >
+                          {product.name}
+                        </Link>
+                        <div className="mt-1 flex items-center gap-1.5 text-xs text-toti-secondary">
+                          <div className="flex items-center gap-1">
+                            <Star className="h-3.5 w-3.5 fill-toti-honey text-toti-honey" />
+                            <span className="font-semibold text-toti-secondary">
+                              {product.rating > 0 ? product.rating.toFixed(1) : '0.0'}
+                            </span>
+                            {product.reviewCount !== undefined && product.reviewCount > 0 && (
+                              <span className="text-toti-secondary">({product.reviewCount})</span>
+                            )}
+                          </div>
+                          <span className="text-toti-divider">·</span>
+                          <span className="text-toti-secondary">
+                            {product.soldCount ?? 0} {t('common.sold', 'terjual')}
+                          </span>
+                        </div>
+                        <p className="mt-2.5 text-base font-semibold text-toti-ink">
+                          {formatRupiah(product.price)}
+                        </p>
+                      </div>
+
+                      {/* Bottom Area: Quantity selector (only when purchasable) + Action Button */}
+                      <div className="mt-auto pt-3">
+                        {isPurchasable && (
+                          <div className="mb-2.5 flex items-center gap-1 sm:gap-2">
+                            <button
+                              type="button"
+                              onClick={(e) => handleDecrementProductQty(product, e)}
+                              disabled={currentQty <= minOrder}
+                              className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded border border-[#D0BFAF] text-[#3A1F16] hover:bg-[#E8DCCB] disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                              aria-label={t('product_detail.decrease_qty', 'Kurangi jumlah')}
+                              title={t('product_detail.decrease_qty', 'Kurangi jumlah')}
+                            >
+                              <Minus className="h-3 w-3" />
+                            </button>
+                            <span className="w-5 sm:w-6 text-center text-xs sm:text-sm font-semibold text-[#3A1F16]">
+                              {currentQty}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => handleIncrementProductQty(product, e)}
+                              disabled={currentQty >= maxQty}
+                              className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded border border-[#D0BFAF] text-[#3A1F16] hover:bg-[#E8DCCB] disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                              aria-label={t('product_detail.increase_qty', 'Tambah jumlah')}
+                              title={t('product_detail.increase_qty', 'Tambah jumlah')}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </button>
+                            {minOrder > 1 && (
+                              <span className="hidden sm:inline ml-1 text-[10px] text-[#9C8478]">
+                                min {minOrder}
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            handleAddToCart(product, currentQty)
+                          }}
+                          disabled={!isPurchasable}
+                          className={`flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border text-xs font-semibold transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-brick focus-visible:ring-offset-1 active:scale-[0.98] ${
+                            !isPurchasable
+                              ? 'bg-toti-disabled border-toti-disabled text-toti-secondary/80 cursor-not-allowed active:scale-100'
+                              : 'border-toti-brick text-toti-brick bg-transparent hover:bg-toti-brick-hover hover:text-white hover:border-toti-brick-hover'
+                          }`}
+                        >
+                          {isPurchasable && <ShoppingCart className="h-4 w-4 shrink-0" />}
+                          <span>
+                            {isUnavailable
+                              ? t('product_detail.unavailable', 'Tidak tersedia')
+                              : isOutOfStock
+                              ? t('product_detail.out_of_stock', 'Stok habis')
+                              : t('home.add_to_cart', 'Tambah ke Keranjang')}
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* 3. TESTIMONI (Directly on Cream Background; cards are White with border toti-beige) */}
+      <section id="testimonials-section" className="mx-auto max-w-7xl px-4 lg:px-8 scroll-mt-24">
+        <div className="mb-6 flex items-center justify-between">
+          <h2 className="font-display text-2xl md:text-[32px] md:leading-[40px] font-semibold text-toti-ink">
+            {t('home.testimonials_title')}
+          </h2>
+          <button
+            type="button"
+            onClick={openAllReviewsModal}
+            className="inline-flex min-h-[44px] items-center px-2 py-1 text-sm font-semibold text-toti-brick hover:text-toti-brick-hover transition-colors rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-brick cursor-pointer"
+          >
+            {t('home.view_all_reviews', 'Lihat Semua')}
+          </button>
+        </div>
+
+        {reviews.length === 0 ? (
+          <div className="rounded-2xl bg-toti-card border border-toti-beige p-8 text-center shadow-xs">
+            <p className="text-sm sm:text-base text-toti-secondary font-sans">{t('home.no_testimonials')}</p>
+          </div>
+        ) : (
+          <div className="relative">
+            {canScrollReviewLeft && (
+              <button
+                type="button"
+                onClick={scrollReviewLeft}
+                aria-label={t('common.prev')}
+                className="absolute left-0 top-1/2 -translate-y-1/2 -ml-4 hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-toti-card shadow-md border border-toti-beige text-toti-secondary hover:text-toti-brick hover:border-toti-brick z-10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-brick cursor-pointer"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+            )}
+            {canScrollReviewRight && (
+              <button
+                type="button"
+                onClick={scrollReviewRight}
+                aria-label={t('common.next')}
+                className="absolute right-0 top-1/2 -translate-y-1/2 -mr-4 hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-toti-card shadow-md border border-toti-beige text-toti-secondary hover:text-toti-brick hover:border-toti-brick z-10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-brick cursor-pointer"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            )}
+
+            <div
+              ref={reviewScrollRef}
+              onScroll={updateReviewScrollButtons}
+              className="flex gap-5 overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth px-1 -mx-1"
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
+            >
+              {reviews.map((review) => (
+                <article
+                  key={review.id ? `rev-${review.id}` : review.productId + review.customerName}
+                  className="snap-start shrink-0 w-[280px] sm:w-[300px] rounded-2xl bg-toti-card border border-toti-beige p-5 flex flex-col justify-between shadow-xs transition hover:shadow-sm"
+                >
+                  <div className="space-y-3">
+                    <div>
+                      <p
+                        className={`text-sm leading-relaxed text-toti-secondary font-sans whitespace-pre-line ${
+                          expandedReviewIds.has(review.id) ? '' : 'line-clamp-4'
+                        }`}
+                      >
+                        "{review.comment}"
+                      </p>
+                      {review.comment && review.comment.length > 130 && (
+                        <button
+                          type="button"
+                          onClick={() => toggleExpandReview(review.id)}
+                          className="mt-1 text-xs font-semibold text-toti-brick hover:underline cursor-pointer focus-visible:outline-none"
+                        >
+                          {expandedReviewIds.has(review.id)
+                            ? t('home.show_less', 'Sembunyikan')
+                            : t('home.read_more', 'Selengkapnya')}
+                        </button>
+                      )}
+                    </div>
+
+                    {review.images && review.images.length > 0 && (
+                      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none snap-x pt-1">
+                        {review.images.map((img, imgIdx) => (
+                          <button
+                            key={img.id}
+                            type="button"
+                            onClick={() =>
+                              setPhotoLightbox({
+                                isOpen: true,
+                                images: (review.images || []).map((i) => i.image_url),
+                                currentIndex: imgIdx,
+                                altPrefix: `Foto ulasan ${review.customerName}`,
+                              })
+                            }
+                            className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-toti-beige bg-toti-card transition hover:opacity-90 snap-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-brick cursor-pointer"
+                          >
+                            <img
+                              src={img.image_url}
+                              alt={t('home.testimonial_image_alt', 'Foto ulasan pelanggan Toti Cakery')}
+                              loading="lazy"
+                              decoding="async"
+                              className="h-full w-full object-cover"
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-4 border-t border-toti-divider/60 pt-3">
+                    <p className="text-sm font-semibold text-toti-ink">
+                      {review.customerName}
+                    </p>
+                    <div className="mt-0.5 text-xs text-toti-secondary font-medium truncate">
+                      <span>{t('home.bought')}</span>
+                      {(() => {
+                        const matched = getMatchedProduct(review.productId)
+                        if (matched) {
+                          return (
+                            <Link
+                              to={`/catalog/${matched.slug}`}
+                              className="font-semibold text-toti-brick hover:underline ml-1 inline-flex items-center gap-0.5 transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-toti-brick rounded"
+                            >
+                              {review.purchasedProductName}
+                            </Link>
+                          )
+                        }
+                        return <span className="font-semibold text-toti-ink ml-1">{review.purchasedProductName}</span>
+                      })()}
+                    </div>
+                    <div
+                      className="mt-2 flex items-center gap-1"
+                      aria-label={`${review.rating} dari 5 bintang`}
+                    >
+                      {Array.from({ length: 5 }).map((_, index) => (
+                        <Star
+                          key={index}
+                          className={`h-4 w-4 ${
+                            index < review.rating
+                              ? 'fill-toti-honey text-toti-honey stroke-toti-brick stroke-[0.75]'
+                              : 'text-toti-cocoa fill-transparent stroke-[1]'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* 4. TENTANG KAMI & PETA (Section wrapper = toti-alt; store address box = toti-card) */}
+      <section id="our-store" className="mx-auto max-w-7xl px-4 lg:px-8 scroll-mt-24">
+        <div className="rounded-2xl bg-toti-alt p-6 sm:p-8 lg:p-10 shadow-sm border border-toti-beige">
+          <div className="grid gap-8 lg:grid-cols-[1fr_1.35fr] lg:items-center">
+            {/* Map Embed (Prevent mobile scroll trap) */}
+            <div
+              className="relative overflow-hidden rounded-xl h-60 sm:h-72 lg:h-full lg:min-h-[280px] border border-toti-beige bg-toti-card"
+              onClick={() => setIsMapActive(true)}
+            >
               <iframe
-                src={mapsEmbedUrl}
+                src={renderedMapsUrl}
                 width="100%"
                 height="100%"
                 style={{ border: 0 }}
@@ -250,24 +907,46 @@ export default function HomePage() {
                 loading="lazy"
                 scrolling="yes"
                 referrerPolicy="strict-origin-when-cross-origin"
-                className="w-full h-full"
+                className={`w-full h-full ${!isMapActive ? 'pointer-events-none md:pointer-events-auto' : 'pointer-events-auto'}`}
                 title={t('home.map_title')}
               />
+              {!isMapActive && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/10 backdrop-blur-[1px] md:hidden cursor-pointer">
+                  <span className="rounded-full bg-toti-card/95 px-4 py-2 text-xs font-semibold text-toti-ink shadow-sm border border-toti-beige">
+                    {t('home.tap_to_interact_map', 'Ketuk peta untuk menggeser')}
+                  </span>
+                </div>
+              )}
             </div>
+
+            {/* About & Store Information */}
             <div>
-              <div className="max-w-3xl">
-                <h2 className="text-2xl font-black text-[#3A1F16] whitespace-pre-line">
+              <div className="max-w-2xl">
+                <h2 className="font-display text-2xl md:text-[32px] md:leading-[40px] font-semibold text-toti-ink whitespace-pre-line">
                   {aboutTitle}
                 </h2>
-                <p className="mt-3 text-sm leading-6 text-[#6B4A3C] whitespace-pre-line">
+                <p className="mt-3 text-base leading-relaxed text-toti-secondary max-w-[60ch] whitespace-pre-line font-sans">
                   {aboutDescription}
                 </p>
+
                 {storeAddress && (
-                  <div className="mt-4 flex items-start gap-2.5 rounded-lg bg-[#F6EFE6]/70 p-3 text-xs sm:text-sm text-[#4b2417] border border-[#EAD8CA]">
-                    <MapPin className="h-5 w-5 shrink-0 text-[#9B4A2F] mt-0.5" />
-                    <span className="whitespace-pre-line font-medium leading-relaxed">
-                      {storeAddress}
-                    </span>
+                  <div className="mt-5 space-y-3">
+                    <div className="flex items-start gap-3 rounded-xl bg-toti-card p-4 text-sm text-toti-ink border border-toti-beige shadow-xs">
+                      <MapPin className="h-5 w-5 shrink-0 text-toti-brick mt-0.5" />
+                      <span className="whitespace-pre-line font-medium leading-relaxed text-toti-ink">
+                        {storeAddress}
+                      </span>
+                    </div>
+
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(storeAddress)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg bg-toti-honey px-5 py-2.5 text-sm font-semibold text-toti-ink transition-colors duration-150 hover:bg-toti-honey-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-honey focus-visible:ring-offset-2 cursor-pointer w-full sm:w-auto"
+                    >
+                      <ExternalLink className="h-4 w-4 text-toti-ink" />
+                      <span>{t('home.open_in_google_maps', 'Buka di Google Maps')}</span>
+                    </a>
                   </div>
                 )}
               </div>
@@ -276,218 +955,209 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* SEMUA PRODUK */}
-      <section className="mx-auto max-w-7xl px-4 pt-10 lg:px-8">
-        <div className="rounded-xl bg-white px-6 py-7 shadow-sm">
-          <div className="mb-5 flex items-center justify-between">
-            <h2 className="text-2xl font-black text-[#3A1F16]">{t('home.our_products')}</h2>
-            <Link
-              to={ROUTES.CATALOG}
-              className="text-xs font-black text-[#9B4A2F] hover:text-[#7E3A24]"
-            >
-              {t('home.view_all')}
-            </Link>
-          </div>
-
-          <div className="relative group">
-            {canScrollProductLeft && (
+      {/* 5. ALL REVIEWS MODAL */}
+      {isAllReviewsModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-6"
+          onClick={() => setIsAllReviewsModalOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={t('home.all_reviews_title', 'Semua Ulasan Pelanggan')}
+        >
+          <div
+            className="relative w-full max-w-3xl max-h-[90vh] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden border border-toti-beige animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-start justify-between p-4 sm:p-6 border-b border-toti-divider/60 bg-toti-alt/40 shrink-0">
+              <div>
+                <h3 className="font-display text-xl sm:text-2xl font-bold text-toti-ink">
+                  {t('home.all_reviews_title', 'Semua Ulasan Pelanggan')}
+                </h3>
+                <p className="text-xs sm:text-sm text-toti-secondary mt-1">
+                  {t('home.all_reviews_subtitle', 'Menampilkan hingga 50 ulasan terbaru')}
+                </p>
+              </div>
               <button
                 type="button"
-                onClick={scrollProductLeft}
-                aria-label={t('common.prev')}
-                className="absolute left-0 top-1/2 -translate-y-1/2 -ml-3 hidden sm:flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md border border-[#EAD8CA] text-[#6B4A3C] hover:text-[#9B4A2F] z-10 opacity-0 group-hover:opacity-100 transition-opacity focus:outline-none focus:ring-2 focus:ring-[#9B4A2F]/30"
+                onClick={() => setIsAllReviewsModalOpen(false)}
+                className="flex items-center justify-center min-h-[44px] min-w-[44px] rounded-full text-toti-secondary hover:text-toti-ink hover:bg-toti-cream transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-brick cursor-pointer"
+                aria-label={t('common.close', 'Tutup')}
               >
-                <ChevronLeft className="h-4 w-4" />
+                <X className="h-6 w-6" />
               </button>
-            )}
-            {canScrollProductRight && (
-              <button
-                type="button"
-                onClick={scrollProductRight}
-                aria-label={t('common.next')}
-                className="absolute right-0 top-1/2 -translate-y-1/2 -mr-3 hidden sm:flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md border border-[#EAD8CA] text-[#6B4A3C] hover:text-[#9B4A2F] z-10 opacity-0 group-hover:opacity-100 transition-opacity focus:outline-none focus:ring-2 focus:ring-[#9B4A2F]/30"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            )}
+            </div>
 
-            <div
-              ref={productScrollRef}
-              onScroll={updateProductScrollButtons}
-              className="flex gap-5 overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth px-1 -mx-1"
-              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
-            >
-              {products.map((product) => (
-                <article
-                  key={product.id}
-                  className="snap-start shrink-0 w-[220px] overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-[#EAD8CA] transition hover:-translate-y-1 hover:shadow-md"
+            {/* Modal Filter & Sort Bar */}
+            <div className="p-4 sm:px-6 sm:py-3.5 bg-white border-b border-toti-divider/40 shrink-0 space-y-3">
+              {/* Chips */}
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <button
+                  type="button"
+                  onClick={() => setModalRatingFilter('all')}
+                  className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer ${
+                    modalRatingFilter === 'all'
+                      ? 'bg-toti-brick text-white border-toti-brick shadow-xs'
+                      : 'bg-white text-toti-ink border-toti-divider hover:border-toti-brick'
+                  }`}
                 >
-                  <Link to={`/catalog/${product.slug}`}>
-                    <div className="aspect-square w-full overflow-hidden bg-[#EFE4D6]">
-                      <img
-                        src={product.image}
-                        alt={product.name}
-                        className="h-full w-full object-cover transition duration-300 hover:scale-105"
-                      />
-                    </div>
-                  </Link>
-                  <div className="p-4">
-                    <Link
-                      to={`/catalog/${product.slug}`}
-                      className="line-clamp-1 text-sm font-black text-[#3A1F16] hover:text-[#9B4A2F]"
-                    >
-                      {product.name}
-                    </Link>
-                    <div className="mt-1 flex items-center gap-1.5 text-xs text-[#6B4A3C]">
-                      <div className="flex items-center gap-1">
-                        <Star className="h-3.5 w-3.5 fill-[#E0A04E] text-[#E0A04E]" />
-                        <span className="font-semibold text-[#9B4A2F]">
-                          {product.rating > 0 ? product.rating.toFixed(1) : '0.0'}
-                        </span>
-                        {product.reviewCount !== undefined && product.reviewCount > 0 && (
-                          <span className="text-[#8B7166]">({product.reviewCount})</span>
+                  <span>{t('product_detail.filter_all', 'Semua')}</span>
+                  <span className="opacity-80">({modalReviewCounts.all})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalRatingFilter('with-photos')}
+                  className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer ${
+                    modalRatingFilter === 'with-photos'
+                      ? 'bg-toti-brick text-white border-toti-brick shadow-xs'
+                      : 'bg-white text-toti-ink border-toti-divider hover:border-toti-brick'
+                  }`}
+                >
+                  <span>{t('product_detail.filter_with_photos', 'Dengan Foto')}</span>
+                  <span className="opacity-80">({modalReviewCounts.withPhotos})</span>
+                </button>
+                {(['5', '4', '3', '2', '1'] as const).map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setModalRatingFilter(star)}
+                    className={`inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer ${
+                      modalRatingFilter === star
+                        ? 'bg-toti-brick text-white border-toti-brick shadow-xs'
+                        : 'bg-white text-toti-ink border-toti-divider hover:border-toti-brick'
+                    }`}
+                  >
+                    <span>{t('product_detail.filter_star', { star })}</span>
+                    <span className="opacity-80">
+                      ({star === '5' ? modalReviewCounts.star5 : star === '4' ? modalReviewCounts.star4 : star === '3' ? modalReviewCounts.star3 : star === '2' ? modalReviewCounts.star2 : modalReviewCounts.star1})
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Sort Bar */}
+              <div className="flex items-center justify-between text-xs sm:text-sm pt-1">
+                <span className="text-xs font-medium text-toti-secondary">
+                  {t('product_detail.sort_label', 'Urutkan')}:
+                </span>
+                <select
+                  value={modalReviewSort}
+                  onChange={(e) => setModalReviewSort(e.target.value as ModalReviewSort)}
+                  className="rounded-lg border border-toti-divider bg-white px-2.5 py-1 text-xs font-medium text-toti-ink focus:outline-none focus:ring-2 focus:ring-toti-brick cursor-pointer"
+                >
+                  <option value="newest">{t('product_detail.sort_newest', 'Terbaru')}</option>
+                  <option value="oldest">{t('product_detail.sort_oldest', 'Terlama')}</option>
+                  <option value="highest">{t('product_detail.sort_highest', 'Rating Tertinggi')}</option>
+                  <option value="lowest">{t('product_detail.sort_lowest', 'Rating Terendah')}</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 divide-y divide-toti-divider/40">
+              {loadingAllReviews ? (
+                <BuyerBouncingLoader
+                  size="md"
+                  label={t('common.loading', 'Memuat ulasan...')}
+                  className="py-10"
+                />
+              ) : filteredAndSortedModalReviews.length === 0 ? (
+                <div className="py-12 text-center space-y-3">
+                  <p className="text-sm text-toti-secondary">
+                    {t('product_detail.no_filtered_reviews', 'Belum ada ulasan untuk filter ini.')}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setModalRatingFilter('all')}
+                    className="inline-flex items-center rounded-lg border border-toti-brick px-4 py-2 text-xs font-semibold text-toti-brick hover:bg-toti-brick hover:text-white transition cursor-pointer"
+                  >
+                    {t('product_detail.reset_filter', 'Reset Filter')}
+                  </button>
+                </div>
+              ) : (
+                filteredAndSortedModalReviews.map((item, idx) => {
+                  const customerName = item.customer?.nama || item.customer_name || t('home.default_customer_name', 'Pelanggan')
+                  const prodName = item.product?.nama_produk || item.product_name || ''
+                  const matched = getMatchedProduct(item.product_id)
+
+                  return (
+                    <div key={item.id || idx} className={idx > 0 ? 'pt-4' : ''}>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-toti-ink">
+                            {customerName}
+                          </span>
+                          <div className="flex text-toti-honey text-xs sm:text-sm">
+                            {'★'.repeat(Math.round(item.rating))}
+                            <span className="text-gray-300">{'★'.repeat(5 - Math.round(item.rating))}</span>
+                          </div>
+                        </div>
+                        {item.created_at && (
+                          <span className="text-xs text-toti-secondary">
+                            {new Date(item.created_at).toLocaleDateString()}
+                          </span>
                         )}
                       </div>
-                      <span className="text-gray-300">·</span>
-                      <span>{product.soldCount ?? 0} {t('common.sold', 'terjual')}</span>
-                    </div>
-                    <p className="mt-3 text-sm font-black text-[#3A1F16]">
-                      {formatRupiah(product.price)}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handleAddToCart(product);
-                      }}
-                      disabled={!product.isAvailable || !product.isInStock || product.stockQuantity <= 0}
-                      className="mt-3 flex h-8 w-full items-center justify-center gap-2 rounded-md border border-[#9B4A2F] bg-white text-xs font-black text-[#9B4A2F] transition hover:bg-[#9B4A2F] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-[#9B4A2F]"
-                    >
-                      <ShoppingCart className="h-3.5 w-3.5" />
-                      {t('home.add_to_cart')}
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
 
-      {/* TESTIMONIALS */}
-      <section className="mx-auto max-w-7xl px-4 pt-8 lg:px-8">
-        <div className="rounded-xl bg-white px-6 py-7 shadow-sm">
-          <div className="mb-5 flex items-center justify-between">
-            <h2 className="text-2xl font-black text-[#3A1F16]">
-              {t('home.testimonials_title')}
-            </h2>
-          </div>
+                      {prodName && (
+                        <div className="text-xs text-toti-secondary font-medium mb-1.5">
+                          <span>{t('home.bought')}</span>
+                          {matched ? (
+                            <Link
+                              to={`/catalog/${matched.slug}`}
+                              className="font-semibold text-toti-brick hover:underline ml-1 inline-flex items-center gap-0.5"
+                            >
+                              {prodName}
+                            </Link>
+                          ) : (
+                            <span className="font-semibold text-toti-ink ml-1">{prodName}</span>
+                          )}
+                        </div>
+                      )}
 
-          {reviews.length === 0 ? (
-            <p className="text-center text-sm text-[#6B4A3C]">{t('home.no_testimonials')}</p>
-          ) : (
-            <div className="relative group">
-              {canScrollReviewLeft && (
-                <button
-                  type="button"
-                  onClick={scrollReviewLeft}
-                  aria-label={t('common.prev')}
-                  className="absolute left-0 top-1/2 -translate-y-1/2 -ml-3 hidden sm:flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md border border-[#EAD8CA] text-[#6B4A3C] hover:text-[#9B4A2F] z-10 opacity-0 group-hover:opacity-100 transition-opacity focus:outline-none focus:ring-2 focus:ring-[#9B4A2F]/30"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-              )}
-              {canScrollReviewRight && (
-                <button
-                  type="button"
-                  onClick={scrollReviewRight}
-                  aria-label={t('common.next')}
-                  className="absolute right-0 top-1/2 -translate-y-1/2 -mr-3 hidden sm:flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md border border-[#EAD8CA] text-[#6B4A3C] hover:text-[#9B4A2F] z-10 opacity-0 group-hover:opacity-100 transition-opacity focus:outline-none focus:ring-2 focus:ring-[#9B4A2F]/30"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              )}
+                      <p className="text-sm text-toti-secondary whitespace-pre-line leading-relaxed">
+                        {item.comment}
+                      </p>
 
-              <div
-                ref={reviewScrollRef}
-                onScroll={updateReviewScrollButtons}
-                className="flex gap-5 overflow-x-auto no-scrollbar snap-x snap-mandatory scroll-smooth px-1 -mx-1"
-                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none', WebkitOverflowScrolling: 'touch' }}
-              >
-                {reviews.map((review) => (
-                  <article
-                    key={review.productId + review.customerName + (review.images?.[0]?.id || '')}
-                    className="snap-start shrink-0 w-[280px] rounded-xl bg-[#F6EFE6] p-5 flex flex-col justify-between"
-                  >
-                    <div>
-                      <div className="flex gap-3">
-                        <Sparkles className="h-8 w-8 shrink-0 fill-[#E0A04E] text-[#E0A04E]" />
-                        <p className="text-xs leading-6 text-[#6B4A3C] line-clamp-4">
-                          {review.comment}
-                        </p>
-                      </div>
-
-                      {review.images && review.images.length > 0 && (
+                      {item.images && item.images.length > 0 && (
                         <div className="mt-3 flex gap-2 overflow-x-auto pb-1 scrollbar-none snap-x">
-                          {review.images.map((img) => (
+                          {item.images.map((img, imgIdx) => (
                             <button
                               key={img.id}
                               type="button"
-                              onClick={() => setSelectedTestimonialImage(img.image_url)}
-                              className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-[#EAD8CA] bg-white transition hover:opacity-90 snap-start focus:outline-none"
+                              onClick={() =>
+                                setPhotoLightbox({
+                                  isOpen: true,
+                                  images: (item.images || []).map((i) => i.image_url),
+                                  currentIndex: imgIdx,
+                                  altPrefix: `Foto ulasan ${customerName}`,
+                                })
+                              }
+                              className="relative h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-toti-beige bg-toti-card transition hover:opacity-90 snap-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-toti-brick cursor-pointer"
                             >
-                              <img src={img.image_url} alt="Testimoni" className="h-full w-full object-cover" />
+                              <img src={img.image_url} alt="Foto ulasan pelanggan" className="h-full w-full object-cover" />
                             </button>
                           ))}
                         </div>
                       )}
                     </div>
-
-                    <div className="mt-4 border-t border-[#EAD8CA]/60 pt-3">
-                      <p className="text-sm font-black text-[#3A1F16]">
-                        {review.customerName}
-                      </p>
-                      <p className="mt-1 text-xs font-semibold text-[#6B4A3C]">
-                        {t('home.bought')}{review.purchasedProductName}
-                      </p>
-                      <div className="mt-2 flex items-center gap-0.5 text-[#E0A04E]">
-                        {Array.from({ length: 5 }).map((_, index) => (
-                          <Star
-                            key={index}
-                            className={
-                              index < review.rating
-                                ? 'h-3.5 w-3.5 fill-current'
-                                : 'h-3.5 w-3.5 text-[#D0BFAF]'
-                            }
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
+                  )
+                })
+              )}
             </div>
-          )}
-        </div>
-      </section>
-
-      {/* Lightbox Modal */}
-      {selectedTestimonialImage && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
-          onClick={() => setSelectedTestimonialImage(null)}
-        >
-          <div className="relative max-w-3xl max-h-[90vh]">
-            <img src={selectedTestimonialImage} alt="Enlarged testimonial photo" className="max-w-full max-h-[85vh] rounded-lg object-contain" />
-            <button
-              onClick={() => setSelectedTestimonialImage(null)}
-              className="absolute top-4 right-4 sm:-top-10 sm:right-0 text-white hover:text-gray-300 focus:outline-none"
-            >
-              <X className="h-7 w-7" />
-            </button>
           </div>
         </div>
       )}
+
+      {/* Shared Full-Screen Photo Lightbox */}
+      <PhotoLightboxModal
+        isOpen={photoLightbox.isOpen}
+        images={photoLightbox.images}
+        currentIndex={photoLightbox.currentIndex}
+        altPrefix={photoLightbox.altPrefix}
+        onClose={() => setPhotoLightbox((prev) => ({ ...prev, isOpen: false }))}
+        onIndexChange={(newIdx) => setPhotoLightbox((prev) => ({ ...prev, currentIndex: newIdx }))}
+      />
     </div>
   )
 }

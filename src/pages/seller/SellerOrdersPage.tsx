@@ -1,6 +1,6 @@
 // src/pages/seller/SellerOrdersPage.tsx
 
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -27,6 +27,7 @@ import { HorizontalCardScroller } from '@/components/common/HorizontalCardScroll
 import { PaginationControls } from '@/components/ui/PaginationControls';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { OrdersDueTodaySection } from '@/components/seller/OrdersDueTodaySection';
+import { SellerSquareMorphLoader } from '@/components/common/TotiLoader';
 import { useToast } from '@/components/ui/Toast';
 import { toast } from 'react-hot-toast';
 import { DecimalInput } from '@/components/ui/DecimalInput';
@@ -117,8 +118,8 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
     customerName: '',
     customerPhone: '',
     address: '',
-    orderItems: [{ product_id: '' as string | number, qty: 1, custom_decoration_charge: 0 }],
-    accessories: [] as { stock_item_id: string | number; quantity: number }[],
+    orderItems: [{ product_id: '' as string | number, qty: 1, custom_decoration_charge: 0, customizations: [] as { stock_item_id: string | number; quantity: string | number }[] }],
+    accessories: [] as { stock_item_id: string | number; quantity: string | number }[],
     deliveryMethod: 'Pickup' as DeliveryMethod,
     fulfillmentDate: '',
     notes: '',
@@ -175,7 +176,7 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
   const handleAddItem = () => {
     setFormData({
       ...formData,
-      orderItems: [...formData.orderItems, { product_id: '', qty: 1, custom_decoration_charge: 0 }],
+      orderItems: [...formData.orderItems, { product_id: '', qty: 1, custom_decoration_charge: 0, customizations: [] }],
     });
   };
 
@@ -193,7 +194,49 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
     setFormData({ ...formData, orderItems: updated });
   };
 
+  const handleAddCustomization = (itemIndex: number) => {
+    const item = formData.orderItems[itemIndex];
+    if ((item.customizations || []).length >= 20) {
+      toast.error('Maximum 20 customizations allowed per product item');
+      return;
+    }
+    const updated = [...formData.orderItems];
+    updated[itemIndex] = {
+      ...item,
+      customizations: [...(item.customizations || []), { stock_item_id: '', quantity: '1' }],
+    };
+    setFormData({ ...formData, orderItems: updated });
+  };
+
+  const handleRemoveCustomization = (itemIndex: number, cIdx: number) => {
+    const item = formData.orderItems[itemIndex];
+    const updated = [...formData.orderItems];
+    updated[itemIndex] = {
+      ...item,
+      customizations: (item.customizations || []).filter((_, i) => i !== cIdx),
+    };
+    setFormData({ ...formData, orderItems: updated });
+  };
+
+  const handleCustomizationChange = (
+    itemIndex: number,
+    cIdx: number,
+    field: 'stock_item_id' | 'quantity',
+    value: any
+  ) => {
+    const item = formData.orderItems[itemIndex];
+    const updatedCustoms = [...(item.customizations || [])];
+    updatedCustoms[cIdx] = { ...updatedCustoms[cIdx], [field]: value };
+    const updated = [...formData.orderItems];
+    updated[itemIndex] = { ...item, customizations: updatedCustoms };
+    setFormData({ ...formData, orderItems: updated });
+  };
+
   const handleAddAccessory = () => {
+    if (formData.accessories.length >= 20) {
+      toast.error('Maximum 20 accessories allowed per order');
+      return;
+    }
     setFormData({
       ...formData,
       accessories: [...formData.accessories, { stock_item_id: '', quantity: 1 }],
@@ -229,10 +272,32 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
       toast.error('Please select at least one product');
       return;
     }
-    for (const item of validItems) {
+    for (let i = 0; i < validItems.length; i++) {
+      const item = validItems[i];
       if (!item.qty || item.qty < 1) {
-        toast.error('Product quantity must be at least 1');
+        toast.error(`Product #${i + 1} quantity must be at least 1`);
         return;
+      }
+      if (item.customizations && item.customizations.length > 20) {
+        toast.error(`Product #${i + 1} has more than 20 customizations (max 20 allowed)`);
+        return;
+      }
+      for (let j = 0; j < (item.customizations || []).length; j++) {
+        const c = item.customizations[j];
+        if (!c.stock_item_id) {
+          toast.error(`Please select a stock item for customization #${j + 1} in product #${i + 1}`);
+          return;
+        }
+        const qtyNum = parseFloat(String(c.quantity));
+        if (isNaN(qtyNum) || qtyNum <= 0) {
+          toast.error(`Customization #${j + 1} quantity in product #${i + 1} must be greater than 0`);
+          return;
+        }
+        const parts = String(c.quantity).split('.');
+        if (parts[1] && parts[1].length > 4) {
+          toast.error(`Customization #${j + 1} quantity in product #${i + 1} cannot have more than 4 decimal places`);
+          return;
+        }
       }
     }
     if (!formData.fulfillmentDate) {
@@ -243,16 +308,27 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
       toast.error(`Fulfillment date must be between ${minDateStr} (D+1) and ${maxDateStr} (D+30)`);
       return;
     }
+    if (formData.accessories.length > 20) {
+      toast.error('Maximum 20 accessories allowed per order');
+      return;
+    }
     const validAccessories = formData.accessories
       .filter(a => a.stock_item_id !== '')
       .map(a => ({
         stock_item_id: Number(a.stock_item_id),
-        quantity: Number(a.quantity) || 1,
+        quantity: String(a.quantity || '1'),
       }));
 
-    for (const acc of validAccessories) {
-      if (!acc.quantity || acc.quantity < 1) {
-        toast.error('Accessory quantity must be at least 1');
+    for (let k = 0; k < validAccessories.length; k++) {
+      const acc = validAccessories[k];
+      const accQtyNum = parseFloat(String(acc.quantity));
+      if (isNaN(accQtyNum) || accQtyNum <= 0) {
+        toast.error(`Accessory #${k + 1} quantity must be greater than 0`);
+        return;
+      }
+      const parts = String(acc.quantity).split('.');
+      if (parts[1] && parts[1].length > 4) {
+        toast.error(`Accessory #${k + 1} quantity cannot have more than 4 decimal places`);
         return;
       }
     }
@@ -270,18 +346,30 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
         items: validItems.map(item => ({
           product_id: Number(item.product_id),
           qty: Number(item.qty),
-          custom_decoration_charge: Number(item.custom_decoration_charge || 0),
+          custom_decoration_charge: Number(item.custom_decoration_charge || 0).toFixed(2),
+          customizations: (item.customizations || [])
+            .filter(c => c.stock_item_id !== '')
+            .map(c => ({
+              stock_item_id: Number(c.stock_item_id),
+              quantity: String(c.quantity),
+            })),
         })),
         accessories: validAccessories,
       });
       onClose();
     } catch (err: any) {
+      const status = err?.response?.status;
       const detail = err?.response?.data?.detail;
-      const errorMsg = typeof detail === 'string'
+      let errorMsg = typeof detail === 'string'
         ? detail
         : Array.isArray(detail)
           ? detail.map((d: any) => d.msg || (d.loc ? `${d.loc[d.loc.length - 1]}: ${d.msg}` : JSON.stringify(d))).join(', ')
           : (err?.message || 'Failed to add custom order.');
+      if (status === 400) {
+        errorMsg = `[Insufficient Stock] ${errorMsg}`;
+      } else if (status === 422) {
+        errorMsg = `[Validation / Unknown Item] ${errorMsg}`;
+      }
       setSubmitError(errorMsg);
     } finally {
       setIsSubmitting(false);
@@ -393,57 +481,142 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
                     const prod = availableProducts.find(p => String(p.backendId) === String(item.product_id));
                     const basePrice = prod?.price || 0;
                     const itemTotal = basePrice * (item.qty || 1) + (Number(item.custom_decoration_charge) || 0);
+                    const customizationsCount = (item.customizations || []).length;
                     return (
-                      <tr key={idx} className="border-b border-gray-100">
-                        <td className="py-2 pr-4">
-                          <select
-                            value={item.product_id}
-                            onChange={(e) => handleItemChange(idx, 'product_id', e.target.value)}
-                            className="w-full rounded border border-gray-200 px-2 py-1 text-sm outline-none focus:border-[#d85b30]"
-                          >
-                            <option value="">Select product...</option>
-                            {availableProducts.map((p) => (
-                              <option key={p.backendId} value={p.backendId}>
-                                {p.name}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="py-2 pr-4 text-xs text-[#6f5448]">
-                          {prod ? formatRupiah(basePrice) : '-'}
-                        </td>
-                        <td className="py-2 pr-4">
-                          <DecimalInput
-                            maxDecimals={0}
-                            min={1}
-                            value={item.qty}
-                            onChange={(val) => handleItemChange(idx, 'qty', val || 1)}
-                            className="w-16 rounded border border-gray-200 px-2 py-1 text-sm outline-none focus:border-[#d85b30]"
-                          />
-                        </td>
-                        <td className="py-2 pr-4">
-                          <CurrencyInput
-                            value={item.custom_decoration_charge || ''}
-                            onChange={(val) => {
-                              handleItemChange(idx, 'custom_decoration_charge', val);
-                            }}
-                            placeholder="0"
-                            className="w-24 rounded border border-gray-200 px-2 py-1 text-sm outline-none focus:border-[#d85b30]"
-                          />
-                        </td>
-                        <td className="py-2 pr-4 font-medium text-[#4b2417]">
-                          {formatRupiah(itemTotal)}
-                        </td>
-                        <td className="py-2">
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveItem(idx)}
-                            className="text-red-500 hover:text-red-700"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </td>
-                      </tr>
+                      <Fragment key={idx}>
+                        <tr className="border-b border-gray-100 bg-white">
+                          <td className="py-2.5 pr-4 align-top">
+                            <select
+                              value={item.product_id}
+                              onChange={(e) => handleItemChange(idx, 'product_id', e.target.value)}
+                              className="w-full rounded border border-gray-200 px-2 py-1.5 text-sm outline-none focus:border-[#d85b30]"
+                            >
+                              <option value="">Select product...</option>
+                              {availableProducts.map((p) => (
+                                <option key={p.backendId} value={p.backendId}>
+                                  {p.name}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="py-2.5 pr-4 text-xs text-[#6f5448] align-top whitespace-nowrap pt-3.5">
+                            {prod ? formatRupiah(basePrice) : '-'}
+                          </td>
+                          <td className="py-2.5 pr-4 align-top">
+                            <DecimalInput
+                              maxDecimals={0}
+                              min={1}
+                              value={item.qty}
+                              onChange={(val) => handleItemChange(idx, 'qty', val || 1)}
+                              className="w-16 rounded border border-gray-200 px-2 py-1.5 text-sm outline-none focus:border-[#d85b30]"
+                            />
+                          </td>
+                          <td className="py-2.5 pr-4 align-top">
+                            <CurrencyInput
+                              value={item.custom_decoration_charge || ''}
+                              onChange={(val) => {
+                                handleItemChange(idx, 'custom_decoration_charge', val);
+                              }}
+                              placeholder="0"
+                              className="w-24 rounded border border-gray-200 px-2 py-1.5 text-sm outline-none focus:border-[#d85b30]"
+                            />
+                            <span className="block text-[10px] text-stone-400 mt-0.5">Flat line fee</span>
+                          </td>
+                          <td className="py-2.5 pr-4 font-medium text-[#4b2417] align-top whitespace-nowrap pt-3.5">
+                            {formatRupiah(itemTotal)}
+                          </td>
+                          <td className="py-2.5 align-top pt-3.5">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveItem(idx)}
+                              disabled={formData.orderItems.length <= 1}
+                              className="text-red-500 hover:text-red-700 disabled:opacity-30 disabled:hover:text-red-500"
+                              title="Delete Item"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </td>
+                        </tr>
+                        {/* Nested Toppings / Customizations for this product line */}
+                        <tr className="border-b border-gray-200 bg-[#fdfcfb]">
+                          <td colSpan={6} className="px-3 py-2.5">
+                            <div className="rounded-lg border border-[#ead8ca]/80 bg-white/90 p-3 shadow-xs">
+                              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold text-[#6f5448] uppercase tracking-wide">
+                                    Toppings / Customizations for this product
+                                  </span>
+                                  <span className="text-[11px] font-semibold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded">
+                                    {customizationsCount}/20
+                                  </span>
+                                </div>
+                                <span className="text-[11px] text-[#8b7166] bg-amber-50 px-2 py-0.5 rounded border border-amber-200/60 font-medium">
+                                  Deducts inventory COGS &bull; Not billed to customer
+                                </span>
+                              </div>
+
+                              {customizationsCount > 0 ? (
+                                <div className="space-y-2 mb-2.5">
+                                  {item.customizations.map((c, cIdx) => {
+                                    const stock = availableStock.find(s => String(s.id) === String(c.stock_item_id));
+                                    return (
+                                      <div key={cIdx} className="flex flex-wrap items-center gap-2 text-xs bg-gray-50/80 p-1.5 rounded-md border border-gray-100">
+                                        <div className="flex-1 min-w-[220px]">
+                                          <select
+                                            value={c.stock_item_id}
+                                            onChange={(e) => handleCustomizationChange(idx, cIdx, 'stock_item_id', e.target.value)}
+                                            className="w-full rounded border border-gray-200 px-2 py-1 text-xs outline-none focus:border-[#d85b30] bg-white"
+                                          >
+                                            <option value="">Select topping / ingredient...</option>
+                                            {availableStock.map((s) => (
+                                              <option key={s.id} value={s.id}>
+                                                {s.nama_item} ({s.satuan}) - Avail: {s.stok_tersedia} {s.satuan}
+                                              </option>
+                                            ))}
+                                          </select>
+                                        </div>
+                                        <div className="w-32 flex items-center gap-1.5">
+                                          <DecimalInput
+                                            maxDecimals={4}
+                                            value={c.quantity}
+                                            onChange={(val, raw) => handleCustomizationChange(idx, cIdx, 'quantity', raw || (val !== null ? String(val) : ''))}
+                                            placeholder="Usage"
+                                            className="w-20 rounded border border-gray-200 px-2 py-1 text-xs outline-none focus:border-[#d85b30] bg-white"
+                                          />
+                                          <span className="text-[11px] text-stone-600 font-semibold shrink-0">
+                                            {stock?.satuan || 'unit'}
+                                          </span>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemoveCustomization(idx, cIdx)}
+                                          className="text-stone-400 hover:text-red-500 p-1 transition"
+                                          title="Remove topping"
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <p className="text-[11px] text-stone-400 italic mb-2">
+                                  No toppings/customizations added for this item yet.
+                                </p>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => handleAddCustomization(idx)}
+                                disabled={customizationsCount >= 20}
+                                className="text-xs font-semibold text-[#d85b30] hover:text-[#c04e28] disabled:opacity-40 disabled:hover:text-[#d85b30] inline-flex items-center gap-1"
+                              >
+                                + Add Topping / Ingredient {customizationsCount >= 20 ? '(Max reached)' : ''}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      </Fragment>
                     );
                   })}
                 </tbody>
@@ -498,15 +671,14 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
                           </td>
                           <td className="py-2 pr-4">
                             <DecimalInput
-                              maxDecimals={0}
-                              min={1}
+                              maxDecimals={4}
                               value={acc.quantity}
-                              onChange={(val) => handleAccessoryChange(idx, 'quantity', val || 1)}
+                              onChange={(val, raw) => handleAccessoryChange(idx, 'quantity', raw || (val !== null ? String(val) : ''))}
                               className="w-20 rounded border border-gray-200 px-2 py-1 text-sm outline-none focus:border-[#d85b30]"
                             />
                           </td>
                           <td className="py-2 pr-4 font-medium text-[#4b2417]">
-                            {formatRupiah(unitCost * (acc.quantity || 1))}
+                            {formatRupiah(unitCost * (Number(acc.quantity) || 1))}
                           </td>
                           <td className="py-2">
                             <button
@@ -527,9 +699,10 @@ function AddOrderModal({ isOpen, onClose, onSave }: AddOrderModalProps) {
             <button
               type="button"
               onClick={handleAddAccessory}
-              className="text-sm font-semibold text-[#d85b30] hover:text-[#c04e28]"
+              disabled={formData.accessories.length >= 20}
+              className="text-sm font-semibold text-[#d85b30] hover:text-[#c04e28] disabled:opacity-40 disabled:hover:text-[#d85b30]"
             >
-              + Add accessory
+              + Add accessory {formData.accessories.length >= 20 ? '(Max 20 reached)' : ''}
             </button>
 
             <div className="mt-4 rounded-lg bg-gray-50 p-4 space-y-1 text-sm">
@@ -987,9 +1160,7 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
         </div>
 
         {loading ? (
-          <div className="flex justify-center p-8">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-gray-700" />
-          </div>
+          <SellerSquareMorphLoader size="md" className="py-12" />
         ) : error ? (
           <div className="text-center text-red-500 p-4">{error}</div>
         ) : order ? (
@@ -1183,10 +1354,28 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
                   <tbody>
                     {order.items?.map(item => (
                       <tr key={item.id} className="border-b border-gray-100">
-                        <td className="py-2">{item.productName}</td>
-                        <td className="py-2 text-right">{formatRupiah(item.price)}</td>
-                        <td className="py-2 text-center">{item.quantity}</td>
-                        <td className="py-2 text-right font-medium">{formatRupiah(item.total)}</td>
+                        <td className="py-2.5 align-top">
+                          <div>
+                            <span className="font-medium text-[#4b2417]">{item.productName}</span>
+                            {item.custom_decoration_charge !== undefined && Number(item.custom_decoration_charge) > 0 && (
+                              <p className="text-xs text-[#8c4a2f] font-medium mt-0.5">
+                                + Custom Decoration Fee: {formatRupiah(Number(item.custom_decoration_charge))}
+                              </p>
+                            )}
+                            {item.customizations && item.customizations.length > 0 && (
+                              <div className="mt-1 space-y-0.5 pl-2 border-l-2 border-[#ead8ca]">
+                                {item.customizations.map((c, cIdx) => (
+                                  <p key={c.id || `${c.stock_item_id}-${cIdx}`} className="text-xs text-stone-600">
+                                    &bull; Topping: <span className="font-medium text-stone-800">{c.stock_item_name}</span> ({c.quantity} {c.unit})
+                                  </p>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-2.5 text-right align-top whitespace-nowrap">{formatRupiah(item.price)}</td>
+                        <td className="py-2.5 text-center align-top">{item.quantity}</td>
+                        <td className="py-2.5 text-right font-medium align-top whitespace-nowrap">{formatRupiah(item.total)}</td>
                       </tr>
                     ))}
                     <tr className="font-bold text-[#4b2417]">
@@ -1196,6 +1385,36 @@ function OrderDetailModal({ orderId, isOpen, onClose, onStatusUpdated, canManage
                   </tbody>
                 </table>
               </div>
+
+              {order.accessories && order.accessories.length > 0 && (
+                <div className="mt-4 pt-3 border-t border-gray-200">
+                  <h4 className="font-bold text-[#4b2417] text-xs uppercase tracking-wider mb-2">
+                    Shared Accessories
+                  </h4>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[360px] text-xs">
+                      <thead>
+                        <tr className="border-b text-left text-gray-500">
+                          <th className="pb-1.5 font-semibold">Accessory</th>
+                          <th className="pb-1.5 text-center font-semibold">Qty</th>
+                          <th className="pb-1.5 text-right font-semibold">Unit Price</th>
+                          <th className="pb-1.5 text-right font-semibold">Subtotal</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {order.accessories.map((acc, aIdx) => (
+                          <tr key={acc.id || `${acc.stock_item_id}-${aIdx}`} className="border-b border-gray-100">
+                            <td className="py-1.5 font-medium text-stone-800">{acc.stock_item_name}</td>
+                            <td className="py-1.5 text-center">{acc.quantity} {acc.unit}</td>
+                            <td className="py-1.5 text-right text-stone-600">{formatRupiah(Number(acc.unit_cost_snapshot || 0))}</td>
+                            <td className="py-1.5 text-right font-semibold text-[#4b2417]">{formatRupiah(Number(acc.subtotal || 0))}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Record Manual Payment Section */}

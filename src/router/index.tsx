@@ -81,7 +81,7 @@ function RouterErrorPage() {
   console.error('Router error:', error)
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#fffaf5] px-4">
+    <div className="flex min-h-screen items-center justify-center bg-toti-cream px-4">
       <div className="max-w-lg rounded-2xl border border-red-100 bg-white p-8 text-center shadow-sm">
         <h1 className="text-2xl font-black text-red-600">
           Halaman gagal dimuat

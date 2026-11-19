@@ -19,6 +19,7 @@ import {
 import { SellerSortDropdown } from '@/components/ui/SellerSortDropdown';
 import { HorizontalCardScroller } from '@/components/common/HorizontalCardScroller';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { SellerSquareMorphLoader } from '@/components/common/TotiLoader';
 import {
   getInventoryItems,
   getInventoryStats,
@@ -931,10 +932,8 @@ export default function SellerInventoryPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-12">
-                    <div className="flex justify-center">
-                      <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-gray-700" />
-                    </div>
+                  <td colSpan={7} className="py-10">
+                    <SellerSquareMorphLoader size="md" className="py-6" />
                   </td>
                 </tr>
               ) : paginatedItems.length === 0 ? (
@@ -1028,9 +1027,7 @@ export default function SellerInventoryPage() {
         {/* Mobile Inventory Card View (< md) */}
         <div className="block md:hidden divide-y divide-gray-100 p-3 space-y-3">
           {loading ? (
-            <div className="py-12 flex justify-center">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-gray-700" />
-            </div>
+            <SellerSquareMorphLoader size="md" className="py-10" />
           ) : paginatedItems.length === 0 ? (
             <div className="py-12 text-center text-sm text-gray-500">
               {searchQuery || Object.keys(filters).length > 0 

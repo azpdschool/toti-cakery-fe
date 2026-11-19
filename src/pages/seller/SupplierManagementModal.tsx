@@ -1,5 +1,6 @@
 import { SellerModal } from '@/components/ui/SellerModal';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
+import { SellerSquareMorphLoader } from '@/components/common/TotiLoader';
 import { toast } from 'react-hot-toast';
 import { useEffect, useState } from 'react';
 import type React from 'react';
@@ -137,7 +138,7 @@ export default function SupplierManagementModal({ isOpen, onClose }: SupplierMan
           </div>
 
           {loading ? (
-            <div className="py-8 text-center text-sm text-gray-500">Loading...</div>
+            <SellerSquareMorphLoader size="sm" label="Loading..." className="py-8" />
           ) : suppliers.length === 0 ? (
             <div className="rounded-xl border border-dashed border-gray-300 py-12 text-center text-sm text-gray-500">
               No suppliers found.

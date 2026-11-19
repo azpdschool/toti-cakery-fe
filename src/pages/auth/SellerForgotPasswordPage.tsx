@@ -18,6 +18,7 @@ import {
   resetSellerPassword,
   verifySellerForgotPasswordOtp,
 } from '@/api/auth'
+import { AuthAnimatedBackdrop } from '@/components/common/AuthAnimatedBackdrop'
 
 type ForgotStep = 'email' | 'otp' | 'reset'
 
@@ -166,30 +167,36 @@ export default function SellerForgotPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-white px-4 py-8">
-      <div className="w-full max-w-md">
+    <div className="relative min-h-screen overflow-hidden flex flex-col items-center justify-center px-4 py-8">
+      <AuthAnimatedBackdrop variant="seller" />
+
+      <div className="relative z-10 w-full max-w-md">
         <button
           type="button"
           onClick={() => navigate(ROUTES.AUTH_SELLER)}
-          className="mb-6 flex items-center gap-1 text-sm font-medium text-[#6f5448] transition hover:text-[#4b2417]"
+          className="mb-6 flex items-center gap-1.5 text-sm font-medium text-[#F6EFE6]/90 transition-colors duration-200 hover:text-white"
         >
           <ChevronLeft className="h-4 w-4" />
           Back to Login
         </button>
 
-        <div className="rounded-2xl border border-[#ead8ca] bg-gradient-to-br from-[#fdf6f0] to-[#f4ebdf] p-8 shadow-xl backdrop-blur-sm">
+        <div className="rounded-2xl bg-[#FFFFFF]/95 backdrop-blur-sm border border-[#E8DCCB]/80 p-6 sm:p-8 shadow-[0_20px_50px_-15px_rgba(26,12,8,0.45)] transition-all duration-300 hover:shadow-[0_24px_60px_-15px_rgba(26,12,8,0.58)] hover:border-[#E0A04E]/60">
           <div className="mb-6 text-center">
             <img
               src={LOGO_URL}
               alt="Toti Cakery"
+              onError={(e) => {
+                e.currentTarget.onerror = null
+                e.currentTarget.src = '/fallback-logo.png'
+              }}
               className="mx-auto w-48 sm:w-60 h-auto max-w-full object-contain"
             />
           </div>
-          <h1 className="text-2xl font-black text-[#4b2417] text-center">
+          <h1 className="text-2xl font-black text-[#3A1F16] text-center">
             Forgot Password
           </h1>
 
-          <p className="mt-1 text-sm text-[#6f5448] text-center">
+          <p className="mt-1 text-sm text-[#6B4A3C] text-center">
             {step === 'email' && 'Enter your seller username'}
             {step === 'otp' && 'Enter the OTP sent to your email'}
             {step === 'reset' && 'Create a new password for your account'}
@@ -200,13 +207,13 @@ export default function SellerForgotPasswordPage() {
               <div>
                 <label
                   htmlFor="email"
-                  className="block text-sm font-semibold text-[#4b2417]"
+                  className="block text-sm font-semibold text-[#3A1F16]"
                 >
                   Username / Email <span className="text-red-500 ml-0.5">*</span>
                 </label>
 
                 <div className="relative mt-1.5">
-                  <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8b7166]">
+                  <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8B6A5A]">
                     <Mail className="h-4 w-4" />
                   </div>
 
@@ -217,7 +224,7 @@ export default function SellerForgotPasswordPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="e.g., owner / admin / staff"
                     disabled={isLoading}
-                    className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-4 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40 disabled:opacity-60"
+                    className="w-full rounded-xl border border-[#D0BFAF] bg-[#F6EFE6]/50 py-3 pl-11 pr-4 text-sm text-[#3A1F16] outline-none transition-all duration-200 placeholder:text-[#9C8478] hover:border-[#8B6A5A] focus:bg-white focus:border-[#3A1F16] focus:ring-2 focus:ring-[#3A1F16]/15 disabled:opacity-60"
                   />
                 </div>
               </div>
@@ -239,7 +246,7 @@ export default function SellerForgotPasswordPage() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white transition hover:bg-[#c04e28] disabled:opacity-60"
+                className="flex h-12 w-full items-center justify-center rounded-xl bg-[#3A1F16] text-sm font-black text-white transition-all duration-200 hover:bg-[#6B4A3C] hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:scale-[0.99] disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:bg-[#3A1F16] disabled:cursor-not-allowed"
               >
                 {isLoading ? (
                   <>
@@ -258,7 +265,7 @@ export default function SellerForgotPasswordPage() {
               <div>
                 <label
                   htmlFor="otp"
-                  className="block text-sm font-semibold text-[#4b2417]"
+                  className="block text-sm font-semibold text-[#3A1F16]"
                 >
                   OTP Code <span className="text-red-500 ml-0.5">*</span>
                 </label>
@@ -274,9 +281,8 @@ export default function SellerForgotPasswordPage() {
                   placeholder="Enter OTP code"
                   autoFocus
                   disabled={isLoading}
-                  className="mt-1.5 w-full rounded-xl border border-[#d0bfaf] bg-white/70 px-4 py-3 text-center text-xl font-bold text-[#4b2417] outline-none transition placeholder:text-sm placeholder:font-normal placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40 disabled:opacity-60"
+                  className="mt-1.5 w-full rounded-xl border border-[#D0BFAF] bg-[#F6EFE6]/50 px-4 py-3 text-center text-xl font-bold text-[#3A1F16] outline-none transition-all duration-200 placeholder:text-sm placeholder:font-normal placeholder:text-[#9C8478] hover:border-[#8B6A5A] focus:bg-white focus:border-[#3A1F16] focus:ring-2 focus:ring-[#3A1F16]/15 disabled:opacity-60"
                 />
-
               </div>
 
               {error && (
@@ -296,7 +302,7 @@ export default function SellerForgotPasswordPage() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white transition hover:bg-[#c04e28] disabled:opacity-60"
+                className="flex h-12 w-full items-center justify-center rounded-xl bg-[#3A1F16] text-sm font-black text-white transition-all duration-200 hover:bg-[#6B4A3C] hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:scale-[0.99] disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:bg-[#3A1F16] disabled:cursor-not-allowed"
               >
                 {isLoading ? (
                   <>
@@ -316,7 +322,7 @@ export default function SellerForgotPasswordPage() {
                     setOtpId('')
                     setStep('email')
                   }}
-                  className="text-sm font-medium text-[#d85b30] transition hover:text-[#c04e28]"
+                  className="text-sm font-semibold text-[#9B4A2F] transition-colors duration-200 hover:text-[#7E3A24] hover:underline"
                 >
                   Resend OTP
                 </button>
@@ -329,13 +335,13 @@ export default function SellerForgotPasswordPage() {
               <div>
                 <label
                   htmlFor="new-password"
-                  className="block text-sm font-semibold text-[#4b2417]"
+                  className="block text-sm font-semibold text-[#3A1F16]"
                 >
                   New Password <span className="text-red-500 ml-0.5">*</span>
                 </label>
 
                 <div className="relative mt-1.5">
-                  <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8b7166]">
+                  <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8B6A5A]">
                     <Lock className="h-4 w-4" />
                   </div>
 
@@ -346,13 +352,13 @@ export default function SellerForgotPasswordPage() {
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Minimum 8 characters"
                     disabled={isLoading}
-                    className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-12 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40 disabled:opacity-60"
+                    className="w-full rounded-xl border border-[#D0BFAF] bg-[#F6EFE6]/50 py-3 pl-11 pr-12 text-sm text-[#3A1F16] outline-none transition-all duration-200 placeholder:text-[#9C8478] hover:border-[#8B6A5A] focus:bg-white focus:border-[#3A1F16] focus:ring-2 focus:ring-[#3A1F16]/15 disabled:opacity-60"
                   />
 
                   <button
                     type="button"
                     onClick={() => setShowPassword((prev) => !prev)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166] hover:text-[#4b2417]"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8B6A5A] hover:text-[#3A1F16] transition-colors"
                   >
                     {showPassword ? (
                       <EyeOff className="h-4 w-4" />
@@ -366,13 +372,13 @@ export default function SellerForgotPasswordPage() {
               <div>
                 <label
                   htmlFor="confirm-password"
-                  className="block text-sm font-semibold text-[#4b2417]"
+                  className="block text-sm font-semibold text-[#3A1F16]"
                 >
                   Confirm Password <span className="text-red-500 ml-0.5">*</span>
                 </label>
 
                 <div className="relative mt-1.5">
-                  <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8b7166]">
+                  <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8B6A5A]">
                     <Lock className="h-4 w-4" />
                   </div>
 
@@ -383,13 +389,13 @@ export default function SellerForgotPasswordPage() {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Repeat new password"
                     disabled={isLoading}
-                    className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-12 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40 disabled:opacity-60"
+                    className="w-full rounded-xl border border-[#D0BFAF] bg-[#F6EFE6]/50 py-3 pl-11 pr-12 text-sm text-[#3A1F16] outline-none transition-all duration-200 placeholder:text-[#9C8478] hover:border-[#8B6A5A] focus:bg-white focus:border-[#3A1F16] focus:ring-2 focus:ring-[#3A1F16]/15 disabled:opacity-60"
                   />
 
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword((prev) => !prev)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166] hover:text-[#4b2417]"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8B6A5A] hover:text-[#3A1F16] transition-colors"
                   >
                     {showConfirmPassword ? (
                       <EyeOff className="h-4 w-4" />
@@ -417,7 +423,7 @@ export default function SellerForgotPasswordPage() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white transition hover:bg-[#c04e28] disabled:opacity-60"
+                className="flex h-12 w-full items-center justify-center rounded-xl bg-[#3A1F16] text-sm font-black text-white transition-all duration-200 hover:bg-[#6B4A3C] hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:scale-[0.99] disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:bg-[#3A1F16] disabled:cursor-not-allowed"
               >
                 {isLoading ? (
                   <>

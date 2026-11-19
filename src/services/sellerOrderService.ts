@@ -31,6 +31,8 @@ export interface OrderItem {
   quantity: number;
   price: number;
   total: number;
+  custom_decoration_charge?: number;
+  customizations?: OrderLineAccessoryOut[];
 }
 
 export interface Order {
@@ -49,6 +51,7 @@ export interface Order {
   paymentMethod: PaymentMethod;
   status: OrderStatus;
   items?: OrderItem[];
+  accessories?: OrderAccessoryOut[];
   notes?: string;
   fulfillmentDate?: string;
   customDesignFee?: number;
@@ -97,6 +100,12 @@ export interface Invoice {
 // ============================================================
 
 import { apiClient } from '@/api/client';
+import {
+  type OrderLineAccessoryOut,
+  type OrderAccessoryOut,
+  type CustomOrderCreate,
+  createCustomOrderAPI,
+} from '@/api/order';
 
 export function mapOrderResponse(o: any): Order {
   const rawNotes = o.notes || o.catatan || '';
@@ -126,6 +135,19 @@ export function mapOrderResponse(o: any): Order {
       .trim();
   }
 
+  const rawAccessories = o.accessories || o.shared_accessories || [];
+  const accessories: OrderAccessoryOut[] = Array.isArray(rawAccessories)
+    ? rawAccessories.map((acc: any) => ({
+        id: Number(acc.id || 0),
+        stock_item_id: Number(acc.stock_item_id || 0),
+        stock_item_name: String(acc.stock_item_name || ''),
+        unit: String(acc.unit || ''),
+        quantity: acc.quantity !== undefined ? acc.quantity : 0,
+        unit_cost_snapshot: acc.unit_cost_snapshot !== undefined ? acc.unit_cost_snapshot : 0,
+        subtotal: acc.subtotal !== undefined ? acc.subtotal : 0,
+      }))
+    : [];
+
   return {
     id: o.id.toString(),
     orderNumber: `#${o.id}`,
@@ -154,17 +176,33 @@ export function mapOrderResponse(o: any): Order {
     fulfillmentDate: o.fulfillment_date ? new Date(o.fulfillment_date).toLocaleDateString('en-US', {
       month: 'short', day: 'numeric', year: 'numeric'
     }) : undefined,
-    items: o.order_items?.map((item: any) => ({
-      id: item.id.toString(),
-      productName:
-        item.product_name ||
-        item.custom_product_name ||
-        item.nama_produk ||
-        (item.product ? item.product.nama || item.product.nama_produk : `Product #${item.product_id}`),
-      quantity: item.jumlah,
-      price: parseFloat(item.subtotal) / (item.jumlah || 1),
-      total: parseFloat(item.subtotal)
-    })) || [],
+    items: o.order_items?.map((item: any) => {
+      const rawCustoms = item.customizations || item.accessories || [];
+      const customizations: OrderLineAccessoryOut[] = Array.isArray(rawCustoms)
+        ? rawCustoms.map((c: any) => ({
+            id: Number(c.id || 0),
+            stock_item_id: Number(c.stock_item_id || 0),
+            stock_item_name: String(c.stock_item_name || ''),
+            unit: String(c.unit || ''),
+            quantity: c.quantity !== undefined ? c.quantity : 0,
+          }))
+        : [];
+
+      return {
+        id: item.id.toString(),
+        productName:
+          item.product_name ||
+          item.custom_product_name ||
+          item.nama_produk ||
+          (item.product ? item.product.nama || item.product.nama_produk : `Product #${item.product_id}`),
+        quantity: item.jumlah,
+        price: parseFloat(item.subtotal) / (item.jumlah || 1),
+        total: parseFloat(item.subtotal),
+        custom_decoration_charge: item.custom_decoration_charge !== undefined ? parseFloat(item.custom_decoration_charge) : 0,
+        customizations,
+      };
+    }) || [],
+    accessories,
     notes: cleanedNotes || '',
     customDesignFee: 0,
     invoiceId: o.invoice?.nomor_invoice || '',
@@ -314,7 +352,7 @@ export async function getOrderStats(): Promise<{
 }
 
 export async function addOrder(orderData: any): Promise<Order> {
-  const payload = {
+  const payload: CustomOrderCreate = {
     customer_name: orderData.customer_name ?? orderData.customerName,
     customer_phone: orderData.customer_phone ?? orderData.customerPhone,
     customer_address: orderData.customer_address ?? orderData.address ?? '',
@@ -325,13 +363,17 @@ export async function addOrder(orderData: any): Promise<Order> {
     items: (orderData.items || []).map((item: any) => ({
       product_id: Number(item.product_id ?? item.productId),
       qty: Number(item.qty ?? item.quantity ?? 1),
-      custom_decoration_charge: Number(item.custom_decoration_charge ?? 0),
+      custom_decoration_charge: Number(item.custom_decoration_charge ?? 0).toFixed(2),
+      customizations: (item.customizations || []).map((c: any) => ({
+        stock_item_id: Number(c.stock_item_id ?? c.stockItemId),
+        quantity: String(c.quantity),
+      })),
     })),
     accessories: (orderData.accessories || []).map((acc: any) => ({
       stock_item_id: Number(acc.stock_item_id ?? acc.stockItemId),
-      quantity: Number(acc.quantity ?? acc.qty ?? 1),
+      quantity: String(acc.quantity ?? acc.qty ?? 1),
     })),
   };
-  const response = await apiClient.post('/orders/custom', payload);
-  return mapOrderResponse(response.data);
+  const data = await createCustomOrderAPI(payload);
+  return mapOrderResponse(data);
 }

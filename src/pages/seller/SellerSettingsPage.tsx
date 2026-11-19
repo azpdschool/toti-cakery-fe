@@ -6,6 +6,7 @@ import { toast } from 'react-hot-toast';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import { SellerModal } from '@/components/ui/SellerModal';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { SellerSquareMorphLoader } from '@/components/common/TotiLoader';
 import {
   User,
   Users,
@@ -19,7 +20,6 @@ import {
   Mail,
   AlertCircle,
   Store,
-  Upload,
   Image as ImageIcon,
   MapPin,
   Globe,
@@ -35,6 +35,7 @@ import {
   getStoreCustomization,
   uploadHeroImage,
   updateStoreCustomization,
+  optimizeCloudinaryHeroUrl,
   type StoreCustomizationPatchPayload,
 } from '@/services/storeCustomizationService';
 import {
@@ -286,7 +287,7 @@ function ProfileTab() {
     setAvatarPreviewUrl(null);
   };
 
-  if (loading) return <div className="py-8 text-center text-gray-500">Loading profile...</div>;
+  if (loading) return <SellerSquareMorphLoader size="md" label="Loading profile..." className="py-12" />;
   if (!profile) return <div className="py-8 text-center text-red-500">Failed to load profile.</div>;
 
   return (
@@ -1049,7 +1050,7 @@ function UsersTab() {
     setEditingUser(null);
   };
 
-  if (loading) return <div className="py-8 text-center text-gray-500">Loading...</div>;
+  if (loading) return <SellerSquareMorphLoader size="md" label="Loading..." className="py-12" />;
 
   return (
     <div className="space-y-3 sm:space-y-4">
@@ -1398,7 +1399,13 @@ function WhatsAppTab() {
   const isPreparing = isResetting || isPreparingQr || (status?.keadaan === 'menunggu_scan' && !qrUrl && !qrError && isOwner);
 
   if (loadingStatus && !status) {
-    return <div className="py-8 text-center text-gray-500">{t('whatsapp.status_preparing_qr', 'Preparing WhatsApp...')}</div>;
+    return (
+      <SellerSquareMorphLoader
+        size="md"
+        label={t('whatsapp.status_preparing_qr', 'Preparing WhatsApp...')}
+        className="py-12"
+      />
+    );
   }
 
   return (
@@ -1622,10 +1629,17 @@ function EmailSenderTab() {
       } catch (err: any) {
         if (ignore) return;
         console.error('Failed to load email sender settings:', err);
-        if (err.response?.status === 403) {
-          toast.error('Permission denied. Only Owner can modify email sender settings.');
-        } else if (err.response?.status === 503) {
-          toast.error('Email delivery service is currently not configured or unavailable.');
+        const status = err.response?.status;
+        if (status === 401) {
+          toast.error('Invalid token or inactive user.');
+        } else if (status === 403) {
+          toast.error('Access denied: Only Owner can modify this setting.');
+        } else if (status === 422) {
+          toast.error('Invalid email or name format.');
+        } else if (status === 429) {
+          toast.error('Too many requests. Limit is 5 per minute.');
+        } else if (status === 503) {
+          toast.error('SMTP is not configured on the server.');
         } else {
           toast.error(err.response?.data?.detail || 'Failed to load email sender settings.');
         }
@@ -1655,6 +1669,15 @@ function EmailSenderTab() {
       return;
     }
 
+    const hasControlChar = Array.from(trimmedName).some((ch) => {
+      const code = ch.charCodeAt(0);
+      return code <= 0x1f || code === 0x7f || code === 0x85 || code === 0x2028 || code === 0x2029;
+    });
+    if (hasControlChar) {
+      toast.error('From Name cannot contain control characters or newlines.');
+      return;
+    }
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(trimmedEmail)) {
       toast.error('Please enter a valid email address.');
@@ -1676,12 +1699,17 @@ function EmailSenderTab() {
       toast.success('Email sender settings updated successfully.');
     } catch (err: any) {
       console.error('Failed to update email sender settings:', err);
-      if (err.response?.status === 429) {
-        toast.error('Rate limit reached. You can only update email sender settings up to 5 times per minute.');
-      } else if (err.response?.status === 403) {
-        toast.error('Permission denied. Only Owner can modify email sender settings.');
-      } else if (err.response?.status === 503) {
-        toast.error('Email delivery service is currently not configured or unavailable.');
+      const status = err.response?.status;
+      if (status === 401) {
+        toast.error('Invalid token or inactive user.');
+      } else if (status === 403) {
+        toast.error('Access denied: Only Owner can modify this setting.');
+      } else if (status === 422) {
+        toast.error('Invalid email or name format.');
+      } else if (status === 429) {
+        toast.error('Too many requests. Limit is 5 per minute.');
+      } else if (status === 503) {
+        toast.error('SMTP is not configured on the server.');
       } else {
         const detail = err.response?.data?.detail;
         if (Array.isArray(detail)) {
@@ -1705,7 +1733,7 @@ function EmailSenderTab() {
   };
 
   if (loading) {
-    return <div className="py-8 text-center text-gray-500">Loading email sender settings...</div>;
+    return <SellerSquareMorphLoader size="md" label="Loading email sender settings..." className="py-12" />;
   }
 
   // ------------------------------------------------------------
@@ -1717,7 +1745,7 @@ function EmailSenderTab() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <div className="flex items-center gap-3">
-              <h2 className="text-xl font-bold text-[#4b2417]">Store Email Sender</h2>
+              <h2 className="text-xl font-bold text-[#4b2417]">Notification Email Sender</h2>
               {initialFromEmail ? (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
                   <Check className="h-3 w-3 text-emerald-600" />
@@ -1802,7 +1830,7 @@ function EmailSenderTab() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <div className="flex items-center gap-3">
-            <h2 className="text-xl font-bold text-[#4b2417]">Edit Store Email Sender</h2>
+            <h2 className="text-xl font-bold text-[#4b2417]">Edit Notification Email Sender</h2>
             {isDirty ? (
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
                 <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
@@ -1863,7 +1891,7 @@ function EmailSenderTab() {
             disabled={saving}
           />
           <p className="mt-1 text-xs text-gray-500">
-            Sender address in From header. Address/domain must be verified with your email provider before sending.
+            This address will appear as the sender for store notification emails. The address must be verified with your email provider.
           </p>
         </div>
 
@@ -1938,7 +1966,7 @@ function isGoogleMapsEmbedUrl(url: string): boolean {
 }
 
 interface StoreCustomizationFormState {
-  heroImageUrl: string;
+  heroImageUrls: string[];
   storeAddress: string;
   mapsEmbedUrl: string;
   contentId: {
@@ -1965,7 +1993,10 @@ function StoreCustomizationTab({ onDirtyChange }: StoreCustomizationTabProps = {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [activeLangTab, setActiveLangTab] = useState<'id' | 'en'>('id');
 
-  const [heroImageUrl, setHeroImageUrl] = useState('');
+  const [heroImageUrls, setHeroImageUrls] = useState<string[]>([]);
+  const [cropModalOpen, setCropModalOpen] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+
   const [storeAddress, setStoreAddress] = useState('');
   const [mapsEmbedUrl, setMapsEmbedUrl] = useState('');
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
@@ -1996,7 +2027,7 @@ function StoreCustomizationTab({ onDirtyChange }: StoreCustomizationTabProps = {
         const data = await getStoreCustomization();
         if (ignore) return;
         const initial: StoreCustomizationFormState = {
-          heroImageUrl: data.hero_image_url || '',
+          heroImageUrls: Array.isArray(data.hero_image_urls) ? [...data.hero_image_urls] : [],
           storeAddress: data.store_address || '',
           mapsEmbedUrl: data.maps_embed_url || '',
           contentId: {
@@ -2012,7 +2043,7 @@ function StoreCustomizationTab({ onDirtyChange }: StoreCustomizationTabProps = {
             about_description: data.content?.en?.about_description || '',
           },
         };
-        setHeroImageUrl(initial.heroImageUrl);
+        setHeroImageUrls(initial.heroImageUrls);
         setStoreAddress(initial.storeAddress);
         setMapsEmbedUrl(initial.mapsEmbedUrl);
         setUpdatedAt(data.updated_at || null);
@@ -2036,8 +2067,12 @@ function StoreCustomizationTab({ onDirtyChange }: StoreCustomizationTabProps = {
 
   const isDirty = useMemo(() => {
     if (!initialCustomization) return false;
+    const isHeroImagesDirty =
+      heroImageUrls.length !== initialCustomization.heroImageUrls.length ||
+      heroImageUrls.some((url, idx) => url !== initialCustomization.heroImageUrls[idx]);
+
     return (
-      heroImageUrl.trim() !== initialCustomization.heroImageUrl.trim() ||
+      isHeroImagesDirty ||
       storeAddress.trim() !== initialCustomization.storeAddress.trim() ||
       mapsEmbedUrl.trim() !== initialCustomization.mapsEmbedUrl.trim() ||
       contentId.hero_title !== initialCustomization.contentId.hero_title ||
@@ -2051,7 +2086,7 @@ function StoreCustomizationTab({ onDirtyChange }: StoreCustomizationTabProps = {
     );
   }, [
     initialCustomization,
-    heroImageUrl,
+    heroImageUrls,
     storeAddress,
     mapsEmbedUrl,
     contentId,
@@ -2077,16 +2112,22 @@ function StoreCustomizationTab({ onDirtyChange }: StoreCustomizationTabProps = {
 
   const handleDiscard = () => {
     if (!initialCustomization) return;
-    setHeroImageUrl(initialCustomization.heroImageUrl);
+    setHeroImageUrls([...initialCustomization.heroImageUrls]);
     setStoreAddress(initialCustomization.storeAddress);
     setMapsEmbedUrl(initialCustomization.mapsEmbedUrl);
     setContentId({ ...initialCustomization.contentId });
     setContentEn({ ...initialCustomization.contentEn });
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (heroImageUrls.length >= 5) {
+      toast.error('Maximum 5 hero slides allowed. Remove a slide before adding a new one.');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
 
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
     const ext = file.name.split('.').pop()?.toLowerCase();
@@ -2104,24 +2145,86 @@ function StoreCustomizationTab({ onDirtyChange }: StoreCustomizationTabProps = {
       return;
     }
 
+    const objectUrl = URL.createObjectURL(file);
+    setCropImageSrc(objectUrl);
+    setCropModalOpen(true);
+
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleCropConfirm = async (croppedFile: File) => {
+    if (cropImageSrc) {
+      URL.revokeObjectURL(cropImageSrc);
+      setCropImageSrc(null);
+    }
+    setCropModalOpen(false);
+
+    if (croppedFile.size > 5 * 1024 * 1024) {
+      toast.error('Banner file size exceeds 5 MB limit.');
+      return;
+    }
+
     try {
       setUploadingImage(true);
-      const res = await uploadHeroImage(file);
-      setHeroImageUrl(res.hero_image_url);
-      toast.success('Banner uploaded successfully! Click "Save Settings" to publish.');
+      const res = await uploadHeroImage(croppedFile);
+      setHeroImageUrls((prev) => {
+        if (prev.includes(res.hero_image_url)) return prev;
+        if (prev.length >= 5) return prev;
+        return [...prev, res.hero_image_url];
+      });
+      toast.success("Slide uploaded! Click 'Save Settings' to publish changes.");
     } catch (err: any) {
-      console.error('Failed to upload hero banner:', err);
+      console.error('Failed to upload hero banner slide:', err);
       if (err.response?.status === 429) {
-        toast.error('Upload rate limit reached (max 5 uploads per minute). Please wait.');
+        toast.error('Upload rate limit reached (max 5/minute). Please wait a moment and try again.');
       } else if (err.response?.status === 413) {
         toast.error('Banner file size is too large (max 5 MB).');
+      } else if (err.response?.status === 422) {
+        toast.error(err.response?.data?.detail || 'Invalid image format or dimensions.');
       } else {
-        toast.error(err.response?.data?.detail || 'Failed to upload banner.');
+        toast.error(err.response?.data?.detail || 'Failed to upload banner slide.');
       }
     } finally {
       setUploadingImage(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
+
+  const handleCropCancel = () => {
+    if (cropImageSrc) {
+      URL.revokeObjectURL(cropImageSrc);
+      setCropImageSrc(null);
+    }
+    setCropModalOpen(false);
+  };
+
+  const handleMoveSlideLeft = (index: number) => {
+    if (index <= 0 || index >= heroImageUrls.length) return;
+    setHeroImageUrls((prev) => {
+      const next = [...prev];
+      const temp = next[index - 1];
+      next[index - 1] = next[index];
+      next[index] = temp;
+      return next;
+    });
+  };
+
+  const handleMoveSlideRight = (index: number) => {
+    if (index < 0 || index >= heroImageUrls.length - 1) return;
+    setHeroImageUrls((prev) => {
+      const next = [...prev];
+      const temp = next[index + 1];
+      next[index + 1] = next[index];
+      next[index] = temp;
+      return next;
+    });
+  };
+
+  const handleDeleteSlide = (index: number) => {
+    setHeroImageUrls((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleResetToDefault = () => {
+    setHeroImageUrls([]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -2154,7 +2257,7 @@ function StoreCustomizationTab({ onDirtyChange }: StoreCustomizationTabProps = {
           about_description: contentEn.about_description.trim() || null,
         },
       },
-      hero_image_url: heroImageUrl.trim() || null,
+      hero_image_urls: heroImageUrls,
       store_address: storeAddress.trim() || null,
       maps_embed_url: finalMapsUrl || null,
     };
@@ -2163,7 +2266,7 @@ function StoreCustomizationTab({ onDirtyChange }: StoreCustomizationTabProps = {
       setSaving(true);
       const updated = await updateStoreCustomization(payload);
       const nextSaved: StoreCustomizationFormState = {
-        heroImageUrl: updated.hero_image_url || '',
+        heroImageUrls: Array.isArray(updated.hero_image_urls) ? [...updated.hero_image_urls] : [],
         storeAddress: updated.store_address || '',
         mapsEmbedUrl: updated.maps_embed_url || '',
         contentId: {
@@ -2179,7 +2282,7 @@ function StoreCustomizationTab({ onDirtyChange }: StoreCustomizationTabProps = {
           about_description: updated.content?.en?.about_description || '',
         },
       };
-      setHeroImageUrl(nextSaved.heroImageUrl);
+      setHeroImageUrls(nextSaved.heroImageUrls);
       setStoreAddress(nextSaved.storeAddress);
       setMapsEmbedUrl(nextSaved.mapsEmbedUrl);
       setContentId(nextSaved.contentId);
@@ -2216,7 +2319,7 @@ function StoreCustomizationTab({ onDirtyChange }: StoreCustomizationTabProps = {
   };
 
   if (loading) {
-    return <div className="py-8 text-center text-gray-500">Loading store customization settings...</div>;
+    return <SellerSquareMorphLoader size="md" label="Loading store customization settings..." className="py-12" />;
   }
 
   const isMapsValid = !mapsEmbedUrl.trim() || isGoogleMapsEmbedUrl(mapsEmbedUrl.trim());
@@ -2249,68 +2352,149 @@ function StoreCustomizationTab({ onDirtyChange }: StoreCustomizationTabProps = {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
-        {/* BAGIAN 1: HERO BANNER IMAGE */}
+        {/* BAGIAN 1: HERO BANNER SLIDES (UP TO 5) */}
         <div className="rounded-xl border border-[#e6d5c5]/80 bg-[#fcf8f5]/70 p-3.5 sm:p-5 space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h3 className="text-xs sm:text-sm font-bold text-[#4b2417] flex items-center gap-2">
                 <ImageIcon className="h-4 w-4 text-[#d85b30]" />
-                Main Banner (Hero Image)
+                Hero Banner Slides ({heroImageUrls.length}/5)
               </h3>
               <p className="text-[11px] sm:text-xs text-gray-500 mt-0.5">
-                Background image for the homepage hero section.
+                Upload up to 5 photos for the buyer homepage carousel. Slide order = display order.
               </p>
             </div>
-            {heroImageUrl && (
+            {heroImageUrls.length > 0 && (
               <button
                 type="button"
-                onClick={() => setHeroImageUrl('')}
-                className="rounded-lg border border-red-200 bg-red-50/60 px-2.5 py-1 text-xs font-semibold text-red-600 hover:bg-red-100 transition"
+                onClick={handleResetToDefault}
+                disabled={saving || uploadingImage}
+                className="rounded-lg border border-red-200 bg-red-50/60 px-2.5 py-1 text-xs font-semibold text-red-600 hover:bg-red-100 transition disabled:opacity-50"
               >
                 Reset to Default Banner
               </button>
             )}
           </div>
 
-          <div className="grid gap-4 md:grid-cols-12 md:gap-5 md:items-center">
-            <div className="md:col-span-7 relative aspect-[16/7] w-full overflow-hidden rounded-lg border border-[#d0bfaf] bg-gray-100 shadow-inner">
-              {heroImageUrl ? (
-                <img
-                  src={heroImageUrl}
-                  alt="Hero Banner Preview"
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="flex h-full w-full flex-col items-center justify-center p-4 text-center text-gray-400">
-                  <ImageIcon className="h-10 w-10 mb-1 opacity-60" />
-                  <span className="text-xs font-medium">Using default store banner</span>
-                </div>
-              )}
-            </div>
-
-            <div className="md:col-span-5 space-y-2.5">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={handleFileChange}
-                className="hidden"
-                disabled={uploadingImage || saving}
-              />
+          {heroImageUrls.length === 0 ? (
+            <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-[#d0bfaf] bg-stone-50/50 p-6 sm:p-8 text-center">
+              <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-stone-100 text-stone-400">
+                <ImageIcon className="h-6 w-6" />
+              </div>
+              <p className="text-xs sm:text-sm font-semibold text-[#4b2417]">No Custom Hero Slides</p>
+              <p className="mt-1 max-w-md text-[11px] sm:text-xs text-gray-500">
+                The default Toti Cakery banner will be displayed on the homepage. Add up to 5 photos to create a custom slideshow.
+              </p>
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploadingImage || saving}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border border-[#d85b30] bg-white px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-[#d85b30] hover:bg-[#d85b30] hover:text-white transition disabled:opacity-50"
+                className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#d85b30] px-4 py-2 text-xs font-semibold text-white hover:bg-[#c04e28] transition disabled:opacity-50"
               >
-                <Upload className="h-4 w-4" />
-                {uploadingImage ? 'Uploading Banner...' : 'Select & Upload Banner'}
+                <Plus className="h-4 w-4" />
+                Add First Slide
               </button>
-              <p className="text-[10px] sm:text-[11px] text-gray-500 leading-normal">
-                Supported formats: JPEG, PNG, or WEBP (max. 5 MB). Recommended aspect ratio: 16:9 or 21:9 (min. 1280x720px). If cleared, default store banner will be used.
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {heroImageUrls.map((url, idx) => (
+                <div
+                  key={url + idx}
+                  className="group relative flex flex-col overflow-hidden rounded-xl border border-[#d0bfaf] bg-white shadow-xs transition hover:shadow-md"
+                >
+                  <div className="relative aspect-video w-full overflow-hidden bg-stone-100">
+                    <img
+                      src={optimizeCloudinaryHeroUrl(url, 800)}
+                      alt={`Hero Slide ${idx + 1}`}
+                      className="h-full w-full object-cover"
+                    />
+                    <span
+                      className={`absolute left-2 top-2 rounded-md px-2 py-0.5 text-[11px] font-bold text-white shadow-xs ${
+                        idx === 0 ? 'bg-[#d85b30]' : 'bg-black/60 backdrop-blur-xs'
+                      }`}
+                    >
+                      {idx === 0 ? '#1 (Primary)' : `#${idx + 1}`}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-stone-100 bg-stone-50/80 px-2.5 py-1.5">
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => handleMoveSlideLeft(idx)}
+                        disabled={idx === 0 || saving || uploadingImage}
+                        title="Move Left / Earlier"
+                        aria-label={`Move slide ${idx + 1} left`}
+                        className="rounded p-1 text-stone-600 hover:bg-stone-200 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleMoveSlideRight(idx)}
+                        disabled={idx === heroImageUrls.length - 1 || saving || uploadingImage}
+                        title="Move Right / Later"
+                        aria-label={`Move slide ${idx + 1} right`}
+                        className="rounded p-1 text-stone-600 hover:bg-stone-200 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteSlide(idx)}
+                      disabled={saving || uploadingImage}
+                      title="Delete Slide"
+                      aria-label={`Delete slide ${idx + 1}`}
+                      className="flex items-center gap-1 rounded px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-30 transition"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      <span>Remove</span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {heroImageUrls.length > 0 && heroImageUrls.length < 5 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={heroImageUrls.length >= 5 || uploadingImage || saving}
+                className="inline-flex items-center gap-2 rounded-lg border border-[#d85b30] bg-white px-3.5 py-2 text-xs sm:text-sm font-semibold text-[#d85b30] hover:bg-[#d85b30] hover:text-white transition disabled:opacity-50"
+              >
+                <Plus className="h-4 w-4" />
+                {uploadingImage ? 'Uploading Slide...' : `Add Slide (${heroImageUrls.length}/5)`}
+              </button>
+              <p className="text-[11px] text-gray-500">
+                Supported formats: JPEG, PNG, WEBP (max. 5 MB each). Aspect ratio: 16:9 recommended.
               </p>
             </div>
-          </div>
+          )}
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handleFileChange}
+            className="hidden"
+            disabled={heroImageUrls.length >= 5 || uploadingImage || saving}
+          />
+
+          {cropModalOpen && cropImageSrc && (
+            <ImageCropper
+              imageSrc={cropImageSrc}
+              title="Crop Hero Banner"
+              cropShape="rect"
+              aspectRatio={16 / 9}
+              onCrop={handleCropConfirm}
+              onCancel={handleCropCancel}
+              isUploading={uploadingImage}
+            />
+          )}
         </div>
 
         {/* BAGIAN 2: BILINGUAL CONTENT (ID & EN) */}
@@ -2656,7 +2840,7 @@ export default function SellerSettingsPage() {
     { key: 'security' as const, label: 'Security', icon: Lock },
     ...(isOwner ? [{ key: 'users' as const, label: 'Users', icon: Users }] : []),
     ...(!isStaff ? [{ key: 'whatsapp' as const, label: 'WhatsApp', icon: MessageCircle }] : []),
-    ...(isOwner ? [{ key: 'email_sender' as const, label: 'Email Sender', icon: Mail }] : []),
+    ...(isOwner ? [{ key: 'email_sender' as const, label: 'Notification Email Sender', icon: Mail }] : []),
     ...(isOwner ? [{ key: 'store_customization' as const, label: 'Store Customization', icon: Store }] : []),
   ], [isOwner, isStaff]);
 

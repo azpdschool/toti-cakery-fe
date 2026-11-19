@@ -1,4 +1,10 @@
-import { createBuyerOrderAPI, BuyerOrderCreate, cancelBuyerOrderAPI } from '@/api/order';
+import {
+  createBuyerOrderAPI,
+  BuyerOrderCreate,
+  cancelBuyerOrderAPI,
+  type OrderLineAccessoryOut,
+  type OrderAccessoryOut,
+} from '@/api/order';
 import { processPaymentAPI, PaymentChargeRequest, PaymentChargeResponse, getPaymentStatusAPI } from '@/api/payment';
 import { apiClient } from '@/api/client'
 import i18n from '@/lib/i18n'
@@ -24,6 +30,8 @@ export interface BuyerOrderItem {
   quantity: number
   price: number
   subtotal: number
+  custom_decoration_charge?: number
+  customizations?: OrderLineAccessoryOut[]
 }
 
 export interface BuyerOrder {
@@ -45,6 +53,7 @@ export interface BuyerOrder {
   paymentStatus: PaymentStatus
 
   items: BuyerOrderItem[]
+  accessories?: OrderAccessoryOut[]
 
   subtotal: number
   serviceFee: number
@@ -149,6 +158,9 @@ interface ApiOrderItem {
   unit_price?: ApiMaybeDecimal
 
   subtotal?: ApiMaybeDecimal
+  custom_decoration_charge?: ApiMaybeDecimal
+  customizations?: any[]
+  accessories?: any[]
 }
 
 interface ApiOrder {
@@ -206,6 +218,8 @@ interface ApiOrder {
 
   items?: ApiOrderItem[]
   order_items?: ApiOrderItem[]
+  accessories?: any[]
+  shared_accessories?: any[]
 
   subtotal?: ApiMaybeDecimal
   service_fee?: ApiMaybeDecimal
@@ -421,6 +435,17 @@ function mapApiOrderItem(item: ApiOrderItem, index: number): BuyerOrderItem {
   const price = toNumber(item.price ?? item.harga ?? item.unit_price)
   const subtotal = toNumber(item.subtotal) || price * quantity
 
+  const rawCustoms = item.customizations ?? item.accessories ?? []
+  const customizations: OrderLineAccessoryOut[] = Array.isArray(rawCustoms)
+    ? rawCustoms.map((c: any) => ({
+        id: Number(c.id || 0),
+        stock_item_id: Number(c.stock_item_id || 0),
+        stock_item_name: String(c.stock_item_name || ''),
+        unit: String(c.unit || ''),
+        quantity: c.quantity !== undefined ? c.quantity : 0,
+      }))
+    : []
+
   return {
     id: String(item.id ?? index + 1),
     productId:
@@ -439,6 +464,8 @@ function mapApiOrderItem(item: ApiOrderItem, index: number): BuyerOrderItem {
     quantity,
     price,
     subtotal,
+    custom_decoration_charge: item.custom_decoration_charge !== undefined ? toNumber(item.custom_decoration_charge) : undefined,
+    customizations,
   }
 }
 
@@ -453,6 +480,19 @@ function mapApiOrder(order: ApiOrder): BuyerOrder {
 
   const rawItems = order.items ?? order.order_items ?? []
   const items = rawItems.map(mapApiOrderItem)
+
+  const rawAccessories = order.accessories || order.shared_accessories || []
+  const accessories: OrderAccessoryOut[] = Array.isArray(rawAccessories)
+    ? rawAccessories.map((acc: any) => ({
+        id: Number(acc.id || 0),
+        stock_item_id: Number(acc.stock_item_id || 0),
+        stock_item_name: String(acc.stock_item_name || ''),
+        unit: String(acc.unit || ''),
+        quantity: acc.quantity !== undefined ? acc.quantity : 0,
+        unit_cost_snapshot: acc.unit_cost_snapshot !== undefined ? acc.unit_cost_snapshot : 0,
+        subtotal: acc.subtotal !== undefined ? acc.subtotal : 0,
+      }))
+    : []
 
   const subtotal =
     toNumber(order.subtotal) ||
@@ -567,6 +607,7 @@ function mapApiOrder(order: ApiOrder): BuyerOrder {
     ),
 
     items,
+    accessories,
     subtotal,
     serviceFee,
     total,

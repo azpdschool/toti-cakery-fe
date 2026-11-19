@@ -142,7 +142,7 @@ export default function CartPage() {
 
   if (items.length === 0) {
     return (
-      <div className="bg-[#F6EFE6] min-h-screen pb-10">
+      <div className="min-h-screen pb-10">
         <div className="mx-auto max-w-7xl px-4 py-16 lg:px-8 flex justify-center">
           <div className="mt-4 flex flex-col items-center justify-center w-full max-w-3xl rounded-xl bg-white py-20 text-center shadow-sm">
             <ShoppingBag className="mx-auto h-16 w-16 text-[#D0BFAF]" />
@@ -161,7 +161,7 @@ export default function CartPage() {
   }
 
   return (
-    <div className="bg-[#F6EFE6] min-h-screen pb-12">
+    <div className="min-h-screen pb-12">
       <section className="mx-auto max-w-7xl px-4 pt-8 lg:px-8">
         <Link to={ROUTES.CATALOG} className="mb-6 inline-flex items-center gap-1.5 text-sm font-semibold text-[#6B4A3C] hover:text-[#9B4A2F] transition">
            <ChevronLeft className="h-4 w-4" />

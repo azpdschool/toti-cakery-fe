@@ -3,6 +3,7 @@ import type React from 'react';
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import { SellerModal } from '@/components/ui/SellerModal';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
+import { SellerSquareMorphLoader } from '@/components/common/TotiLoader';
 import {
   getBackendCategories,
   createBackendCategory,
@@ -155,7 +156,7 @@ export default function CategoryManagementModal({ isOpen, onClose, onCategoriesC
           </div>
 
           {loading ? (
-            <div className="py-8 text-center text-sm text-gray-500">Loading...</div>
+            <SellerSquareMorphLoader size="sm" label="Loading..." className="py-8" />
           ) : categories.length === 0 ? (
             <div className="rounded-xl border border-dashed border-gray-300 py-12 text-center text-sm text-gray-500">
               No categories found.

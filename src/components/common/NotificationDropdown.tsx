@@ -1,8 +1,10 @@
 import React from 'react';
+import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { CheckCheck, RefreshCw, BellOff } from 'lucide-react';
+import { CheckCheck, BellOff } from 'lucide-react';
 import { NotificationItem } from './NotificationItem';
 import type { NotificationItem as NotificationItemType } from '@/types/notification';
+import { TotiLoader } from '@/components/common/TotiLoader';
 
 interface NotificationDropdownProps {
   isOpen: boolean;
@@ -31,6 +33,8 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
   getNotificationText,
 }) => {
   const { t } = useTranslation();
+  const location = useLocation();
+  const isSeller = location.pathname.startsWith('/seller');
 
   if (!isOpen) return null;
 
@@ -75,10 +79,12 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
         {/* Content Body */}
         <div className="max-h-80 overflow-y-auto divide-y divide-[#F0E6DD]">
           {loading && notifications.length === 0 ? (
-            <div className="py-8 text-center text-xs text-[#6B4A3C]">
-              <RefreshCw className="mx-auto h-5 w-5 animate-spin text-[#9B4A2F] mb-2" />
-              {t('notifications.loading', 'Loading notifications...')}
-            </div>
+            <TotiLoader
+              variant={isSeller ? 'seller' : 'buyer'}
+              size="sm"
+              label={t('notifications.loading', 'Loading notifications...')}
+              className="py-6"
+            />
           ) : error ? (
             <div className="p-4 text-center text-xs text-red-600">
               <p>{error}</p>

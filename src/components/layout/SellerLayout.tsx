@@ -1,11 +1,11 @@
-// src/components/layout/SellerLayout.tsx
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { Navigate, Outlet } from 'react-router-dom'
 import { SellerSidebar } from './SellerSidebar'
 import { SellerHeader } from './SellerHeader'
 import { useAuth } from '@/hooks/useAuth'
 import { ROUTES } from '@/constants'
 import { isSellerRole } from '@/lib/roles'
+import { SellerSquareMorphLoader } from '@/components/common/TotiLoader'
 
 export function SellerLayout() {
   const { isAuthenticated, user } = useAuth()
@@ -40,7 +40,9 @@ export function SellerLayout() {
         />
 
         <main className="flex-1 p-3 sm:p-4 md:p-6 overflow-x-hidden">
-          <Outlet />
+          <Suspense fallback={<SellerSquareMorphLoader mode="section" size="md" />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

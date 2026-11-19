@@ -10,6 +10,7 @@ import { useCart } from '@/context/CartContext'
 import { ROUTES } from '@/constants'
 import { type ProductOut } from '@/api/product'
 import { getBuyerWishlist } from '@/services/wishlistService'
+import { BuyerBouncingLoader } from '@/components/common/TotiLoader'
 
 export default function WishlistPage() {
   const { t } = useTranslation()
@@ -44,11 +45,7 @@ export default function WishlistPage() {
   const displayProducts = products.filter(p => wishlistIds.has(String(p.id)))
 
   if (loading) {
-    return (
-      <div className="flex h-[60vh] items-center justify-center">
-        <p className="text-gray-500">{t('common.loading')}</p>
-      </div>
-    )
+    return <BuyerBouncingLoader mode="section" size="md" label={t('common.loading')} />
   }
 
   return (

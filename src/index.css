@@ -2,9 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body {
-  overflow-x: clip;
-  -webkit-tap-highlight-color: transparent;
+@layer base {
+  html, body {
+    @apply bg-toti-cream text-toti-ink;
+    overflow-x: clip;
+    -webkit-tap-highlight-color: transparent;
+  }
 }
 
 .no-scrollbar {
@@ -56,5 +59,211 @@ html, body {
   }
   to {
     width: 0%;
+  }
+}
+
+/* Toti Cakery Auth Animated Backdrop Keyframes */
+@keyframes toti-gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes toti-orb-float-1 {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    border-radius: 44% 56% 60% 40% / 46% 42% 58% 54%;
+  }
+  33% {
+    transform: translate3d(18px, -31px, 0) scale(1.06);
+    border-radius: 58% 42% 48% 52% / 54% 58% 42% 46%;
+  }
+  66% {
+    transform: translate3d(-16px, 21px, 0) scale(0.96);
+    border-radius: 48% 52% 42% 58% / 42% 48% 52% 58%;
+  }
+}
+
+@keyframes toti-orb-float-2 {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  40% {
+    transform: translate3d(-23px, -23px, 0) scale(1.08);
+  }
+  75% {
+    transform: translate3d(20px, 16px, 0) scale(0.95);
+  }
+}
+
+@keyframes toti-orb-float-3 {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-26px, 33px, 0) scale(1.05);
+  }
+}
+
+@keyframes toti-wave-breathe {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1, 1);
+  }
+  50% {
+    transform: translate3d(-10px, -8px, 0) scale(1.03, 1.02);
+  }
+}
+
+.animate-toti-gradient {
+  animation: toti-gradient-shift 16s ease-in-out infinite;
+}
+
+/* Buyer float animation durations (6s / 8s / 10s / 9s) */
+.animate-toti-orb-1 {
+  animation: toti-orb-float-1 6s ease-in-out infinite;
+}
+
+.animate-toti-orb-2 {
+  animation: toti-orb-float-2 8s ease-in-out infinite;
+}
+
+.animate-toti-orb-3 {
+  animation: toti-orb-float-3 10s ease-in-out infinite;
+}
+
+.animate-toti-wave {
+  animation: toti-wave-breathe 9s ease-in-out infinite;
+  transform-origin: bottom right;
+}
+
+/* Seller variant: slightly calmer (about 1.25x longer durations: 7.5s / 10s / 12.5s / 11.25s) */
+.animate-toti-orb-seller-1 {
+  animation: toti-orb-float-1 7.5s ease-in-out infinite;
+}
+
+.animate-toti-orb-seller-2 {
+  animation: toti-orb-float-2 10s ease-in-out infinite;
+}
+
+.animate-toti-orb-seller-3 {
+  animation: toti-orb-float-3 12.5s ease-in-out infinite;
+}
+
+.animate-toti-wave-seller {
+  animation: toti-wave-breathe 11.25s ease-in-out infinite;
+  transform-origin: bottom right;
+}
+
+/* ==========================================================================
+   Toti Unified Animated Loaders (Pure CSS)
+   ========================================================================== */
+
+/* 1. Buyer Bouncing Ball Keyframes */
+@keyframes toti-bounce-ball {
+  0%, 100% {
+    transform: translateY(0) scale(1, 1);
+  }
+  30% {
+    transform: translateY(-16px) scale(0.96, 1.04);
+  }
+  60% {
+    transform: translateY(0) scale(1.08, 0.92);
+  }
+  75% {
+    transform: translateY(-4px) scale(0.98, 1.02);
+  }
+  90% {
+    transform: translateY(0) scale(1.02, 0.98);
+  }
+}
+
+@keyframes toti-bounce-shadow {
+  0%, 100% {
+    transform: scale(0.65);
+    opacity: 0.25;
+  }
+  30% {
+    transform: scale(0.3);
+    opacity: 0.1;
+  }
+  60% {
+    transform: scale(1);
+    opacity: 0.4;
+  }
+  75% {
+    transform: scale(0.7);
+    opacity: 0.2;
+  }
+  90% {
+    transform: scale(0.85);
+    opacity: 0.3;
+  }
+}
+
+/* 2. Seller Square Morph Keyframes */
+@keyframes toti-square-morph {
+  0% {
+    transform: rotate(0deg) scale(1);
+    border-radius: 8px;
+    background-color: #3A1F16; /* Toti Espresso / Ink */
+  }
+  25% {
+    transform: rotate(90deg) scale(0.88);
+    border-radius: 50%;
+    background-color: #6B4A3C; /* Toti Secondary Cocoa */
+  }
+  50% {
+    transform: rotate(180deg) scale(1.05);
+    border-radius: 12px;
+    background-color: #9B4A2F; /* Toti Brick */
+  }
+  75% {
+    transform: rotate(270deg) scale(0.88);
+    border-radius: 50%;
+    background-color: #6B4A3C; /* Toti Secondary Cocoa */
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+    border-radius: 8px;
+    background-color: #3A1F16; /* Toti Espresso / Ink */
+  }
+}
+
+@keyframes toti-square-shadow {
+  0%, 50%, 100% {
+    transform: scale(1);
+    opacity: 0.35;
+  }
+  25%, 75% {
+    transform: scale(0.7);
+    opacity: 0.15;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-toti-gradient,
+  .animate-toti-orb-1,
+  .animate-toti-orb-2,
+  .animate-toti-orb-3,
+  .animate-toti-orb-seller-1,
+  .animate-toti-orb-seller-2,
+  .animate-toti-orb-seller-3,
+  .animate-toti-wave,
+  .animate-toti-wave-seller,
+  .toti-bounce-dot,
+  .toti-bounce-shadow,
+  .toti-morph-square,
+  .toti-morph-shadow {
+    animation: none !important;
+  }
+  .toti-morph-square {
+    border-radius: 8px !important;
+    background-color: #3A1F16 !important;
   }
 }

@@ -11,6 +11,7 @@ import RecipeManagementModal from './RecipeManagementModal'
 import CategoryManagementModal from './CategoryManagementModal'
 import QuickAddStockModal from './QuickAddStockModal'
 import ImageCropper from '@/components/common/ImageCropper'
+import { SellerSquareMorphLoader } from '@/components/common/TotiLoader'
 import { useAuth } from '@/hooks/useAuth'
 import { useTranslation } from 'react-i18next'
 import {
@@ -2108,10 +2109,11 @@ export default function SellerProductsPage() {
 
           <div className="rounded-xl bg-white shadow-sm border border-gray-100">
             {isFetching ? (
-              <div className="flex flex-col items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-[#d85b30]" />
-                <p className="mt-4 text-sm text-[#8b7166]">Loading products...</p>
-              </div>
+              <SellerSquareMorphLoader
+                size="md"
+                label="Loading products..."
+                className="py-12"
+              />
             ) : filteredProducts.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16">
                 <div className="rounded-full bg-gray-100 p-4 mb-4">

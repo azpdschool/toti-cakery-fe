@@ -14,6 +14,7 @@ import {
 import { useAuth } from '@/hooks/useAuth'
 import { ROUTES, LOGO_URL } from '@/constants'
 import { loginSeller, mapSellerLoginResponseToUser } from '@/api/auth'
+import { AuthAnimatedBackdrop } from '@/components/common/AuthAnimatedBackdrop'
 
 export default function SellerLoginPage() {
   const { login } = useAuth()
@@ -89,20 +90,26 @@ export default function SellerLoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-white px-4 py-8">
-      <div className="w-full max-w-md">
-        <div className="rounded-2xl border border-[#ead8ca] bg-gradient-to-br from-[#fdf6f0] to-[#f4ebdf] p-8 shadow-xl backdrop-blur-sm">
+    <div className="relative min-h-screen overflow-hidden flex flex-col items-center justify-center px-4 py-8">
+      <AuthAnimatedBackdrop variant="seller" />
+
+      <div className="relative z-10 w-full max-w-md">
+        <div className="rounded-2xl bg-[#FFFFFF]/95 backdrop-blur-sm border border-[#E8DCCB]/80 p-6 sm:p-8 shadow-[0_20px_50px_-15px_rgba(26,12,8,0.45)] transition-all duration-300 hover:shadow-[0_24px_60px_-15px_rgba(26,12,8,0.58)] hover:border-[#E0A04E]/60">
           <div className="mb-6 text-center">
             <img
               src={LOGO_URL}
               alt={t('app.name')}
+              onError={(e) => {
+                e.currentTarget.onerror = null
+                e.currentTarget.src = '/fallback-logo.png'
+              }}
               className="mx-auto w-48 sm:w-60 h-auto max-w-full object-contain"
             />
           </div>
-          <h1 className="text-2xl font-black text-[#4b2417]">
+          <h1 className="text-2xl font-black text-[#3A1F16]">
             {t('auth.seller_login_title')}
           </h1>
-          <p className="mt-1 text-sm text-[#6f5448]">
+          <p className="mt-1 text-sm text-[#6B4A3C]">
             {t('auth.seller_login_subtitle')}
           </p>
 
@@ -110,13 +117,13 @@ export default function SellerLoginPage() {
             <div>
               <label
                 htmlFor="username"
-                className="block text-sm font-semibold text-[#4b2417]"
+                className="block text-sm font-semibold text-[#3A1F16]"
               >
                 {t('auth.username_label')} <span className="text-red-500 ml-0.5">*</span>
               </label>
 
               <div className="relative mt-1.5">
-                <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8b7166]">
+                <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8B6A5A]">
                   <User className="h-4 w-4" />
                 </div>
 
@@ -128,11 +135,11 @@ export default function SellerLoginPage() {
                   placeholder={t('auth.username_placeholder')}
                   autoComplete="username"
                   disabled={isLoading}
-                  className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-4 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40 disabled:opacity-60"
+                  className="w-full rounded-xl border border-[#D0BFAF] bg-[#F6EFE6]/50 py-3 pl-11 pr-4 text-sm text-[#3A1F16] outline-none transition-all duration-200 placeholder:text-[#9C8478] hover:border-[#8B6A5A] focus:bg-white focus:border-[#3A1F16] focus:ring-2 focus:ring-[#3A1F16]/15 disabled:opacity-60"
                 />
               </div>
 
-              <p className="mt-2 text-xs text-[#8b7166]">
+              <p className="mt-2 text-xs text-[#8B6A5A]">
                 {t('auth.username_helper')}
               </p>
             </div>
@@ -140,13 +147,13 @@ export default function SellerLoginPage() {
             <div>
               <label
                 htmlFor="password"
-                className="block text-sm font-semibold text-[#4b2417]"
+                className="block text-sm font-semibold text-[#3A1F16]"
               >
                 {t('auth.password_label')} <span className="text-red-500 ml-0.5">*</span>
               </label>
 
               <div className="relative mt-1.5">
-                <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8b7166]">
+                <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#8B6A5A]">
                   <Lock className="h-4 w-4" />
                 </div>
 
@@ -158,13 +165,13 @@ export default function SellerLoginPage() {
                   placeholder={t('auth.password_placeholder')}
                   autoComplete="current-password"
                   disabled={isLoading}
-                  className="w-full rounded-xl border border-[#d0bfaf] bg-white/70 py-3 pl-11 pr-12 text-sm text-[#4b2417] outline-none transition placeholder:text-[#9c8478] focus:border-[#c95b31] focus:ring-2 focus:ring-[#e9b49d]/40 disabled:opacity-60"
+                  className="w-full rounded-xl border border-[#D0BFAF] bg-[#F6EFE6]/50 py-3 pl-11 pr-12 text-sm text-[#3A1F16] outline-none transition-all duration-200 placeholder:text-[#9C8478] hover:border-[#8B6A5A] focus:bg-white focus:border-[#3A1F16] focus:ring-2 focus:ring-[#3A1F16]/15 disabled:opacity-60"
                 />
 
                 <button
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166] hover:text-[#4b2417]"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8B6A5A] hover:text-[#3A1F16] transition-colors"
                   aria-label={showPassword ? t('auth.hide_password') : t('auth.show_password')}
                 >
                   {showPassword ? (
@@ -193,7 +200,7 @@ export default function SellerLoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white transition hover:bg-[#c04e28] disabled:opacity-60"
+              className="flex h-12 w-full items-center justify-center rounded-xl bg-[#3A1F16] text-sm font-black text-white transition-all duration-200 hover:bg-[#6B4A3C] hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:scale-[0.99] disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:bg-[#3A1F16] disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <>
@@ -205,20 +212,18 @@ export default function SellerLoginPage() {
               )}
             </button>
 
-            <div className="text-center text-sm text-[#6f5448]">
+            <div className="text-center text-sm text-[#6B4A3C]">
               <Link
                 to={ROUTES.AUTH_SELLER_FORGOT_PASSWORD}
-                className="font-medium text-[#d85b30] transition hover:text-[#c04e28]"
+                className="font-medium text-[#9B4A2F] hover:text-[#7E3A24] hover:underline transition-colors duration-200"
               >
                 {t('auth.forgot_password')}
               </Link>
             </div>
-
-            
           </form>
         </div>
 
-        <div className="mt-6 text-center text-xs text-[#8b7166]">
+        <div className="relative z-10 mt-6 text-center text-xs text-[#F6EFE6]/90 transition-colors">
           <p>{t('auth.management_only')}</p>
         </div>
       </div>

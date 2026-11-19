@@ -15,6 +15,7 @@ export interface StoreCustomizationContent {
 export interface StoreCustomizationData {
   content: StoreCustomizationContent;
   hero_image_url: string | null;
+  hero_image_urls: string[];
   store_address: string | null;
   maps_embed_url: string | null;
   updated_at: string;
@@ -25,7 +26,7 @@ export interface StoreCustomizationPatchPayload {
     id?: Partial<StoreCustomizationLocale>;
     en?: Partial<StoreCustomizationLocale>;
   };
-  hero_image_url?: string | null;
+  hero_image_urls?: string[] | null;
   store_address?: string | null;
   maps_embed_url?: string | null;
 }
@@ -53,11 +54,42 @@ export const DEFAULT_STORE_CUSTOMIZATION: StoreCustomizationData = {
   },
   hero_image_url:
     'https://res.cloudinary.com/mrje22up/image/upload/v1790318553/SaveClip.App_618505350_17958279306045799_2574558123171612005_n.jpg',
+  hero_image_urls: [],
   store_address: null,
   maps_embed_url:
     'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3989.157534596183!2d103.95726197941448!3d1.0427912962325454!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31d98da3b87ec2f7%3A0x280a84339839dd69!2sToti%20Cakery!5e0!3m2!1sen!2sid!4v1782278391706!5m2!1sen!2sid',
   updated_at: new Date().toISOString(),
 };
+
+/**
+ * Injects Cloudinary optimization transformations (f_auto, q_auto, w_...)
+ * for hero images without double-inserting if transformations already exist.
+ */
+export function optimizeCloudinaryHeroUrl(url: string, width = 1600): string {
+  if (!url || typeof url !== 'string') return url;
+  if (!url.startsWith('https://res.cloudinary.com/') || !url.includes('/image/upload/')) {
+    return url;
+  }
+  const uploadIndex = url.indexOf('/image/upload/');
+  const rest = url.slice(uploadIndex + '/image/upload/'.length);
+  if (
+    rest.startsWith('f_auto') ||
+    rest.startsWith('w_') ||
+    rest.startsWith('q_') ||
+    rest.includes('f_auto') ||
+    rest.includes('q_auto')
+  ) {
+    return url;
+  }
+  return url.replace('/image/upload/', `/image/upload/f_auto,q_auto,w_${width}/`);
+}
+
+function normalizeHeroImageUrls(data: Partial<StoreCustomizationData>): string[] {
+  if (Array.isArray(data.hero_image_urls)) {
+    return data.hero_image_urls.filter((u): u is string => typeof u === 'string' && u.trim().length > 0);
+  }
+  return data.hero_image_url ? [data.hero_image_url] : [];
+}
 
 const CUSTOMIZATION_TTL_MS = 60_000;
 let cachedCustomization: StoreCustomizationData | null = null;
@@ -93,6 +125,7 @@ export async function getStoreCustomization(forceRefresh: boolean = false): Prom
         return DEFAULT_STORE_CUSTOMIZATION;
       }
 
+      const rawUrls = normalizeHeroImageUrls(data);
       const resolved: StoreCustomizationData = {
         content: {
           id: {
@@ -108,7 +141,8 @@ export async function getStoreCustomization(forceRefresh: boolean = false): Prom
             about_description: data.content?.en?.about_description ?? DEFAULT_STORE_CUSTOMIZATION.content.en.about_description,
           },
         },
-        hero_image_url: data.hero_image_url ?? DEFAULT_STORE_CUSTOMIZATION.hero_image_url,
+        hero_image_url: data.hero_image_url ?? (rawUrls[0] || DEFAULT_STORE_CUSTOMIZATION.hero_image_url),
+        hero_image_urls: rawUrls,
         store_address: data.store_address ?? null,
         maps_embed_url: data.maps_embed_url ?? DEFAULT_STORE_CUSTOMIZATION.maps_embed_url,
         updated_at: data.updated_at || DEFAULT_STORE_CUSTOMIZATION.updated_at,
@@ -158,7 +192,14 @@ export async function updateStoreCustomization(
     '/settings/store-customization',
     payload
   );
-  cachedCustomization = response.data;
+  const data = response.data;
+  const rawUrls = normalizeHeroImageUrls(data);
+  const resolved: StoreCustomizationData = {
+    ...data,
+    hero_image_url: data.hero_image_url ?? (rawUrls[0] || DEFAULT_STORE_CUSTOMIZATION.hero_image_url),
+    hero_image_urls: rawUrls,
+  };
+  cachedCustomization = resolved;
   lastCustomizationFetchTime = Date.now();
-  return response.data;
+  return resolved;
 }

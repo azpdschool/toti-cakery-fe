@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { X, Plus, Check, FileText, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { X, Plus, Check, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { SellerSquareMorphLoader } from '@/components/common/TotiLoader';
 import {
   getPurchases,
   createPurchase,
@@ -355,7 +356,7 @@ export default function PurchaseManagementModal({ isOpen, onClose, onSuccess }: 
                 </button>
               </div>
               {loading ? (
-                <p className="text-center py-4 text-gray-500">Loading...</p>
+                <SellerSquareMorphLoader size="sm" className="py-6" />
               ) : purchases.length === 0 ? (
                 <p className="text-center py-12 text-gray-500">No purchases yet.</p>
               ) : (
@@ -415,7 +416,7 @@ export default function PurchaseManagementModal({ isOpen, onClose, onSuccess }: 
                       {expandedId === p.id && (
                         <div className="pt-4 border-t">
                           {loadingDetails && !expandedDetails[p.id] ? (
-                            <div className="flex justify-center p-4"><Loader2 className="animate-spin w-5 h-5 text-gray-400" /></div>
+                            <SellerSquareMorphLoader size="sm" className="py-4" />
                           ) : expandedDetails[p.id] ? (
                             <div className="bg-gray-50 rounded-lg p-4">
                               <h4 className="text-sm font-bold text-gray-800 mb-3">Items Purchased</h4>

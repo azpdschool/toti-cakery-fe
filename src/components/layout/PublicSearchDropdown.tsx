@@ -26,6 +26,7 @@ import {
 import { useWhatsApp } from '@/context/WhatsAppContext'
 import { formatRupiah, placeholderImage } from '@/services/productService'
 import { API_BASE_URL, ROUTES } from '@/constants'
+import { BuyerBouncingLoader } from '@/components/common/TotiLoader'
 
 type NavItem =
   | { type: 'product'; data: PublicProductSearchResult }
@@ -339,10 +340,11 @@ export function PublicSearchDropdown({
             </div>
           ) : isLoading && !results ? (
             /* Loading State */
-            <div className="flex items-center justify-center gap-2 p-6 text-xs font-medium text-[#6B4A3C]">
-              <Loader2 className="h-4 w-4 animate-spin text-[#9B4A2F]" />
-              <span>{t('search.loading', 'Mencari...')}</span>
-            </div>
+            <BuyerBouncingLoader
+              size="sm"
+              label={t('search.loading', 'Mencari...')}
+              className="py-6"
+            />
           ) : !hasAnyResults ? (
             /* No Results Found */
             <div className="p-5 text-center">

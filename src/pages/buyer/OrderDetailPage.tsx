@@ -26,6 +26,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { downloadInvoice } from '@/services/invoiceService'
 import { Download } from 'lucide-react'
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal'
+import { BuyerBouncingLoader } from '@/components/common/TotiLoader'
 import { formatRupiah } from '@/services/productService'
 import { submitReview, getProductReviews, deleteReviewImage } from '@/services/reviewService'
 import type { ReviewResponse } from '@/api/review'
@@ -633,11 +634,7 @@ export default function OrderDetailPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-gray-700" />
-      </div>
-    )
+    return <BuyerBouncingLoader mode="section" size="lg" />
   }
 
   if (error || !order) {
@@ -1010,6 +1007,22 @@ export default function OrderDetailPage() {
                             {item.variantName} · {item.quantity} pcs
                           </p>
 
+                          {item.customizations && item.customizations.length > 0 && (
+                            <div className="mt-1 space-y-0.5 pl-2 border-l-2 border-[#d0bfaf]">
+                              {item.customizations.map((c, cIdx) => (
+                                <p key={c.id || `${c.stock_item_id}-${cIdx}`} className="text-xs text-[#6f5448]">
+                                  &bull; {c.stock_item_name} ({c.quantity} {c.unit})
+                                </p>
+                              ))}
+                            </div>
+                          )}
+
+                          {item.custom_decoration_charge !== undefined && Number(item.custom_decoration_charge) > 0 && (
+                            <p className="text-xs text-[#9b4a2f] font-medium mt-0.5">
+                              + Custom Decoration: {formatRupiah(item.custom_decoration_charge)}
+                            </p>
+                          )}
+
                           {order.status === 'completed' && item.productId && (
                             <div className="mt-2 space-y-2">
                               {reviewedProductIds.has(item.productId) ? (
@@ -1082,6 +1095,24 @@ export default function OrderDetailPage() {
                       {formatRupiah(order.subtotal)}
                     </span>
                   </div>
+
+                  {order.accessories && order.accessories.length > 0 && (
+                    <div className="py-2 my-1 border-y border-[#ead8ca]/50 space-y-1">
+                      <p className="text-xs font-bold text-[#6f5448] uppercase tracking-wide">
+                        Accessories ({order.accessories.length})
+                      </p>
+                      {order.accessories.map((acc, aIdx) => (
+                        <div key={acc.id || `${acc.stock_item_id}-${aIdx}`} className="flex justify-between text-xs text-[#6f5448]">
+                          <span>
+                            {acc.stock_item_name} ({acc.quantity} {acc.unit})
+                          </span>
+                          <span className="font-semibold text-[#4b2417]">
+                            {formatRupiah(Number(acc.subtotal || 0))}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {order.deliveryMethod !== 'pickup' && (
                     <div className="flex justify-between">

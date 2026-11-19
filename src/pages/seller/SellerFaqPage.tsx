@@ -19,6 +19,7 @@ import { SellerSortDropdown } from '@/components/ui/SellerSortDropdown';
 import { SellerFilterSelect } from '@/components/ui/SellerFilterSelect';
 import { HorizontalCardScroller } from '@/components/common/HorizontalCardScroller';
 import { PageHeader } from '@/components/ui/PageHeader';
+import { SellerSquareMorphLoader } from '@/components/common/TotiLoader';
 import {
   getChatbotFaqs,
   getChatbotStatsFromFaqs,
@@ -567,11 +568,7 @@ export default function SellerFaqPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex h-[50vh] items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-[#d85b30]" />
-      </div>
-    );
+    return <SellerSquareMorphLoader mode="section" size="md" />;
   }
 
   return (

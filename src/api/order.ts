@@ -6,6 +6,53 @@ export interface OrderItemCreate {
   custom_decoration_charge: number;
 }
 
+export interface CustomOrderAccessoryCreate {
+  stock_item_id: number;
+  quantity: string;
+}
+
+export interface CustomOrderItemCreate {
+  product_id: number;
+  qty: number;
+  custom_decoration_charge: string;
+  customizations?: CustomOrderAccessoryCreate[];
+}
+
+export interface CustomOrderCreate {
+  customer_name: string;
+  customer_phone: string;
+  customer_address?: string;
+  metode_pengiriman: string;
+  notes?: string;
+  fulfillment_date: string;
+  payment_method_preference?: string;
+  items: CustomOrderItemCreate[];
+  accessories?: CustomOrderAccessoryCreate[];
+}
+
+export interface OrderLineAccessoryOut {
+  id: number;
+  stock_item_id: number;
+  stock_item_name: string;
+  unit: string;
+  quantity: string | number;
+}
+
+export interface OrderAccessoryOut {
+  id: number;
+  stock_item_id: number;
+  stock_item_name: string;
+  unit: string;
+  quantity: string | number;
+  unit_cost_snapshot: string | number;
+  subtotal: string | number;
+}
+
+export async function createCustomOrderAPI(payload: CustomOrderCreate) {
+  const response = await apiClient.post('/orders/custom', payload);
+  return response.data;
+}
+
 export interface BuyerOrderCreate {
   metode_pengiriman: string;
   items: OrderItemCreate[];

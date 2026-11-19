@@ -16,4 +16,12 @@ i18n.use(initReactI18next).init({
   },
 })
 
+if (typeof document !== 'undefined') {
+  const current = (localStorage.getItem(LANG_KEY) ?? 'id').startsWith('en') ? 'en' : 'id'
+  document.documentElement.lang = current
+  i18n.on('languageChanged', (lng) => {
+    document.documentElement.lang = lng?.startsWith('en') ? 'en' : 'id'
+  })
+}
+
 export default i18n

@@ -284,7 +284,7 @@ export default function OrdersPage() {
 
   if (loading) {
     return (
-      <div className="bg-[#F6EFE6] min-h-screen pb-10">
+      <div className="min-h-screen pb-10">
         <div className="mx-auto max-w-5xl px-4 py-8 lg:px-8">
           <div className="mb-6 flex justify-between">
             <div className="space-y-3">
@@ -305,7 +305,7 @@ export default function OrdersPage() {
   }
 
   return (
-    <div className="bg-[#F6EFE6] min-h-screen pb-12">
+    <div className="min-h-screen pb-12">
       <div className="mx-auto max-w-5xl px-4 py-8 lg:px-8">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <div>

@@ -26,6 +26,8 @@ import {
 import { InternationalPhoneInput } from '@/components/common/PhoneInput'
 import { formatPhoneNumber } from '@/utils/phone'
 import { LanguageToggle } from '@/components/common/Languagetoggle'
+import { AuthAnimatedBackdrop } from '@/components/common/AuthAnimatedBackdrop'
+import { BuyerBouncingLoader } from '@/components/common/TotiLoader'
 import type { TFunction } from 'i18next'
 
 function parseApiError(
@@ -336,8 +338,10 @@ export default function Register() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#fffaf5] px-4 py-12">
-      <div className="w-full max-w-md rounded-2xl border border-[#ead8ca] bg-white p-6 shadow-sm sm:p-8">
+    <div className="relative min-h-screen overflow-hidden flex flex-col items-center justify-center px-4 py-8">
+      <AuthAnimatedBackdrop variant="buyer" />
+
+      <div className="relative z-10 w-full max-w-md rounded-2xl bg-white/95 backdrop-blur-sm border border-[#E8DCCB] p-6 sm:p-8 shadow-[0_12px_36px_-14px_rgba(107,74,60,0.18)] transition-all duration-300 hover:shadow-[0_18px_44px_-14px_rgba(155,74,47,0.24)] hover:border-[#D0BFAF]">
         <div className="relative mb-6 text-center flex flex-col items-center">
           <button
             type="button"
@@ -349,7 +353,7 @@ export default function Register() {
                 navigate(ROUTES.HOME)
               }
             }}
-            className="absolute left-0 top-0 flex items-center text-sm font-bold text-[#8b7166] hover:text-[#d85b30] transition"
+            className="absolute left-0 top-0 flex items-center text-sm font-bold text-[#8B6A5A] hover:text-[#7E3A24] transition-colors duration-200"
           >
             <ChevronLeft className="mr-1 h-5 w-5" />
             {t('auth.cancel', 'Batal')}
@@ -360,10 +364,18 @@ export default function Register() {
           </div>
 
           <Link to={ROUTES.HOME} className="inline-block mt-8 mb-6">
-            <img src={LOGO_URL} alt="Toti Cakery" className="mx-auto w-48 sm:w-60 h-auto max-w-full object-contain" />
+            <img
+              src={LOGO_URL}
+              alt="Toti Cakery"
+              onError={(e) => {
+                e.currentTarget.onerror = null
+                e.currentTarget.src = '/fallback-logo.png'
+              }}
+              className="mx-auto w-48 sm:w-60 h-auto max-w-full object-contain"
+            />
           </Link>
-          <h1 className="text-2xl font-black text-[#4b2417]">{t('auth.buyer_register_title')}</h1>
-          <p className="mt-1 text-sm text-[#6f5448]">{t('auth.buyer_register_subtitle')}</p>
+          <h1 className="text-2xl font-black text-[#3A1F16]">{t('auth.buyer_register_title')}</h1>
+          <p className="mt-1 text-sm text-[#6B4A3C]">{t('auth.buyer_register_subtitle')}</p>
         </div>
 
         {error && (
@@ -383,35 +395,35 @@ export default function Register() {
         {!waMode ? (
           <form onSubmit={handleRegister} noValidate className="space-y-4">
             <div>
-              <label className="block text-sm font-semibold text-[#4b2417] mb-1">
+              <label className="block text-sm font-semibold text-[#3A1F16] mb-1">
                 {t('auth.full_name', 'Nama Lengkap')} <span className="text-red-500 ml-0.5">*</span>
               </label>
               <div className="relative">
-                <UserIcon className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b7166]" />
+                <UserIcon className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8B6A5A]" />
                 <input
                   type="text"
                   disabled={loading || isRedirecting}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder={t('auth.name_placeholder')}
-                  className="w-full rounded-xl border border-[#d0bfaf] py-3 pl-11 pr-4 text-sm outline-none focus:border-[#d85b30] focus:ring-1 focus:ring-[#d85b30] disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  className="w-full rounded-xl border border-[#D0BFAF] py-3 pl-11 pr-4 text-sm text-[#3A1F16] placeholder:text-[#9C8478] outline-none transition-all duration-200 hover:border-[#C6A48F] focus:border-[#9B4A2F] focus:ring-2 focus:ring-[#9B4A2F]/20 focus:bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-[#4b2417] mb-1">
+              <label className="block text-sm font-semibold text-[#3A1F16] mb-1">
                 {t('auth.email_label', 'Email / Username')} <span className="text-red-500 ml-0.5">*</span>
               </label>
               <div className="relative">
-                <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b7166]" />
+                <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8B6A5A]" />
                 <input
                   type="email"
                   disabled={loading || isRedirecting}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder={t('auth.email_placeholder')}
-                  className="w-full rounded-xl border border-[#d0bfaf] py-3 pl-11 pr-4 text-sm outline-none focus:border-[#d85b30] focus:ring-1 focus:ring-[#d85b30] disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  className="w-full rounded-xl border border-[#D0BFAF] py-3 pl-11 pr-4 text-sm text-[#3A1F16] placeholder:text-[#9C8478] outline-none transition-all duration-200 hover:border-[#C6A48F] focus:border-[#9B4A2F] focus:ring-2 focus:ring-[#9B4A2F]/20 focus:bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
                 />
               </div>
             </div>
@@ -426,24 +438,24 @@ export default function Register() {
             />
 
             <div>
-              <label className="block text-sm font-semibold text-[#4b2417] mb-1">
+              <label className="block text-sm font-semibold text-[#3A1F16] mb-1">
                 {t('auth.password_label', 'Password')} <span className="text-red-500 ml-0.5">*</span>
               </label>
               <div className="relative">
-                <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b7166]" />
+                <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8B6A5A]" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   disabled={loading || isRedirecting}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={t('auth.password_min_length')}
-                  className="w-full rounded-xl border border-[#d0bfaf] py-3 pl-11 pr-12 text-sm outline-none focus:border-[#d85b30] focus:ring-1 focus:ring-[#d85b30] disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  className="w-full rounded-xl border border-[#D0BFAF] py-3 pl-11 pr-12 text-sm text-[#3A1F16] placeholder:text-[#9C8478] outline-none transition-all duration-200 hover:border-[#C6A48F] focus:border-[#9B4A2F] focus:ring-2 focus:ring-[#9B4A2F]/20 focus:bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
                 />
                 <button
                   type="button"
                   disabled={loading || isRedirecting}
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166] disabled:opacity-50"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8B6A5A] hover:text-[#3A1F16] transition-colors disabled:opacity-50"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -451,24 +463,24 @@ export default function Register() {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-[#4b2417] mb-1">
+              <label className="block text-sm font-semibold text-[#3A1F16] mb-1">
                 {t('auth.confirm_password', 'Konfirmasi Password')} <span className="text-red-500 ml-0.5">*</span>
               </label>
               <div className="relative">
-                <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8b7166]" />
+                <Lock className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8B6A5A]" />
                 <input
                   type={showConfirmPassword ? 'text' : 'password'}
                   disabled={loading || isRedirecting}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder={t('auth.confirm_password_placeholder')}
-                  className="w-full rounded-xl border border-[#d0bfaf] py-3 pl-11 pr-12 text-sm outline-none focus:border-[#d85b30] focus:ring-1 focus:ring-[#d85b30] disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  className="w-full rounded-xl border border-[#D0BFAF] py-3 pl-11 pr-12 text-sm text-[#3A1F16] placeholder:text-[#9C8478] outline-none transition-all duration-200 hover:border-[#C6A48F] focus:border-[#9B4A2F] focus:ring-2 focus:ring-[#9B4A2F]/20 focus:bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
                 />
                 <button
                   type="button"
                   disabled={loading || isRedirecting}
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8b7166] disabled:opacity-50"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#8B6A5A] hover:text-[#3A1F16] transition-colors disabled:opacity-50"
                 >
                   {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -478,7 +490,7 @@ export default function Register() {
             <button
               type="submit"
               disabled={loading || isRedirecting}
-              className="mt-2 flex h-12 w-full items-center justify-center rounded-xl bg-[#d85b30] text-sm font-black text-white hover:bg-[#c04e28] disabled:opacity-60 transition"
+              className="mt-2 flex h-12 w-full items-center justify-center rounded-xl bg-[#9B4A2F] text-sm font-black text-white transition-all duration-200 hover:bg-[#7E3A24] hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:scale-[0.99] disabled:opacity-60 disabled:hover:translate-y-0 disabled:hover:bg-[#9B4A2F] disabled:cursor-not-allowed"
             >
               {loading || isRedirecting ? <Loader2 className="h-4 w-4 animate-spin" /> : t('auth.register_btn')}
             </button>
@@ -489,7 +501,7 @@ export default function Register() {
               <MessageCircle className="h-8 w-8 text-[#25D366]" />
             </div>
             <div className="space-y-2">
-              <p className="text-sm text-[#6f5448]">{t('auth.wa_instruction')}</p>
+              <p className="text-sm text-[#6B4A3C]">{t('auth.wa_instruction')}</p>
               {waNonce && (
                 <p className="text-xs text-gray-500 font-mono">
                   {t('auth.wa_verification_code')} <span className="font-bold">{waNonce}</span>
@@ -501,30 +513,30 @@ export default function Register() {
                 href={waDeeplink}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex h-12 w-full items-center justify-center rounded-xl bg-[#25D366] text-sm font-bold text-white shadow hover:bg-[#20bd5a] transition"
+                className="flex h-12 w-full items-center justify-center rounded-xl bg-[#25D366] text-sm font-bold text-white shadow-sm transition-all duration-200 hover:bg-[#20bd5a] hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 active:scale-[0.99]"
               >
                 <MessageCircle className="mr-2 h-5 w-5" />
                 {t('auth.open_wa_btn')}
                 <ExternalLink className="ml-2 h-4 w-4" />
               </a>
             )}
-            <div className="flex items-center justify-center gap-2 rounded-xl bg-[#fff7f0] border border-[#ead8ca] py-3 text-xs text-[#8b7166]">
-              <Loader2 className="h-4 w-4 animate-spin text-[#d85b30]" />
+            <div className="flex items-center justify-center gap-2 rounded-xl bg-[#F6EFE6] border border-[#E8DCCB] py-3 text-xs text-[#6B4A3C]">
+              <BuyerBouncingLoader size="sm" />
               <span>{t('auth.wa_waiting')}</span>
             </div>
 
-            <div className="text-center text-xs text-[#6f5448]">
+            <div className="text-center text-xs text-[#6B4A3C]">
               {resendCooldown > 0 ? (
-                <span className="text-[#8b7166]">
+                <span className="text-[#8B6A5A]">
                   {t('auth.resend_in', 'Kirim ulang dalam')}{' '}
-                  <span className="font-bold text-[#d85b30]">{resendCooldown}s</span>
+                  <span className="font-bold text-[#9B4A2F]">{resendCooldown}s</span>
                 </span>
               ) : (
                 <button
                   type="button"
                   disabled={loading}
                   onClick={handleResendWa}
-                  className="font-bold text-[#d85b30] hover:underline disabled:opacity-50"
+                  className="font-bold text-[#9B4A2F] transition-colors duration-200 hover:text-[#7E3A24] hover:underline disabled:opacity-50"
                 >
                   {loading ? (
                     <span className="inline-flex items-center gap-1">
@@ -544,26 +556,26 @@ export default function Register() {
                 stopPolling()
                 setWaMode(false)
               }}
-              className="w-full text-sm font-semibold text-[#d85b30] hover:underline"
+              className="w-full text-sm font-semibold text-[#9B4A2F] transition-colors duration-200 hover:text-[#7E3A24] hover:underline"
             >
               {t('auth.cancel')}
             </button>
           </div>
         )}
 
-        <div className="mt-8 text-center text-sm text-[#6f5448]">
+        <div className="mt-8 text-center text-sm text-[#6B4A3C]">
           {t('auth.has_account')}{' '}
           <Link
             to={ROUTES.AUTH_BUYER}
             state={location.state}
-            className="font-bold text-[#d85b30] hover:underline"
+            className="font-bold text-[#9B4A2F] transition-colors duration-200 hover:text-[#7E3A24] hover:underline"
           >
             {t('auth.login_btn')}
           </Link>
         </div>
 
-        <div className="mt-6 border-t border-[#ead8ca] pt-6 text-center text-sm text-[#6f5448]">
-          <Link to={ROUTES.HOME} className="font-medium text-[#8b7166] hover:text-[#4b2417]">
+        <div className="mt-6 border-t border-[#E8DCCB] pt-6 text-center text-sm text-[#6B4A3C]">
+          <Link to={ROUTES.HOME} className="font-medium text-[#8B6A5A] transition-colors duration-200 hover:text-[#3A1F16]">
             {t('auth.back_to_home', 'Kembali ke Beranda')}
           </Link>
         </div>

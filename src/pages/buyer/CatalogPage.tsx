@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import {
   ChevronLeft,
   ChevronRight,
+  Search,
   SlidersHorizontal,
   X,
 } from 'lucide-react'
@@ -358,8 +359,11 @@ export default function CatalogPage() {
 
   if (loading) {
     return (
-      <div className="bg-[#F6EFE6] pb-10">
+      <div className="pb-10">
         <section className="mx-auto max-w-7xl px-4 pt-6 lg:px-8">
+          <div className="mb-3 block md:hidden">
+            <div className="h-10 w-full animate-pulse rounded-full bg-stone-200" />
+          </div>
           <div className="flex items-center justify-between gap-3">
             <div className="h-11 flex-1 animate-pulse rounded-full bg-stone-200" />
             <div className="h-11 w-11 shrink-0 animate-pulse rounded-xl bg-stone-200" />
@@ -395,9 +399,33 @@ export default function CatalogPage() {
   }
 
   return (
-    <div className="bg-[#F6EFE6] pb-10">
-      {/* CATEGORIES & FILTER ROW: Category chips (left) + Filter Button (right) */}
+    <div className="pb-10">
       <section className="mx-auto max-w-7xl px-4 pt-6 lg:px-8">
+        {/* MOBILE SEARCH BAR */}
+        <div className="mb-3 block md:hidden">
+          <div className="relative flex items-center">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9C8478]" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t('catalog.search_placeholder', 'Cari produk...')}
+              className="h-10 w-full rounded-full border border-[#D0BFAF] bg-white pl-10 pr-9 text-sm text-[#3A1F16] shadow-xs outline-none transition placeholder:text-[#9C8478] focus:border-[#9B4A2F] focus:ring-1 focus:ring-[#9B4A2F]"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                aria-label={t('catalog.clear_filter', 'Hapus')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-[#9C8478] hover:bg-[#EFE4D6] hover:text-[#3A1F16] focus:outline-none"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* CATEGORIES & FILTER ROW: Category chips (left) + Filter Button (right) */}
         <div className="flex items-center justify-between gap-3">
           <CategoryScroller
             categories={categories}
